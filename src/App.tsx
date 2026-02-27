@@ -1,12 +1,11 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
-import { useAppStore } from './store/useAppStore';
-import { useTheme } from './hooks/useTheme';
-import { useLanguage } from './hooks/useLanguage';
+import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+
+import ProtectedRoute from './components/layout/ProtectedRoute';
 import Sidebar from './components/layout/Sidebar';
 import Topbar from './components/layout/Topbar';
 import MobileMenu from './components/layout/MobileMenu';
-import ProtectedRoute from './components/layout/ProtectedRoute';
+import Footer from './components/layout/Footer';
 
 import Login from './pages/auth/Login';
 import Signup from './pages/auth/Signup';
@@ -31,71 +30,81 @@ import Configuracoes from './pages/Configuracoes';
 
 import NotFound from './pages/NotFound';
 
+function AppLayout() {
+  return (
+    <div className="flex min-h-screen bg-zinc-950 text-zinc-100 overflow-x-hidden">
+      <Sidebar />
+
+      <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+        <Topbar />
+
+        <main className="flex-1 pt-16 overflow-x-hidden">
+          <Outlet />
+        </main>
+
+        <Footer />
+      </div>
+
+      <MobileMenu />
+
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#1f2937',
+            color: '#f3f4f6',
+            border: '1px solid #374151',
+          },
+        }}
+      />
+    </div>
+  );
+}
+
 export default function App() {
-  const { isAuthenticated, theme } = useAppStore();
-  const { setTheme } = useTheme();
-  const { changeLanguage } = useLanguage();
-
-  // Aplica tema inicial e idioma do usuário (ou padrão)
-  useEffect(() => {
-    // Tema já é aplicado pelo useTheme hook
-    // Idioma do usuário (se logado)
-    if (isAuthenticated) {
-      // changeLanguage(user.language); // já feito no store ao logar
-    }
-  }, [isAuthenticated]);
-
   return (
     <Router>
-      <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
-        {/* Sidebar desktop */}
-        {isAuthenticated && <Sidebar />}
+      <Routes>
 
-        {/* Conteúdo principal */}
-        <div className="flex-1 flex flex-col">
-          {/* Topbar */}
-          {isAuthenticated && <Topbar />}
+        {/* Rotas públicas */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
-          {/* Área de conteúdo */}
-          <main className={`flex-1 ${isAuthenticated ? 'pt-16 lg:ml-64' : ''}`}>
-            <Routes>
-              {/* Auth */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
+        {/* Rotas protegidas com layout */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/inbox" element={<Inbox />} />
+            <Route path="/projetos" element={<Projetos />} />
+            <Route path="/kanban" element={<Kanban />} />
+            <Route path="/demandas/:id" element={<DemandaDetail />} />
+            <Route path="/calendario" element={<Calendario />} />
+            <Route path="/gantt" element={<Gantt />} />
+            <Route path="/tempo" element={<TimeTracker />} />
+            <Route path="/ia" element={<AIStudio />} />
+            <Route path="/notas" element={<Notas />} />
+            <Route path="/templates" element={<Templates />} />
+            <Route path="/objetivos" element={<Objetivos />} />
+            <Route path="/relatorios" element={<Relatorios />} />
+            <Route path="/equipe" element={<Equipe />} />
+            <Route path="/chat" element={<ChatGlobal />} />
+            <Route path="/configuracoes" element={<Configuracoes />} />
 
-              {/* Rotas protegidas */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/inbox" element={<Inbox />} />
-                <Route path="/projetos" element={<Projetos />} />
-                <Route path="/kanban" element={<Kanban />} />
-                <Route path="/demandas/:id" element={<DemandaDetail />} />
-                <Route path="/calendario" element={<Calendario />} />
-                <Route path="/gantt" element={<Gantt />} />
-                <Route path="/tempo" element={<TimeTracker />} />
-                <Route path="/ia" element={<AIStudio />} />
-                <Route path="/notas" element={<Notas />} />
-                <Route path="/templates" element={<Templates />} />
-                <Route path="/objetivos" element={<Objetivos />} />
-                <Route path="/relatorios" element={<Relatorios />} />
-                <Route path="/equipe" element={<Equipe />} />
-                <Route path="/chat" element={<ChatGlobal />} />
-                <Route path="/configuracoes" element={<Configuracoes />} />
+            {/* Rotas placeholder */}
+            <Route path="/integracoes" element={<NotFound />} />
+            <Route path="/planos" element={<NotFound />} />
+            <Route path="/ajuda" element={<NotFound />} />
 
-                {/* Qualquer outra rota protegida cai aqui */}
-                <Route path="*" element={<NotFound />} />
-              </Route>
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Route>
 
-              {/* 404 global */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </main>
-        </div>
+        {/* Fallback global */}
+        <Route path="*" element={<NotFound />} />
 
-        {/* Menu flutuante mobile */}
-        {isAuthenticated && <MobileMenu />}
-      </div>
+      </Routes>
     </Router>
   );
 }

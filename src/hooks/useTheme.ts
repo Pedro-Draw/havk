@@ -5,9 +5,9 @@ export const useTheme = () => {
   const { theme, setTheme } = useAppStore();
 
   useEffect(() => {
-    // Aplica o tema inicial e monitora mudanças do sistema
     const applyTheme = () => {
-      document.documentElement.classList.remove('light', 'dark', 'gray');
+      // Remove todas as classes anteriores
+      document.documentElement.classList.remove('light', 'dark', 'gray', 'system');
 
       if (theme === 'system') {
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -15,11 +15,16 @@ export const useTheme = () => {
       } else {
         document.documentElement.classList.add(theme);
       }
+
+      // Garante que o body reflita o tema
+      document.body.className = theme === 'system'
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        : theme;
     };
 
     applyTheme();
 
-    // Listener para mudanças no prefers-color-scheme (quando theme = system)
+    // Listener para mudanças no tema do sistema (quando theme = system)
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => {
       if (theme === 'system') {
@@ -28,7 +33,10 @@ export const useTheme = () => {
     };
 
     mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
   }, [theme]);
 
   return {

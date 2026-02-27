@@ -81,4 +81,36 @@ export default {
   carregando: 'Carregando...',
   offline: 'Modo Offline - Dados salvos localmente',
   sincronizando: 'Sincronizando ao conectar...',
+
+  perfilAtualizado: 'Perfil atualizado com sucesso!',
+  cliqueParaAlterarFoto: 'Clique na câmera para escolher foto da galeria',
+  salvarAlteracoes: 'Salvar Alterações',
+  permissoesSeguranca: 'Permissões & Segurança',
+
+  /* =========================
+     TIME TRACKER ADIÇÕES
+  ========================== */
+
+  timeTrackerTitle: 'Rastreador de Tempo',
+  timeTrackerDescription:
+    'Gerencie e acompanhe o tempo gasto em suas tarefas',
+  taskNamePlaceholder: 'Nome da tarefa atual...',
+  start: 'Iniciar',
+  pause: 'Pausar',
+  stop: 'Finalizar',
+  reset: 'Resetar',
+  activeSession: 'Sessão ativa em andamento',
+  sessionHistory: 'Histórico de Sessões',
+  clearHistory: 'Limpar histórico',
+  statistics: 'Estatísticas',
+  totalTrackedTime: 'Tempo total rastreado',
+  totalSessions: 'Total de sessões',
+
+  footer: {
+    copyright:
+      '© {{year}} Havk. Todos os direitos reservados.',
+    terms: 'Termos',
+    privacy: 'Privacidade',
+    help: 'Ajuda',
+  },
 };

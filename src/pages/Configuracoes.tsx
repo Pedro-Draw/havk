@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import { useAppStore } from '../store/useAppStore';
-import { Settings, User, Palette, Bell, Shield, LogOut } from 'lucide-react';
+import { Settings, User, Palette, Bell, Shield, LogOut, Camera } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
@@ -9,24 +9,32 @@ import Modal from '../components/ui/Modal';
 
 export default function Configuracoes() {
   const { t } = useTranslation();
-  const { user, updateUserProfile, setTheme, theme, language, setLanguage } = useAppStore();
+  const {
+    user,
+    setUser,
+    setTheme,
+    theme,
+    language,
+    setLanguage,
+    logout,
+  } = useAppStore();
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    avatar: user?.avatar || '',
   });
 
+  const [previewAvatar, setPreviewAvatar] = useState(user?.avatar || '');
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
-  const [newAvatarUrl, setNewAvatarUrl] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
       setFormData({
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar || '',
+        name: user.name || '',
+        email: user.email || '',
       });
+      setPreviewAvatar(user.avatar || '');
     }
   }, [user]);
 
@@ -34,25 +42,61 @@ export default function Configuracoes() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSaveProfile = async () => {
-    if (!user) return;
-    await updateUserProfile(formData);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setPreviewAvatar(base64);
+
+      const updatedUser = {
+        ...user,
+        avatar: base64,
+      };
+
+      setUser(updatedUser);
+      localStorage.setItem('havk-storage', JSON.stringify({
+        ...JSON.parse(localStorage.getItem('havk-storage') || '{}'),
+        state: {
+          ...useAppStore.getState(),
+          user: updatedUser,
+        },
+      }));
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleSaveAvatar = async () => {
-    if (!user || !newAvatarUrl) return;
-    await updateUserProfile({ avatar: newAvatarUrl });
-    setIsAvatarModalOpen(false);
-    setNewAvatarUrl('');
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    const updatedUser = {
+      ...user,
+      name: formData.name,
+      email: formData.email,
+    };
+
+    setUser(updatedUser);
+
+    localStorage.setItem('havk-storage', JSON.stringify({
+      ...JSON.parse(localStorage.getItem('havk-storage') || '{}'),
+      state: {
+        ...useAppStore.getState(),
+        user: updatedUser,
+      },
+    }));
+
+    alert(t('perfilAtualizado') || 'Perfil atualizado com sucesso!');
   };
 
   const handleLogout = () => {
-    // Logout mock
+    logout();
     window.location.href = '/login';
   };
 
   return (
-    <div className="min-h-screen pt-20 px-6 lg:px-8 bg-zinc-950">
+    <div className="min-h-screen pt-20 px-4 sm:px-6 lg:px-8 pb-20 bg-zinc-950">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <Settings className="w-8 h-8 text-zinc-300" />
@@ -60,21 +104,24 @@ export default function Configuracoes() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Menu lateral */}
-          <Card className="lg:col-span-1 h-fit">
+          <Card className="lg:col-span-1 h-fit sticky top-20">
             <nav className="space-y-2">
-              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-800 text-left">
+              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-800 text-left font-medium">
                 <User className="w-5 h-5" /> {t('meusDados')}
               </button>
+
               <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-zinc-800 text-left">
                 <Palette className="w-5 h-5" /> {t('tema')}
               </button>
+
               <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-zinc-800 text-left">
                 <Bell className="w-5 h-5" /> {t('notificacoes')}
               </button>
+
               <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-zinc-800 text-left">
-                <Shield className="w-5 h-5" /> Permissões & Segurança
+                <Shield className="w-5 h-5" /> {t('permissoesSeguranca') || 'Permissões & Segurança'}
               </button>
+
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-900/30 text-red-400 text-left mt-8"
@@ -84,65 +131,93 @@ export default function Configuracoes() {
             </nav>
           </Card>
 
-          {/* Conteúdo principal */}
           <div className="lg:col-span-2 space-y-8">
             <Card title={t('meusDados')}>
-              <div className="space-y-6">
-                <div className="flex items-center gap-6">
-                  {formData.avatar ? (
-                    <img src={formData.avatar} alt="Avatar" className="w-24 h-24 rounded-full object-cover border-2 border-zinc-700" />
-                  ) : (
-                    <div className="w-24 h-24 rounded-full bg-zinc-800 flex items-center justify-center text-3xl text-zinc-400">
-                      {formData.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <Button variant="outline" onClick={() => setIsAvatarModalOpen(true)}>
-                    {t('atualizarFoto')}
-                  </Button>
+              <div className="space-y-8">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative group">
+                    {previewAvatar ? (
+                      <img
+                        src={previewAvatar}
+                        alt="Foto de perfil"
+                        className="w-32 h-32 rounded-full object-cover border-4 border-zinc-700 shadow-lg transition-transform group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-32 h-32 rounded-full bg-zinc-800 flex items-center justify-center text-5xl text-zinc-400 border-4 border-zinc-700 shadow-lg">
+                        {formData.name?.charAt(0)?.toUpperCase() || 'U'}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 bg-zinc-800 p-3 rounded-full shadow-lg hover:bg-zinc-700 transition-colors"
+                    >
+                      <Camera className="w-6 h-6" />
+                    </button>
+
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </div>
+
+                  <p className="text-sm text-zinc-400">
+                    {t('cliqueParaAlterarFoto') || 'Clique na câmera para escolher foto da galeria'}
+                  </p>
                 </div>
 
-                <Input
-                  label={t('name')}
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  fullWidth
-                />
+                <div className="space-y-6">
+                  <Input
+                    label={t('name')}
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    fullWidth
+                  />
 
-                <Input
-                  label={t('email')}
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  fullWidth
-                />
+                  <Input
+                    label={t('email')}
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    fullWidth
+                  />
 
-                <Button variant="primary" onClick={handleSaveProfile}>
-                  {t('salvar')}
-                </Button>
+                  <Button variant="primary" onClick={handleSaveProfile} fullWidth>
+                    {t('salvarAlteracoes')}
+                  </Button>
+                </div>
               </div>
             </Card>
 
             <Card title={t('tema')}>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {['light', 'dark', 'system', 'gray'].map((th) => (
                   <button
                     key={th}
-                    onClick={() => setTheme(th as any)}
-                    className={`p-6 rounded-xl border-2 transition-all ${
+                    onClick={() => setTheme(th as 'light' | 'dark' | 'system' | 'gray')}
+                    className={`p-6 rounded-xl border-2 transition-all duration-200 flex flex-col items-center gap-3 ${
                       theme === th
-                        ? 'border-zinc-100 bg-zinc-800'
-                        : 'border-zinc-800 hover:border-zinc-700'
+                        ? 'border-zinc-100 bg-zinc-800 shadow-inner'
+                        : 'border-zinc-800 hover:border-zinc-700 hover:shadow-md'
                     }`}
                   >
-                    <div className={`w-full h-20 rounded-lg mb-3 ${
-                      th === 'light' ? 'bg-white' :
-                      th === 'dark' ? 'bg-zinc-950' :
-                      th === 'gray' ? 'bg-zinc-700' :
-                      'bg-gradient-to-br from-white to-zinc-950'
-                    }`} />
-                    <p className="text-center font-medium capitalize">{t(th)}</p>
+                    <div
+                      className={`w-20 h-20 rounded-lg shadow-inner ${
+                        th === 'light'
+                          ? 'bg-white'
+                          : th === 'dark'
+                          ? 'bg-zinc-950'
+                          : th === 'gray'
+                          ? 'bg-zinc-700'
+                          : 'bg-gradient-to-br from-white to-zinc-950'
+                      }`}
+                    />
+                    <p className="font-medium capitalize">{t(th)}</p>
                   </button>
                 ))}
               </div>
@@ -152,16 +227,21 @@ export default function Configuracoes() {
               <div className="space-y-4">
                 <button
                   onClick={() => setLanguage('pt-BR')}
-                  className={`w-full p-4 rounded-lg border-2 text-left ${
-                    language === 'pt-BR' ? 'border-zinc-100 bg-zinc-800' : 'border-zinc-800 hover:border-zinc-700'
+                  className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                    language === 'pt-BR'
+                      ? 'border-zinc-100 bg-zinc-800'
+                      : 'border-zinc-800 hover:border-zinc-700'
                   }`}
                 >
                   Português (Brasil)
                 </button>
+
                 <button
                   onClick={() => setLanguage('en')}
-                  className={`w-full p-4 rounded-lg border-2 text-left ${
-                    language === 'en' ? 'border-zinc-100 bg-zinc-800' : 'border-zinc-800 hover:border-zinc-700'
+                  className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                    language === 'en'
+                      ? 'border-zinc-100 bg-zinc-800'
+                      : 'border-zinc-800 hover:border-zinc-700'
                   }`}
                 >
                   English
@@ -170,29 +250,6 @@ export default function Configuracoes() {
             </Card>
           </div>
         </div>
-
-        <Modal
-          isOpen={isAvatarModalOpen}
-          onClose={() => setIsAvatarModalOpen(false)}
-          title="Atualizar Foto de Perfil"
-        >
-          <div className="space-y-6">
-            <Input
-              label="URL da imagem (ex: link do Imgur, Cloudinary...)"
-              value={newAvatarUrl}
-              onChange={(e) => setNewAvatarUrl(e.target.value)}
-              placeholder="https://..."
-            />
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setIsAvatarModalOpen(false)}>
-                {t('cancelar')}
-              </Button>
-              <Button variant="primary" onClick={handleSaveAvatar}>
-                {t('salvar')}
-              </Button>
-            </div>
-          </div>
-        </Modal>
       </div>
     </div>
   );

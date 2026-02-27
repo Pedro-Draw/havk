@@ -1,27 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import { GanttChart, ZoomIn, ZoomOut } from 'lucide-react';
 import Card from '../components/ui/Card';
 import { getAll } from '../db/indexedDB';
 
+type Demanda = {
+  id: number;
+  title: string;
+  prazo: string;
+  prazoInicio?: string;
+};
+
 export default function Gantt() {
   const { t } = useTranslation();
-  const [demandas, setDemandas] = useState<any[]>([]);
+  const [demandas, setDemandas] = useState<Demanda[]>([]);
   const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
     const loadDemandas = async () => {
-      const data = await getAll<any>('demandas');
-      setDemandas(data.filter((d) => d.prazo)); // só demandas com prazo
+      const data = await getAll<Demanda>('demandas');
+      setDemandas(data.filter((d) => d.prazo));
     };
+
     loadDemandas();
   }, []);
 
-  const getDaysDiff = (start: string, end: string) => {
-    const s = new Date(start);
-    const e = new Date(end);
-    return Math.ceil((e.getTime() - s.getTime()) / (1000 * 3600 * 24));
+  // Normaliza data (remove hora)
+  const normalizeDate = (date: string | Date) => {
+    const d = new Date(date);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   };
+
+  const getDaysDiff = (start: Date, end: Date) => {
+    const diff = end.getTime() - start.getTime();
+    return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  };
+
+  // Define base do timeline (menor data início)
+  const baseDate = useMemo(() => {
+    if (demandas.length === 0) return normalizeDate(new Date());
+
+    const dates = demandas.map((d) =>
+      normalizeDate(d.prazoInicio || d.prazo)
+    );
+
+    return new Date(Math.min(...dates.map((d) => d.getTime())));
+  }, [demandas]);
+
+  const totalDays = 30; // pode expandir depois
 
   return (
     <div className="min-h-screen pt-20 px-6 lg:px-8 bg-zinc-950">
@@ -31,49 +57,81 @@ export default function Gantt() {
             <GanttChart className="w-8 h-8 text-zinc-300" />
             <h1 className="text-3xl font-bold text-white">{t('gantt')}</h1>
           </div>
+
           <div className="flex gap-2">
-            <button onClick={() => setZoom(zoom + 0.2)} className="p-2 hover:bg-zinc-800 rounded">
-              <ZoomIn className="w-5 h-5" />
+            <button
+              onClick={() => setZoom((z) => z + 0.2)}
+              className="p-2 hover:bg-zinc-800 rounded"
+            >
+              <ZoomIn className="w-5 h-5 text-zinc-300" />
             </button>
-            <button onClick={() => setZoom(Math.max(0.5, zoom - 0.2))} className="p-2 hover:bg-zinc-800 rounded">
-              <ZoomOut className="w-5 h-5" />
+            <button
+              onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))}
+              className="p-2 hover:bg-zinc-800 rounded"
+            >
+              <ZoomOut className="w-5 h-5 text-zinc-300" />
             </button>
           </div>
         </div>
 
         <Card>
           <div className="overflow-x-auto">
-            <div className="min-w-[1200px] py-4">
-              {/* Cabeçalho de meses/dias */}
-              <div className="grid grid-cols-[200px_repeat(30,_minmax(40px,_1fr))] gap-px bg-zinc-800 text-xs text-zinc-400 mb-2">
+            <div
+              className="py-4"
+              style={{
+                minWidth: `${200 + totalDays * 40 * zoom}px`,
+              }}
+            >
+              {/* Cabeçalho */}
+              <div
+                className="grid gap-px bg-zinc-800 text-xs text-zinc-400 mb-2"
+                style={{
+                  gridTemplateColumns: `200px repeat(${totalDays}, minmax(${40 *
+                    zoom}px, 1fr))`,
+                }}
+              >
                 <div className="bg-zinc-900 p-2 font-medium">Demanda</div>
-                {Array.from({ length: 30 }).map((_, i) => (
+                {Array.from({ length: totalDays }).map((_, i) => (
                   <div key={i} className="text-center p-2">
-                    Dia {i + 1}
+                    {i + 1}
                   </div>
                 ))}
               </div>
 
-              {/* Linhas de demandas */}
+              {/* Linhas */}
               {demandas.map((demanda) => {
-                const startDay = 1; // simplificado
-                const duration = Math.min(30, getDaysDiff(demanda.prazoInicio || new Date(), demanda.prazo) || 5);
+                const start = normalizeDate(
+                  demanda.prazoInicio || demanda.prazo
+                );
+                const end = normalizeDate(demanda.prazo);
+
+                const offset = getDaysDiff(baseDate, start) - 1;
+                const duration = getDaysDiff(start, end);
 
                 return (
                   <div
                     key={demanda.id}
-                    className="grid grid-cols-[200px_repeat(30,_minmax(40px,_1fr))] gap-px bg-zinc-900 hover:bg-zinc-800 transition-colors"
+                    className="grid gap-px bg-zinc-900 hover:bg-zinc-800 transition-colors"
+                    style={{
+                      gridTemplateColumns: `200px repeat(${totalDays}, minmax(${40 *
+                        zoom}px, 1fr))`,
+                    }}
                   >
                     <div className="p-3 font-medium text-zinc-100 truncate border-r border-zinc-800">
                       {demanda.title}
                     </div>
-                    {Array.from({ length: 30 }).map((_, i) => {
-                      const isInRange = i >= startDay && i < startDay + duration;
+
+                    {Array.from({ length: totalDays }).map((_, i) => {
+                      const isInRange =
+                        i >= offset && i < offset + duration;
+
                       return (
                         <div
                           key={i}
                           className={`h-10 border-b border-zinc-800 ${
-                            isInRange ? 'bg-zinc-700' : 'bg-transparent'
+                            isInRange
+                              ? 'bg-zinc-700'
+                              : 'bg-transparent'
                           }`}
                         />
                       );

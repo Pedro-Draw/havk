@@ -6,12 +6,15 @@ import { getAll } from '../db/indexedDB';
 
 export default function Dashboard() {
   const { t } = useTranslation();
+
   const [metrics, setMetrics] = useState({
     total: 0,
     inProgress: 0,
     completed: 0,
     overdue: 0,
   });
+
+  const [recentDemandas, setRecentDemandas] = useState<any[]>([]);
 
   useEffect(() => {
     const loadMetrics = async () => {
@@ -25,6 +28,14 @@ export default function Dashboard() {
         (d) => d.prazo && new Date(d.prazo) < now && d.status !== 'concluida'
       ).length;
 
+      // Ordena por data de criação (mais recentes primeiro)
+      const sorted = [...demandas].sort((a, b) => {
+        const dateA = new Date(a.createdAt || a.dataCriacao || 0).getTime();
+        const dateB = new Date(b.createdAt || b.dataCriacao || 0).getTime();
+        return dateB - dateA;
+      });
+
+      setRecentDemandas(sorted.slice(0, 5));
       setMetrics({ total, inProgress, completed, overdue });
     };
 
@@ -67,12 +78,44 @@ export default function Dashboard() {
         </div>
 
         <div className="mt-12">
-          <Card title="Demandas Recentes" description="Últimas 5 demandas criadas">
+          <Card
+            title={t('demandasRecentes') || 'Demandas Recentes'}
+            description={t('ultimas5Demandas') || 'Últimas 5 demandas criadas'}
+          >
             <div className="space-y-4">
-              {/* Placeholder para lista de demandas recentes */}
-              <div className="p-4 bg-zinc-900 rounded-lg border border-zinc-800">
-                <p className="text-zinc-400">Nenhuma demanda recente ainda. Crie uma nova!</p>
-              </div>
+              {recentDemandas.length === 0 ? (
+                <div className="p-4 bg-zinc-900 rounded-lg border border-zinc-800">
+                  <p className="text-zinc-400">
+                    {t('nenhumaDemandaRecente') ||
+                      'Nenhuma demanda recente ainda. Crie uma nova!'}
+                  </p>
+                </div>
+              ) : (
+                recentDemandas.map((d) => (
+                  <div
+                    key={d.id}
+                    className="p-4 bg-zinc-900 rounded-lg border border-zinc-800 flex justify-between items-center"
+                  >
+                    <div>
+                      <p className="text-white font-medium">
+                        {d.title ||
+                          d.translations?.['pt-BR']?.title ||
+                          d.translations?.['en']?.title ||
+                          'Sem título'}
+                      </p>
+                      <p className="text-sm text-zinc-400">
+                        {d.status || 'Sem status'}
+                      </p>
+                    </div>
+
+                    {d.prazo && (
+                      <span className="text-xs text-zinc-500">
+                        {new Date(d.prazo).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </Card>
         </div>
