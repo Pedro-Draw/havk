@@ -1,10 +1,10 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
 
 export default defineConfig({
+  base: '/', // ✅ NETLIFY USA RAIZ
   plugins: [react()],
-  base: '/havk/', // IMPORTANTE: nome do seu repositório no GitHub Pages
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -19,4 +19,4 @@ export default defineConfig({
     port: 5173,
     open: true,
   },
-});
+})
