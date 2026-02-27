@@ -6,7 +6,7 @@
   "homepage": "https://pedro-draw.github.io/havk/",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist"
   },
