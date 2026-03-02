@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -6,22 +6,84 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-} from '@dnd-kit/core';
+  DragEndEvent,
+} from '@dnd-kit/core'
 import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { getAll, addItem, updateItem } from '../db/indexedDB';
-import SortableCard from '../components/kanban/SortableCard';
-import Button from '../components/ui/Button';
+  arrayMove,
+} from '@dnd-kit/sortable'
 
-// Modal reutilizável
-function Modal({ title, children, onClose }) {
+import { getAll, addItem, updateItem } from '../db/indexedDB'
+import SortableCard from '../components/kanban/SortableCard'
+import Button from '../components/ui/Button'
+
+/* =========================
+   TYPES
+========================= */
+
+type Status =
+  | 'backlog'
+  | 'afazer'
+  | 'andamento'
+  | 'teste'
+  | 'concluida'
+
+interface Attachment {
+  name: string
+  url: string
+}
+
+interface Task {
+  id: string
+  title: string
+  description: string
+  status: Status
+  tipo: string
+  prioridade: string
+  prazo: string
+  tempoEstimado: number | null
+  responsavel: string | null
+  labels: string[]
+  dependencias: string
+  ambiente: string
+  criteriosAceitacao: string[]
+  subtarefas: string[]
+  riscos: string
+  attachments: Attachment[]
+
+  // 🔥 novos campos
+  comentarios: string[]
+  historico: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+type Columns = Record<Status, Task[]>
+
+/* =========================
+   MODAL
+========================= */
+
+interface ModalProps {
+  title: string
+  children: React.ReactNode
+  onClose: () => void
+  onConfirm?: () => void
+  confirmLabel?: string
+}
+
+function Modal({
+  title,
+  children,
+  onClose,
+  onConfirm,
+  confirmLabel = 'Salvar',
+}: ModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-zinc-900 rounded-xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
-        {/* Cabeçalho fixo */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-800">
           <h2 className="text-lg font-bold text-white">{title}</h2>
           <button
@@ -32,37 +94,40 @@ function Modal({ title, children, onClose }) {
           </button>
         </div>
 
-        {/* Conteúdo com scroll */}
-        <div className="flex-1 px-6 py-5 overflow-y-auto">
-          {children}
-        </div>
+        <div className="flex-1 px-6 py-5 overflow-y-auto">{children}</div>
 
-        {/* Rodapé fixo com botão */}
-        <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-900/80 backdrop-blur-sm">
-          <Button onClick={onClose} className="w-full">
-            Criar Demanda
+        <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-900/80">
+          <Button
+            onClick={onConfirm ?? onClose}
+            className="w-full"
+          >
+            {confirmLabel}
           </Button>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
+/* =========================
+   KANBAN
+========================= */
+
 export default function Kanban() {
-  const [columns, setColumns] = useState({
+  const [columns, setColumns] = useState<Columns>({
     backlog: [],
     afazer: [],
     andamento: [],
     teste: [],
     concluida: [],
-  });
+  })
 
-  const [showNewModal, setShowNewModal] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [currentTask, setCurrentTask] = useState(null);
+  const [showNewModal, setShowNewModal] = useState(false)
+  const [showDetailModal, setShowDetailModal] = useState(false)
+  const [currentTask, setCurrentTask] = useState<Task | null>(null)
 
-  // Estado para criar demanda
-  const [newTaskData, setNewTaskData] = useState({
+  const emptyTask: Task = {
+    id: '',
     title: '',
     description: '',
     status: 'backlog',
@@ -78,296 +143,300 @@ export default function Kanban() {
     subtarefas: [''],
     riscos: '',
     attachments: [],
-  });
+    comentarios: [],
+    historico: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  const [newTaskData, setNewTaskData] = useState<Task>({
+    ...emptyTask,
+  })
+
+  /* =========================
+     SENSORS
+  ========================= */
 
   const sensors = useSensors(
     useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  /* =========================
+     LOAD DATA
+  ========================= */
 
   useEffect(() => {
-    const loadDemandas = async () => {
-      const demandas = await getAll('demandas');
-      setColumns({
-        backlog: demandas.filter((d) => d.status === 'backlog'),
-        afazer: demandas.filter((d) => d.status === 'a-fazer'),
-        andamento: demandas.filter((d) => d.status === 'em-andamento'),
-        teste: demandas.filter((d) => d.status === 'teste'),
-        concluida: demandas.filter((d) => d.status === 'concluida'),
-      });
-    };
-    loadDemandas();
-  }, []);
+    const load = async () => {
+      const demandas = (await getAll('demandas')) as Task[]
 
-  const findContainer = (id) => {
-    if (id in columns) return id;
-    return Object.keys(columns).find((key) =>
+      const grouped: Columns = {
+        backlog: [],
+        afazer: [],
+        andamento: [],
+        teste: [],
+        concluida: [],
+      }
+
+      demandas.forEach((d) => {
+        if (grouped[d.status]) {
+          grouped[d.status].push(d)
+        }
+      })
+
+      setColumns(grouped)
+    }
+
+    load()
+  }, [])
+
+  /* =========================
+     FIND CONTAINER
+  ========================= */
+
+  const findContainer = (id: string): Status | undefined => {
+    if (id in columns) return id as Status
+
+    return (Object.keys(columns) as Status[]).find((key) =>
       columns[key].some((item) => item.id === id)
-    );
-  };
+    )
+  }
 
-  const handleDragEnd = async (event) => {
-    const { active, over } = event;
-    if (!over) return;
-    const activeContainer = findContainer(active.id);
-    const overContainer = findContainer(over.id);
-    if (!activeContainer || !overContainer) return;
-    if (activeContainer === overContainer) return;
+  /* =========================
+     DRAG END (FIX COMPLETO)
+  ========================= */
 
-    const oldColumn = columns[activeContainer];
-    const newColumn = columns[overContainer];
-    const activeIndex = oldColumn.findIndex((item) => item.id === active.id);
-    const item = oldColumn[activeIndex];
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over) return
 
-    const updatedItem = { ...item, status: overContainer.replace(' ', '-') };
-    await updateItem('demandas', updatedItem);
+    const activeId = active.id as string
+    const overId = over.id as string
+
+    const sourceColumn = findContainer(activeId)
+    const targetColumn = findContainer(overId)
+
+    if (!sourceColumn || !targetColumn) return
+
+    const sourceItems = columns[sourceColumn]
+    const targetItems = columns[targetColumn]
+
+    const sourceIndex = sourceItems.findIndex(
+      (item) => item.id === activeId
+    )
+
+    // 🔥 REORDER NA MESMA COLUNA
+    if (sourceColumn === targetColumn) {
+      const overIndex = targetItems.findIndex(
+        (item) => item.id === overId
+      )
+
+      if (sourceIndex !== overIndex) {
+        const reordered = arrayMove(
+          sourceItems,
+          sourceIndex,
+          overIndex
+        )
+
+        setColumns((prev) => ({
+          ...prev,
+          [sourceColumn]: reordered,
+        }))
+      }
+
+      return
+    }
+
+    // 🔥 MOVER ENTRE COLUNAS LIVREMENTE
+    const movingItem = sourceItems[sourceIndex]
+
+    const updatedItem: Task = {
+      ...movingItem,
+      status: targetColumn,
+      updatedAt: new Date().toISOString(),
+      historico: [
+        ...movingItem.historico,
+        `Movido para ${targetColumn} em ${new Date().toLocaleString()}`,
+      ],
+    }
+
+    await updateItem('demandas', updatedItem)
 
     setColumns((prev) => ({
       ...prev,
-      [activeContainer]: prev[activeContainer].filter((i) => i.id !== active.id),
-      [overContainer]: [...prev[overContainer], updatedItem],
-    }));
-  };
+      [sourceColumn]: prev[sourceColumn].filter(
+        (item) => item.id !== activeId
+      ),
+      [targetColumn]: [...prev[targetColumn], updatedItem],
+    }))
+  }
+
+  /* =========================
+     CREATE TASK
+  ========================= */
 
   const createNewTask = async () => {
-    if (!newTaskData.title.trim()) return;
-    const newTask = { ...newTaskData, id: crypto.randomUUID() };
-    await addItem('demandas', newTask);
+    if (!newTaskData.title.trim()) return
+
+    const newTask: Task = {
+      ...newTaskData,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      historico: [
+        `Criada em ${new Date().toLocaleString()}`,
+      ],
+    }
+
+    await addItem('demandas', newTask)
+
     setColumns((prev) => ({
       ...prev,
-      [newTaskData.status]: [...prev[newTaskData.status], newTask],
-    }));
-    setNewTaskData({
-      title: '',
-      description: '',
-      status: 'backlog',
-      tipo: 'Nova Feature',
-      prioridade: 'Média',
-      prazo: new Date().toISOString(),
-      tempoEstimado: null,
-      responsavel: null,
-      labels: [],
-      dependencias: '',
-      ambiente: 'Web',
-      criteriosAceitacao: [''],
-      subtarefas: [''],
-      riscos: '',
-      attachments: [],
-    });
-    setShowNewModal(false);
-  };
+      [newTask.status]: [...prev[newTask.status], newTask],
+    }))
 
-  const updateArrayField = (arr, idx, value) => {
-    const newArr = [...arr];
-    newArr[idx] = value;
-    return newArr;
-  };
-  const addArrayFieldItem = (arr) => [...arr, ''];
-  const removeArrayFieldItem = (arr, idx) => arr.filter((_, i) => i !== idx);
+    setNewTaskData({ ...emptyTask })
+    setShowNewModal(false)
+  }
+
+  /* =========================
+     SAVE DETAIL
+  ========================= */
+
+  const saveTask = async () => {
+    if (!currentTask) return
+
+    const updated: Task = {
+      ...currentTask,
+      updatedAt: new Date().toISOString(),
+    }
+
+    await updateItem('demandas', updated)
+
+    setColumns((prev) => ({
+      ...prev,
+      [updated.status]: prev[updated.status].map((t) =>
+        t.id === updated.id ? updated : t
+      ),
+    }))
+
+    setShowDetailModal(false)
+  }
+
+  /* =========================
+     RENDER
+  ========================= */
 
   return (
-    <div className="min-h-screen pt-20 px-4 lg:px-8 bg-zinc-950">
-      <div className="max-w-full mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-white">Kanban</h1>
-          <Button onClick={() => setShowNewModal(true)}>+ Nova Demanda</Button>
-        </div>
+    <div className="min-h-screen pt-20 px-4 bg-zinc-950">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-white">
+          Kanban
+        </h1>
+        <Button onClick={() => setShowNewModal(true)}>
+          + Nova Demanda
+        </Button>
+      </div>
 
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-zinc-900 scroll-smooth lg:pl-64">
-            {Object.entries(columns).map(([columnId, items]) => (
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex gap-6 overflow-x-auto pb-4">
+          {(Object.keys(columns) as Status[]).map((columnId) => {
+            const items = columns[columnId]
+
+            return (
               <div
                 key={columnId}
-                className="flex-shrink-0 w-80 bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col"
+                id={columnId}
+                className="w-80 bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col"
               >
-                <h2 className="text-lg font-semibold text-zinc-100 mb-4 capitalize">{columnId}</h2>
-                <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                <h2 className="text-lg font-semibold text-white mb-4 capitalize">
+                  {columnId}
+                </h2>
+
+                <SortableContext
+                  items={items.map((i) => i.id)}
+                  strategy={verticalListSortingStrategy}
+                >
                   <div className="space-y-3 min-h-[400px]">
                     {items.map((item) => (
                       <div
                         key={item.id}
                         onClick={() => {
-                          setCurrentTask(item);
-                          setShowDetailModal(true);
+                          setCurrentTask(item)
+                          setShowDetailModal(true)
+
+                          // 🔥 se quiser redirecionar:
+                          // navigate(`/demandas/${item.id}`)
                         }}
                       >
-                        <SortableCard key={item.id} id={item.id} item={item} />
+                        <SortableCard
+                          id={item.id}
+                          item={item}
+                        />
                       </div>
                     ))}
                   </div>
                 </SortableContext>
+
                 <p className="text-xs text-zinc-500 mt-3">
-                  {items.length} {items.length === 1 ? 'tarefa' : 'tarefas'}
+                  {items.length} tarefas
                 </p>
               </div>
-            ))}
-          </div>
-        </DndContext>
+            )
+          })}
+        </div>
+      </DndContext>
 
-        {/* Modal Nova Demanda */}
-        {showNewModal && (
-          <Modal title="Nova Demanda" onClose={() => setShowNewModal(false)}>
-            <div className="flex flex-col gap-4">
-              <input
-                type="text"
-                placeholder="Título"
-                value={newTaskData.title}
-                onChange={(e) => setNewTaskData({ ...newTaskData, title: e.target.value })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-              />
-              <textarea
-                placeholder="Descrição"
-                value={newTaskData.description}
-                onChange={(e) => setNewTaskData({ ...newTaskData, description: e.target.value })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white min-h-[80px]"
-              />
-              <select
-                value={newTaskData.tipo}
-                onChange={(e) => setNewTaskData({ ...newTaskData, tipo: e.target.value })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-              >
-                {['Nova Feature', 'Melhoria', 'Bug', 'Tarefa Técnica', 'Refatoração', 'Spike', 'Deploy/Integração', 'Outros'].map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-              <select
-                value={newTaskData.prioridade}
-                onChange={(e) => setNewTaskData({ ...newTaskData, prioridade: e.target.value })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-              >
-                {['Baixa', 'Média', 'Alta', 'Crítica'].map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-              <input
-                type="date"
-                value={newTaskData.prazo.split('T')[0]}
-                onChange={(e) => setNewTaskData({ ...newTaskData, prazo: new Date(e.target.value).toISOString() })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-              />
-              <input
-                type="number"
-                placeholder="Estimativa / Pontos"
-                value={newTaskData.tempoEstimado || ''}
-                onChange={(e) => setNewTaskData({ ...newTaskData, tempoEstimado: parseInt(e.target.value) || null })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-              />
-              <input
-                type="text"
-                placeholder="Labels (separar por vírgula)"
-                value={newTaskData.labels.join(', ')}
-                onChange={(e) => setNewTaskData({ ...newTaskData, labels: e.target.value.split(',').map(l => l.trim()) })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-              />
-              <input
-                type="text"
-                placeholder="Responsável"
-                value={newTaskData.responsavel || ''}
-                onChange={(e) => setNewTaskData({ ...newTaskData, responsavel: e.target.value })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-              />
-              <input
-                type="text"
-                placeholder="Dependências / Bloqueadores"
-                value={newTaskData.dependencias || ''}
-                onChange={(e) => setNewTaskData({ ...newTaskData, dependencias: e.target.value })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-              />
-              <select
-                value={newTaskData.ambiente}
-                onChange={(e) => setNewTaskData({ ...newTaskData, ambiente: e.target.value })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-              >
-                {['Web', 'Mobile', 'Backend', 'Infra', 'Produção', 'Staging', 'Todos'].map(a => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
+      {/* NEW TASK MODAL */}
+      {showNewModal && (
+        <Modal
+          title="Nova Demanda"
+          onClose={() => setShowNewModal(false)}
+          onConfirm={createNewTask}
+          confirmLabel="Criar Demanda"
+        >
+          <input
+            type="text"
+            placeholder="Título"
+            value={newTaskData.title}
+            onChange={(e) =>
+              setNewTaskData({
+                ...newTaskData,
+                title: e.target.value,
+              })
+            }
+            className="w-full px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
+          />
+        </Modal>
+      )}
 
-              {/* Critérios de Aceitação */}
-              <div className="mt-2">
-                <label className="text-white font-semibold block mb-1">Critérios de Aceitação:</label>
-                {newTaskData.criteriosAceitacao.map((c, idx) => (
-                  <div key={idx} className="flex gap-2 mt-1">
-                    <input
-                      type="text"
-                      value={c}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, criteriosAceitacao: updateArrayField(newTaskData.criteriosAceitacao, idx, e.target.value) })}
-                      className="px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-white flex-1"
-                    />
-                    <Button small onClick={() => setNewTaskData({ ...newTaskData, criteriosAceitacao: removeArrayFieldItem(newTaskData.criteriosAceitacao, idx) })}>×</Button>
-                  </div>
-                ))}
-                <Button small className="mt-2" onClick={() => setNewTaskData({ ...newTaskData, criteriosAceitacao: addArrayFieldItem(newTaskData.criteriosAceitacao) })}>+ Adicionar critério</Button>
-              </div>
-
-              {/* Subtarefas */}
-              <div className="mt-2">
-                <label className="text-white font-semibold block mb-1">Subtarefas:</label>
-                {newTaskData.subtarefas.map((s, idx) => (
-                  <div key={idx} className="flex gap-2 mt-1">
-                    <input
-                      type="text"
-                      value={s}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, subtarefas: updateArrayField(newTaskData.subtarefas, idx, e.target.value) })}
-                      className="px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-white flex-1"
-                    />
-                    <Button small onClick={() => setNewTaskData({ ...newTaskData, subtarefas: removeArrayFieldItem(newTaskData.subtarefas, idx) })}>×</Button>
-                  </div>
-                ))}
-                <Button small className="mt-2" onClick={() => setNewTaskData({ ...newTaskData, subtarefas: addArrayFieldItem(newTaskData.subtarefas) })}>+ Adicionar subtarefa</Button>
-              </div>
-
-              <textarea
-                placeholder="Riscos / Observações"
-                value={newTaskData.riscos}
-                onChange={(e) => setNewTaskData({ ...newTaskData, riscos: e.target.value })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white min-h-[80px]"
-              />
-
-              {/* Upload de anexos */}
-              <div className="mt-2">
-                <label className="text-white font-semibold block mb-1">Anexos</label>
-                <input
-                  type="file"
-                  multiple
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files).map((f) => ({
-                      name: f.name,
-                      url: URL.createObjectURL(f),
-                    }));
-                    setNewTaskData({ ...newTaskData, attachments: [...(newTaskData.attachments || []), ...files] });
-                  }}
-                  className="text-sm text-zinc-300 block w-full"
-                />
-              </div>
-            </div>
-
-            {/* O botão de criar agora está no rodapé fixo do Modal (veja definição do Modal acima) */}
-          </Modal>
-        )}
-
-        {/* Modal Detalhes da Demanda */}
-        {showDetailModal && currentTask && (
-          <Modal title={currentTask.title} onClose={() => setShowDetailModal(false)}>
-            <div className="flex flex-col gap-4">
-              {/* ... mesmo conteúdo do modal de edição que já estava antes ... */}
-              {/* (copie aqui todo o conteúdo que estava dentro do showDetailModal) */}
-              {/* Para não ficar gigante demais, deixei só o esqueleto – copie os campos do seu código original */}
-              
-              {/* Exemplo: */}
-              <input
-                type="text"
-                value={currentTask.title}
-                onChange={(e) => setCurrentTask({ ...currentTask, title: e.target.value })}
-                className="px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-              />
-              {/* ... todos os outros campos ... */}
-
-              {/* O botão Salvar também ficará no rodapé fixo */}
-            </div>
-          </Modal>
-        )}
-      </div>
+      {/* DETAIL MODAL */}
+      {showDetailModal && currentTask && (
+        <Modal
+          title={currentTask.title}
+          onClose={() => setShowDetailModal(false)}
+          onConfirm={saveTask}
+          confirmLabel="Salvar Alterações"
+        >
+          <input
+            type="text"
+            value={currentTask.title}
+            onChange={(e) =>
+              setCurrentTask({
+                ...currentTask,
+                title: e.target.value,
+              })
+            }
+            className="w-full px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
+          />
+        </Modal>
+      )}
     </div>
-  );
+  )
 }

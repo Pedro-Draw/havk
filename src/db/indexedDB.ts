@@ -19,6 +19,16 @@ const STORES: DBStore[] = [
     indexes: [{ name: 'email', keyPath: 'email', unique: true }],
   },
   {
+  name: 'membros',
+  keyPath: 'id',
+  autoIncrement: false,
+  indexes: [
+    { name: 'email', keyPath: 'email', unique: false },
+    { name: 'role', keyPath: 'role' },
+    { name: 'status', keyPath: 'status' },
+  ],
+},
+  {
     name: 'demandas',
     keyPath: 'id',
     autoIncrement: true,
