@@ -48,7 +48,7 @@ export default function Templates() {
   }, [templates]);
 
   const categories = useMemo(() => {
-    const cats = new Set(templates.map(t => t.category));
+    const cats = new Set(templates.map(t => t.category || 'Sem categoria'));
     return ['Todos', ...Array.from(cats)];
   }, [templates]);
 
@@ -57,7 +57,7 @@ export default function Templates() {
 
     // Filtro por categoria
     if (categoryFilter !== 'Todos') {
-      data = data.filter(t => t.category === categoryFilter);
+      data = data.filter(t => (t.category || 'Sem categoria') === categoryFilter);
     }
 
     // Busca por nome, descrição ou conteúdo
@@ -65,8 +65,8 @@ export default function Templates() {
       const term = search.toLowerCase();
       data = data.filter(t =>
         t.name.toLowerCase().includes(term) ||
-        t.description.toLowerCase().includes(term) ||
-        (t.content && t.content.toLowerCase().includes(term))
+        (t.description || '').toLowerCase().includes(term) ||
+        (t.content || '').toLowerCase().includes(term)
       );
     }
 
@@ -159,7 +159,7 @@ export default function Templates() {
     toast.loading('Gerando template com IA...', { id: 'ai-gen' });
 
     // Simulação (substitua por chamada real à API de IA quando tiver)
-    await new Promise(r => setTimeout(r, 1800));
+    await new Promise(r => setTimeout(r, 2200));
 
     const aiGenerated = {
       name: 'Template Gerado por IA - ' + new Date().toLocaleDateString('pt-BR'),
@@ -170,7 +170,9 @@ export default function Templates() {
         '## Objetivo\n\n' +
         '## Passos / Requisitos\n- Item 1\n- Item 2\n\n' +
         '## Critérios de Aceitação\n- Critério 1\n- Critério 2\n\n' +
-        '## Notas / Riscos',
+        '## Notas / Riscos\n\n' +
+        '## Prazo Estimado\n\n' +
+        '## Responsável',
       favorite: false,
       updatedAt: new Date().toISOString(),
     };
@@ -183,157 +185,212 @@ export default function Templates() {
   };
 
   return (
-    <div className="min-h-screen pt-20 lg:pl-64 px-6 lg:px-10 bg-zinc-950">
-      <div className="max-w-7xl mx-auto">
-        {/* Cabeçalho */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-10">
-          <div className="flex items-center gap-3">
-            <CopyPlus className="w-8 h-8 text-zinc-300" />
-            <h1 className="text-3xl font-bold text-white">{t('templates') || 'Templates'}</h1>
+    <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
+      {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
+      <div
+        className={`
+          pt-20
+          lg:pl-64
+          px-4 sm:px-6 lg:px-8
+          transition-all duration-300
+        `}
+      >
+        <div className="mx-auto max-w-7xl pb-20">
+          {/* Cabeçalho */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-12">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-gradient-to-br from-indigo-600/20 to-purple-600/20 rounded-2xl shadow-lg">
+                <CopyPlus className="w-10 h-10 text-indigo-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-white">
+                  {t('templates') || 'Templates'}
+                </h1>
+                <p className="text-zinc-400 mt-2 text-lg">
+                  Modelos prontos para demandas, reuniões, relatórios e mais
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+              <Button
+                variant="outline"
+                size="lg"
+                icon={<Sparkles className="w-5 h-5" />}
+                onClick={generateWithAI}
+                disabled={isGeneratingAI}
+              >
+                {isGeneratingAI ? 'Gerando...' : 'Gerar com IA'}
+              </Button>
+
+              <Button
+                variant="primary"
+                size="lg"
+                icon={<Plus className="w-5 h-5" />}
+                onClick={openCreateModal}
+              >
+                Novo Template
+              </Button>
+            </div>
           </div>
 
-          <div className="flex gap-3 flex-wrap">
-            <Button
-              variant="outline"
-              icon={<Sparkles />}
-              onClick={generateWithAI}
-              disabled={isGeneratingAI}
+          {/* Filtros */}
+          <div className="flex flex-col lg:flex-row gap-5 mb-10">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Buscar por nome, descrição ou conteúdo..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="
+                  w-full bg-zinc-900 border border-zinc-700 rounded-xl 
+                  pl-12 pr-5 py-4 text-zinc-100 placeholder-zinc-500 
+                  focus:outline-none focus:border-indigo-500 focus:ring-1 
+                  focus:ring-indigo-500/30 transition-all text-base
+                "
+              />
+            </div>
+
+            <select
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              className="bg-zinc-900 border border-zinc-700 rounded-xl px-5 py-4 text-zinc-100 focus:outline-none focus:border-indigo-500 min-w-[180px] text-base"
             >
-              {isGeneratingAI ? 'Gerando...' : 'Gerar com IA'}
-            </Button>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
 
-            <Button variant="primary" icon={<Plus />} onClick={openCreateModal}>
-              Novo Template
-            </Button>
-          </div>
-        </div>
-
-        {/* Filtros */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-8">
-          <div className="relative flex-1 lg:flex-[0.4]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Buscar por nome, descrição..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30"
-            />
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+              className="bg-zinc-900 border border-zinc-700 rounded-xl px-5 py-4 text-zinc-100 focus:outline-none focus:border-indigo-500 min-w-[180px] text-base"
+            >
+              <option value="recent">Mais recentes</option>
+              <option value="az">A → Z</option>
+              <option value="favorites">Favoritos primeiro</option>
+            </select>
           </div>
 
-          <select
-            value={categoryFilter}
-            onChange={e => setCategoryFilter(e.target.value)}
-            className="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-sm text-white min-w-[160px]"
-          >
-            {categories.map(cat => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
+          {/* Lista de templates */}
+          {filteredTemplates.length === 0 ? (
+            <div className="text-center py-24 text-zinc-500">
+              <CopyPlus className="w-20 h-20 mx-auto mb-8 opacity-50" />
+              <h3 className="text-3xl font-medium mb-4">
+                {search || categoryFilter !== 'Todos'
+                  ? 'Nenhum template encontrado'
+                  : 'Você ainda não tem templates'}
+              </h3>
+              <p className="text-xl mb-10 max-w-lg mx-auto">
+                {search || categoryFilter !== 'Todos'
+                  ? 'Tente ajustar os filtros ou limpar a busca'
+                  : 'Crie templates reutilizáveis para agilizar seu trabalho'}
+              </p>
+              <Button
+                variant="primary"
+                size="xl"
+                icon={<Plus className="w-6 h-6" />}
+                onClick={openCreateModal}
+              >
+                Criar Primeiro Template
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-12">
+              {filteredTemplates.map(template => (
+                <Card
+                  key={template.id}
+                  hoverable
+                  className="flex flex-col border-zinc-800 shadow-xl transition-all hover:shadow-2xl hover:border-zinc-700"
+                >
+                  <div className="p-6 flex flex-col flex-1">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <h3 className="font-semibold text-xl text-white line-clamp-2 flex-1">
+                        {template.name}
+                      </h3>
 
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value)}
-            className="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-sm text-white min-w-[160px]"
-          >
-            <option value="recent">Mais recentes</option>
-            <option value="az">A → Z</option>
-            <option value="favorites">Favoritos primeiro</option>
-          </select>
-        </div>
-
-        {/* Lista de templates */}
-        {filteredTemplates.length === 0 ? (
-          <div className="text-center py-20 text-zinc-500">
-            {search || categoryFilter !== 'Todos'
-              ? 'Nenhum template encontrado com os filtros aplicados.'
-              : 'Você ainda não tem templates. Crie o primeiro!'}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
-            {filteredTemplates.map(template => (
-              <Card key={template.id} hoverable className="flex flex-col">
-                <div className="p-5 flex flex-col flex-1">
-                  <h3 className="font-semibold text-lg text-white mb-2 line-clamp-2">
-                    {template.name}
-                  </h3>
-
-                  <p className="text-sm text-zinc-400 mb-4 line-clamp-3 flex-1">
-                    {template.description}
-                  </p>
-
-                  <div className="flex items-center justify-between text-xs text-zinc-500 mt-auto">
-                    <span className="bg-zinc-800 px-2.5 py-1 rounded-full">
-                      {template.category}
-                    </span>
-
-                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => toggleFavorite(template.id)}
                         title={template.favorite ? 'Remover favorito' : 'Favoritar'}
+                        className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
                       >
                         <Star
-                          className={`w-4 h-4 ${
+                          className={`w-6 h-6 ${
                             template.favorite ? 'text-yellow-400 fill-yellow-400' : 'text-zinc-500'
                           }`}
                         />
                       </button>
-
-                      <button onClick={() => openEditModal(template)} title="Editar">
-                        <Pencil className="w-4 h-4 hover:text-white transition-colors" />
-                      </button>
-
-                      <button onClick={() => duplicateTemplate(template)} title="Duplicar">
-                        <Copy className="w-4 h-4 hover:text-white transition-colors" />
-                      </button>
-
-                      <button
-                        onClick={() => deleteTemplate(template.id)}
-                        title="Excluir"
-                        className="text-red-400 hover:text-red-300"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
-                  </div>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4 w-full"
-                    onClick={() => useTemplate(template)}
-                    disabled={!template.content}
-                  >
-                    Usar Template
-                  </Button>
+                    <p className="text-base text-zinc-400 mb-6 line-clamp-3 flex-1">
+                      {template.description || 'Sem descrição'}
+                    </p>
+
+                    <div className="flex items-center justify-between text-sm text-zinc-500 mt-auto mb-5">
+                      <span className="bg-zinc-800/80 px-3 py-1 rounded-full border border-zinc-700">
+                        {template.category || 'Sem categoria'}
+                      </span>
+
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => openEditModal(template)} title="Editar">
+                          <Pencil className="w-5 h-5 hover:text-indigo-400 transition-colors" />
+                        </button>
+
+                        <button onClick={() => duplicateTemplate(template)} title="Duplicar">
+                          <Copy className="w-5 h-5 hover:text-green-400 transition-colors" />
+                        </button>
+
+                        <button
+                          onClick={() => deleteTemplate(template.id)}
+                          title="Excluir"
+                        >
+                          <Trash2 className="w-5 h-5 hover:text-red-400 transition-colors" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="md"
+                      fullWidth
+                      onClick={() => useTemplate(template)}
+                      disabled={!template.content}
+                      className="py-3 text-base"
+                    >
+                      Usar Template
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+
+              {/* Card "Criar novo" */}
+              <Card
+                hoverable
+                className="border-dashed border-2 border-zinc-700 flex items-center justify-center cursor-pointer hover:border-zinc-500 transition-colors min-h-[320px]"
+                onClick={openCreateModal}
+              >
+                <div className="text-center py-12">
+                  <Plus className="w-16 h-16 text-zinc-600 mx-auto mb-6" />
+                  <p className="text-xl font-medium text-zinc-400">
+                    Criar novo template
+                  </p>
                 </div>
               </Card>
-            ))}
+            </div>
+          )}
 
-            {/* Card de criar novo */}
-            <Card
-              hoverable
-              className="border-dashed border-2 border-zinc-700 flex items-center justify-center cursor-pointer hover:border-zinc-500 transition-colors min-h-[280px]"
-              onClick={openCreateModal}
-            >
-              <div className="text-center py-10">
-                <Plus className="w-14 h-14 text-zinc-600 mx-auto mb-4" />
-                <p className="text-zinc-400 font-medium">Criar novo template</p>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Modal */}
-        {showModal && (
-          <TemplateModal
-            template={editingTemplate}
-            onClose={() => setShowModal(false)}
-            onSave={saveTemplate}
-          />
-        )}
+          {/* Modal */}
+          {showModal && (
+            <TemplateModal
+              template={editingTemplate}
+              onClose={() => setShowModal(false)}
+              onSave={saveTemplate}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -344,6 +401,7 @@ export default function Templates() {
 ───────────────────────────────────────────────── */
 
 function TemplateModal({ template, onClose, onSave }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(template?.name || '');
   const [category, setCategory] = useState(template?.category || '');
   const [description, setDescription] = useState(template?.description || '');
@@ -378,82 +436,111 @@ function TemplateModal({ template, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-zinc-900 w-full max-w-2xl rounded-xl border border-zinc-700 shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-zinc-900 w-full max-w-4xl rounded-2xl border border-zinc-800 shadow-2xl max-h-[94vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-800">
-          <h2 className="text-xl font-semibold text-white">
+        <div className="flex justify-between items-center px-8 py-5 border-b border-zinc-800">
+          <h2 className="text-2xl md:text-3xl font-bold text-white">
             {template ? 'Editar Template' : 'Novo Template'}
           </h2>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-white text-2xl leading-none"
+            className="text-zinc-400 hover:text-white text-3xl leading-none p-2"
           >
             ×
           </button>
         </div>
 
         {/* Body com scroll */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-1">
-              Nome <span className="text-red-400">*</span>
-            </label>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/60"
-              placeholder="Ex: Reunião de Sprint Planejamento"
-            />
-            {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
+        <div className="flex-1 p-8 overflow-y-auto space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <label className="block text-base font-medium text-zinc-300 mb-3">
+                Nome <span className="text-red-400">*</span>
+              </label>
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className="
+                  w-full bg-zinc-900 border border-zinc-700 rounded-xl 
+                  px-6 py-4 text-lg text-white placeholder-zinc-500 
+                  focus:outline-none focus:border-indigo-500 transition-colors
+                "
+                placeholder="Ex: Reunião de Sprint Planejamento"
+              />
+              {errors.name && <p className="text-red-400 text-sm mt-2">{errors.name}</p>}
+            </div>
+
+            <div>
+              <label className="block text-base font-medium text-zinc-300 mb-3">
+                Categoria <span className="text-red-400">*</span>
+              </label>
+              <input
+                value={category}
+                onChange={e => setCategory(e.target.value)}
+                className="
+                  w-full bg-zinc-900 border border-zinc-700 rounded-xl 
+                  px-6 py-4 text-lg text-white placeholder-zinc-500 
+                  focus:outline-none focus:border-indigo-500 transition-colors
+                "
+                placeholder="Ex: Reuniões, Bugs, Features..."
+              />
+              {errors.category && <p className="text-red-400 text-sm mt-2">{errors.category}</p>}
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-1">
-              Categoria <span className="text-red-400">*</span>
-            </label>
-            <input
-              value={category}
-              onChange={e => setCategory(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/60"
-              placeholder="Ex: Reuniões, Bugs, Features..."
-            />
-            {errors.category && <p className="text-red-400 text-xs mt-1">{errors.category}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-1">
+            <label className="block text-base font-medium text-zinc-300 mb-3">
               Descrição <span className="text-red-400">*</span>
             </label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white min-h-[80px] focus:outline-none focus:border-indigo-500/60"
-              placeholder="Breve descrição do propósito deste template..."
+              className="
+                w-full bg-zinc-900 border border-zinc-700 rounded-xl 
+                px-6 py-4 text-base text-white placeholder-zinc-500 
+                focus:outline-none focus:border-indigo-500 transition-colors 
+                min-h-[100px] resize-y
+              "
+              placeholder="Breve descrição do propósito e uso deste template..."
             />
-            {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
+            {errors.description && <p className="text-red-400 text-sm mt-2">{errors.description}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-1">
+            <label className="block text-base font-medium text-zinc-300 mb-3">
               Conteúdo do Template <span className="text-red-400">*</span>
             </label>
             <textarea
               value={content}
               onChange={e => setContent(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white font-mono text-sm min-h-[220px] focus:outline-none focus:border-indigo-500/60"
-              placeholder="Escreva aqui o conteúdo que será copiado ao usar o template...&#10;Suporta Markdown, listas, etc."
+              className="
+                w-full bg-zinc-900 border border-zinc-700 rounded-xl 
+                px-6 py-5 text-base font-mono text-zinc-100 placeholder-zinc-500 
+                focus:outline-none focus:border-indigo-500 transition-colors 
+                min-h-[320px] resize-y leading-relaxed
+              "
+              placeholder="Escreva aqui o conteúdo que será copiado ao usar o template...\n\nSuporta Markdown, listas, tabelas, etc."
             />
-            {errors.content && <p className="text-red-400 text-xs mt-1">{errors.content}</p>}
+            {errors.content && <p className="text-red-400 text-sm mt-2">{errors.content}</p>}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-900/80 flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>
+        <div className="px-8 py-6 border-t border-zinc-800 bg-zinc-900/80 flex justify-end gap-4">
+          <Button
+            variant="outline"
+            size="xl"
+            onClick={onClose}
+          >
             Cancelar
           </Button>
-          <Button variant="primary" onClick={handleSave}>
+          <Button
+            variant="primary"
+            size="xl"
+            onClick={handleSave}
+            icon={<Save className="w-6 h-6" />}
+          >
             Salvar Template
           </Button>
         </div>

@@ -1,38 +1,51 @@
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import { BrowserRouter as Router, Routes, Route, Outlet, useLocation } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+import { useEffect, useState } from "react";
+import { useAppStore } from "./store/useAppStore";
 
-import ProtectedRoute from './components/layout/ProtectedRoute';
-import Sidebar from './components/layout/Sidebar';
-import Topbar from './components/layout/Topbar';
-import MobileMenu from './components/layout/MobileMenu';
-import Footer from './components/layout/Footer';
+import ProtectedRoute from "./components/layout/ProtectedRoute";
+import Sidebar from "./components/layout/Sidebar";
+import Topbar from "./components/layout/Topbar";
+import MobileMenu from "./components/layout/MobileMenu";
+import Footer from "./components/layout/Footer";
 
-import Login from './pages/auth/Login';
-import Signup from './pages/auth/Signup';
-import ForgotPassword from './pages/auth/ForgotPassword';
+import Splash from "./components/Splash"; // <--- import do splash
 
-import Dashboard from './pages/Dashboard';
-import Inbox from './pages/Inbox';
-import Projetos from './pages/Projetos';
-import Kanban from './pages/Kanban';
-import DemandaDetail from './pages/DemandaDetail';
-import Calendario from './pages/Calendario';
-import Gantt from './pages/Gantt';
-import TimeTracker from './pages/TimeTracker';
-import AIStudio from './pages/AIStudio';
-import Notas from './pages/Notas';
-import Templates from './pages/Templates';
-import Objetivos from './pages/Objetivos';
-import Relatorios from './pages/Relatorios';
-import Equipe from './pages/Equipe';
-import ChatGlobal from './pages/ChatGlobal';
-import Configuracoes from './pages/Configuracoes';
+import Login from "./pages/auth/Login";
+import Signup from "./pages/auth/Signup";
+import ForgotPassword from "./pages/auth/ForgotPassword";
 
-import NotFound from './pages/NotFound';
+import Dashboard from "./pages/Dashboard";
+import Inbox from "./pages/Inbox";
+import Projetos from "./pages/Projetos";
+import Kanban from "./pages/Kanban";
+import DemandaDetail from "./pages/DemandaDetail";
+import Calendario from "./pages/Calendario";
+import Gantt from "./pages/Gantt";
+import TimeTracker from "./pages/TimeTracker";
+import AIStudio from "./pages/AIStudio";
+import Notas from "./pages/Notas";
+import Templates from "./pages/Templates";
+import Objetivos from "./pages/Objetivos";
+import Relatorios from "./pages/Relatorios";
+import Equipe from "./pages/Equipe";
+import ChatGlobal from "./pages/ChatGlobal";
+import Configuracoes from "./pages/Configuracoes";
+
+import NotFound from "./pages/NotFound";
 
 function AppLayout() {
+  const loadAll = useAppStore((state) => state.loadAll);
+  const isAuthenticated = useAppStore((state) => state.isAuthenticated);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadAll();
+    }
+  }, [isAuthenticated]);
+
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-zinc-100 overflow-x-hidden">
+    <div className="flex min-h-screen bg-background text-foreground overflow-x-hidden">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
@@ -47,18 +60,19 @@ function AppLayout() {
 
       <MobileMenu />
 
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: '#1f2937',
-            color: '#f3f4f6',
-            border: '1px solid #374151',
-          },
-        }}
-      />
+      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
     </div>
+  );
+}
+
+function AppWrapper() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  return (
+    <>
+      {showSplash && <Splash onFinish={() => setShowSplash(false)} duration={2000} />}
+      {!showSplash && <App />}
+    </>
   );
 }
 
@@ -66,19 +80,21 @@ export default function App() {
   return (
     <Router>
       <Routes>
-
-        {/* Rotas públicas */}
+        {/** Rotas públicas */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* Rotas protegidas com layout */}
+        {/** Rotas protegidas */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/inbox" element={<Inbox />} />
             <Route path="/projetos" element={<Projetos />} />
             <Route path="/kanban" element={<Kanban />} />
+            {/* Adicione essas duas linhas aqui */}
+            <Route path="/demandas" element={<DemandaDetail />} />
+            <Route path="/demandas/:id" element={<DemandaDetail />} />
             <Route path="/demandas/:id" element={<DemandaDetail />} />
             <Route path="/calendario" element={<Calendario />} />
             <Route path="/gantt" element={<Gantt />} />
@@ -92,7 +108,6 @@ export default function App() {
             <Route path="/chat" element={<ChatGlobal />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
 
-            {/* Rotas placeholder */}
             <Route path="/integracoes" element={<NotFound />} />
             <Route path="/planos" element={<NotFound />} />
             <Route path="/ajuda" element={<NotFound />} />
@@ -101,9 +116,7 @@ export default function App() {
           </Route>
         </Route>
 
-        {/* Fallback global */}
         <Route path="*" element={<NotFound />} />
-
       </Routes>
     </Router>
   );

@@ -16,6 +16,7 @@ import {
   FileText,
   MessageSquare,
   GanttChart,
+  ListTodo,  // ícone para Demandas
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -68,6 +69,17 @@ export default function Sidebar() {
             {t('sidebar.inbox')}
           </NavLink>
 
+          {/* Novo item adicionado aqui, mantendo a sequência lógica */}
+          <NavLink
+            to="/demandas"
+            className={({ isActive }) =>
+              `${linkClass} ${isActive ? activeClass : inactiveClass}`
+            }
+          >
+            <ListTodo size={18} />
+            {t('sidebar.demandas') || 'Demandas'}
+          </NavLink>
+
           <NavLink
             to="/projetos"
             className={({ isActive }) =>
@@ -98,15 +110,15 @@ export default function Sidebar() {
             {t('sidebar.calendario')}
           </NavLink>
 
-            <NavLink
-  to="/gantt"
-  className={({ isActive }) =>
-    `${linkClass} ${isActive ? activeClass : inactiveClass}`
-  }
->
-  <GanttChart size={18} />
-  {t('sidebar.gantt')}
-</NavLink>
+          <NavLink
+            to="/gantt"
+            className={({ isActive }) =>
+              `${linkClass} ${isActive ? activeClass : inactiveClass}`
+            }
+          >
+            <GanttChart size={18} />
+            {t('sidebar.gantt')}
+          </NavLink>
 
           <NavLink
             to="/tempo"

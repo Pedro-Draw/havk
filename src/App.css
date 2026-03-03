@@ -1,6 +1,56 @@
+/* =========================
+   RESET GLOBAL PARA MENU FIXO DESKTOP
+   ========================= */
+
+:root {
+  --sidebar-width: 260px;
+  /* ajuste aqui se necessário */
+}
+
+/* Remove qualquer comportamento que cause 100vw quebrar layout */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+
+  body {
+    margin-left: var(--sidebar-width);
+  }
+
+  #root {
+    margin: 0;
+    max-width: none;
+    width: 100%;
+  }
+
+  /* Corrige qualquer elemento que use 100vw */
+  .min-h-screen,
+  .w-screen,
+  [class*="w-screen"] {
+    width: calc(100vw - var(--sidebar-width)) !important;
+  }
+
+  /* Corrige elementos fixed */
+  .fixed {
+    left: var(--sidebar-width) !important;
+  }
+
+  /* Corrige elementos sticky */
+  .sticky {
+    left: var(--sidebar-width);
+  }
+}
+
+/* =========================
+   SEU CSS ORIGINAL
+   ========================= */
+
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
   padding: 2rem;
   text-align: center;
 }
@@ -11,9 +61,11 @@
   will-change: filter;
   transition: filter 300ms;
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
@@ -22,6 +74,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }

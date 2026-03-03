@@ -116,7 +116,7 @@ export default function Equipe() {
         toast.success('Membro atualizado com sucesso');
       } else {
         // Adição
-        const id = Date.now().toString(); // ou use crypto.randomUUID() se preferir
+        const id = crypto.randomUUID(); // melhor que Date.now()
         updatedMember = {
           ...newMember,
           id,
@@ -232,278 +232,297 @@ export default function Equipe() {
 
   const getRoleBadge = (role: string) => {
     const colors: Record<string, string> = {
-      Admin: 'bg-red-900/40 text-red-300',
-      'Project Manager': 'bg-purple-900/40 text-purple-300',
-      Developer: 'bg-emerald-900/40 text-emerald-300',
-      Designer: 'bg-pink-900/40 text-pink-300',
-      Finance: 'bg-amber-900/40 text-amber-300',
-      Support: 'bg-indigo-900/40 text-indigo-300',
-      Member: 'bg-zinc-800 text-zinc-300',
-      Viewer: 'bg-blue-900/40 text-blue-300',
+      Admin: 'bg-red-900/40 text-red-300 border-red-800/50',
+      'Project Manager': 'bg-purple-900/40 text-purple-300 border-purple-800/50',
+      Developer: 'bg-emerald-900/40 text-emerald-300 border-emerald-800/50',
+      Designer: 'bg-pink-900/40 text-pink-300 border-pink-800/50',
+      Finance: 'bg-amber-900/40 text-amber-300 border-amber-800/50',
+      Support: 'bg-indigo-900/40 text-indigo-300 border-indigo-800/50',
+      Member: 'bg-zinc-800 text-zinc-300 border-zinc-700/50',
+      Viewer: 'bg-blue-900/40 text-blue-300 border-blue-800/50',
     };
-    return colors[role] || 'bg-gray-800 text-gray-300';
+    return colors[role] || 'bg-gray-800 text-gray-300 border-gray-700/50';
   };
 
   return (
-    <div className="min-h-screen pt-20 px-4 sm:px-6 lg:px-8 bg-zinc-950 pb-20">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-gradient-to-br from-indigo-600/20 to-purple-600/20 rounded-2xl">
-              <Users className="w-10 h-10 text-indigo-400" />
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-white">Equipe</h1>
-              <p className="text-zinc-400 mt-1">
-                {membros.length} membros • Gerencie permissões e acessos
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant="outline"
-              icon={<Download className="w-5 h-5" />}
-              onClick={exportCSV}
-              disabled={membros.length === 0}
-            >
-              Exportar CSV
-            </Button>
-
-            <Button
-              variant="primary"
-              icon={<UserPlus className="w-5 h-5" />}
-              onClick={() => {
-                setEditingMember(null);
-                setNewMember({
-                  name: '',
-                  email: '',
-                  role: 'Member',
-                  avatar: null,
-                  status: 'ativo',
-                  createdAt: new Date().toISOString(),
-                });
-                setIsModalOpen(true);
-              }}
-            >
-              Adicionar Membro
-            </Button>
-          </div>
-        </div>
-
-        {/* Busca */}
-        <div className="mb-8 max-w-lg">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Buscar por nome, email ou permissão..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl pl-12 pr-4 py-3.5 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
-            />
-          </div>
-        </div>
-
-        {/* Tabela */}
-        <Card className="border-zinc-800 overflow-hidden">
-          {loading ? (
-            <div className="p-16 flex flex-col items-center justify-center text-zinc-500">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mb-4" />
-              <p>Carregando equipe...</p>
-            </div>
-          ) : filteredMembros.length === 0 ? (
-            <div className="p-16 text-center text-zinc-500">
-              <Users className="w-20 h-20 mx-auto mb-6 opacity-50" />
-              <h3 className="text-2xl font-semibold mb-3">
-                {search ? 'Nenhum membro encontrado' : 'Nenhum membro na equipe ainda'}
-              </h3>
-              <p className="mb-8">
-                {search
-                  ? 'Tente outra busca ou limpe o filtro'
-                  : 'Adicione seu primeiro membro para começar'}
-              </p>
-              {!search && (
-                <Button
-                  variant="primary"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  Adicionar Primeiro Membro
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
-                <thead>
-                  <tr className="border-b border-zinc-800 bg-zinc-900/60">
-                    <th className="py-5 px-6 text-left font-medium text-zinc-300">Membro</th>
-                    <th className="py-5 px-6 text-left font-medium text-zinc-300">E-mail</th>
-                    <th className="py-5 px-6 text-left font-medium text-zinc-300">Permissão</th>
-                    <th className="py-5 px-6 text-left font-medium text-zinc-300">Status</th>
-                    <th className="py-5 px-6 text-right font-medium text-zinc-300">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMembros.map((membro) => (
-                    <tr
-                      key={membro.id}
-                      className="border-b border-zinc-800 hover:bg-zinc-900/70 transition-colors"
-                    >
-                      <td className="py-5 px-6">
-                        <div className="flex items-center gap-4">
-                          {membro.avatar ? (
-                            <img
-                              src={membro.avatar}
-                              alt={membro.name}
-                              className="w-12 h-12 rounded-full object-cover border-2 border-zinc-700 shadow-md"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 flex items-center justify-center text-xl font-bold text-zinc-300 border-2 border-zinc-700 shadow-md">
-                              {membro.name?.charAt(0)?.toUpperCase() || '?'}
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-medium text-white">{membro.name}</p>
-                            <p className="text-sm text-zinc-500">{membro.email}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-5 px-6 text-zinc-300">
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-4 h-4 opacity-70" />
-                          {membro.email}
-                        </div>
-                      </td>
-
-                      <td className="py-5 px-6">
-                        <span className={`inline-flex px-4 py-1.5 rounded-full text-xs font-medium border ${getRoleBadge(membro.role)}`}>
-                          {membro.role}
-                        </span>
-                      </td>
-
-                      <td className="py-5 px-6">
-                        <span className={`px-4 py-1.5 rounded-full text-xs font-medium ${
-                          membro.status === 'ativo'
-                            ? 'bg-green-900/40 text-green-300'
-                            : 'bg-red-900/40 text-red-300'
-                        }`}>
-                          {membro.status?.toUpperCase() || 'Ativo'}
-                        </span>
-                      </td>
-
-                      <td className="py-5 px-6 text-right">
-                        <div className="flex items-center justify-end gap-3">
-                          <button
-                            onClick={() => handleEdit(membro)}
-                            className="p-2.5 hover:bg-zinc-800 rounded-lg transition-colors group"
-                            title="Editar membro"
-                          >
-                            <Edit className="w-5 h-5 text-zinc-400 group-hover:text-indigo-400" />
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteMember(membro.id, membro.name)}
-                            className="p-2.5 hover:bg-zinc-800 rounded-lg transition-colors group"
-                            title="Remover membro"
-                          >
-                            <Trash2 className="w-5 h-5 text-zinc-400 group-hover:text-red-400" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-
-        {/* Modal Adicionar/Editar */}
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-zinc-900 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-zinc-800 shadow-2xl">
-              <div className="p-6 border-b border-zinc-800">
-                <h2 className="text-2xl font-bold text-white">
-                  {editingMember ? 'Editar Membro' : 'Adicionar Novo Membro'}
-                </h2>
+    <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
+      {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
+      <div
+        className={`
+          pt-20
+          lg:pl-64
+          px-4 sm:px-6 lg:px-8
+          transition-all duration-300
+        `}
+      >
+        <div className="mx-auto max-w-7xl pb-20">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-12">
+            <div className="flex items-center gap-5">
+              <div className="p-4 bg-gradient-to-br from-indigo-600/20 to-purple-600/20 rounded-2xl shadow-lg">
+                <Users className="w-10 h-10 text-indigo-400" />
               </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-white">Equipe</h1>
+                <p className="text-zinc-400 mt-1 text-lg">
+                  {membros.length} membros • Gerencie permissões e acessos
+                </p>
+              </div>
+            </div>
 
-              <div className="p-6 space-y-6">
-                {/* Avatar */}
-                <div className="flex flex-col items-center gap-4">
-                  <div className="relative group">
-                    {newMember.avatar ? (
-                      <img
-                        src={newMember.avatar}
-                        alt="Avatar"
-                        className="w-28 h-28 rounded-2xl object-cover border-4 border-zinc-700 shadow-xl transition-all group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center text-6xl text-zinc-500 border-4 border-zinc-700 shadow-xl">
-                        {newMember.name?.charAt(0)?.toUpperCase() || 'N'}
-                      </div>
-                    )}
+            <div className="flex flex-wrap gap-4">
+              <Button
+                variant="outline"
+                size="lg"
+                icon={<Download className="w-5 h-5" />}
+                onClick={exportCSV}
+                disabled={membros.length === 0}
+              >
+                Exportar CSV
+              </Button>
 
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="absolute -bottom-3 -right-3 bg-gradient-to-r from-indigo-600 to-purple-600 p-3 rounded-full shadow-2xl hover:scale-110 transition-all ring-4 ring-zinc-950"
-                    >
-                      <Camera className="w-6 h-6 text-white" />
-                    </button>
+              <Button
+                variant="primary"
+                size="lg"
+                icon={<UserPlus className="w-5 h-5" />}
+                onClick={() => {
+                  setEditingMember(null);
+                  setNewMember({
+                    name: '',
+                    email: '',
+                    role: 'Member',
+                    avatar: null,
+                    status: 'ativo',
+                    createdAt: new Date().toISOString(),
+                  });
+                  setIsModalOpen(true);
+                }}
+              >
+                Adicionar Membro
+              </Button>
+            </div>
+          </div>
 
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </div>
-                  <p className="text-sm text-zinc-500">Clique na câmera para adicionar foto</p>
+          {/* Busca */}
+          <div className="mb-10 max-w-xl">
+            <div className="relative">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Buscar por nome, email ou permissão..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="
+                  w-full bg-zinc-900 border border-zinc-700 rounded-xl 
+                  pl-14 pr-6 py-4 text-zinc-100 placeholder-zinc-500 
+                  focus:outline-none focus:border-indigo-500 focus:ring-1 
+                  focus:ring-indigo-500/30 transition-all text-base
+                "
+              />
+            </div>
+          </div>
+
+          {/* Tabela / Lista */}
+          <Card className="border-zinc-800 shadow-2xl overflow-hidden">
+            {loading ? (
+              <div className="p-20 flex flex-col items-center justify-center text-zinc-500">
+                <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-indigo-500 mb-6" />
+                <p className="text-xl">Carregando equipe...</p>
+              </div>
+            ) : filteredMembros.length === 0 ? (
+              <div className="p-20 text-center text-zinc-500">
+                <Users className="w-24 h-24 mx-auto mb-8 opacity-50" />
+                <h3 className="text-3xl font-semibold mb-4">
+                  {search ? 'Nenhum membro encontrado' : 'Nenhum membro na equipe ainda'}
+                </h3>
+                <p className="text-lg mb-10">
+                  {search
+                    ? 'Tente outra busca ou limpe o filtro'
+                    : 'Adicione seu primeiro membro para começar'}
+                </p>
+                {!search && (
+                  <Button
+                    variant="primary"
+                    size="xl"
+                    onClick={() => setIsModalOpen(true)}
+                  >
+                    Adicionar Primeiro Membro
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px]">
+                  <thead>
+                    <tr className="border-b border-zinc-800 bg-zinc-900/70">
+                      <th className="py-6 px-8 text-left font-medium text-zinc-300 text-lg">Membro</th>
+                      <th className="py-6 px-8 text-left font-medium text-zinc-300 text-lg">E-mail</th>
+                      <th className="py-6 px-8 text-left font-medium text-zinc-300 text-lg">Permissão</th>
+                      <th className="py-6 px-8 text-left font-medium text-zinc-300 text-lg">Status</th>
+                      <th className="py-6 px-8 text-right font-medium text-zinc-300 text-lg">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMembros.map((membro) => (
+                      <tr
+                        key={membro.id}
+                        className="border-b border-zinc-800 hover:bg-zinc-900/70 transition-colors"
+                      >
+                        <td className="py-6 px-8">
+                          <div className="flex items-center gap-5">
+                            {membro.avatar ? (
+                              <img
+                                src={membro.avatar}
+                                alt={membro.name}
+                                className="w-14 h-14 rounded-full object-cover border-2 border-zinc-700 shadow-md"
+                              />
+                            ) : (
+                              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 flex items-center justify-center text-2xl font-bold text-zinc-300 border-2 border-zinc-700 shadow-md">
+                                {membro.name?.charAt(0)?.toUpperCase() || '?'}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-semibold text-lg text-white">{membro.name}</p>
+                              <p className="text-sm text-zinc-500">{membro.email}</p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-6 px-8 text-zinc-300 text-base">
+                          <div className="flex items-center gap-3">
+                            <Mail className="w-5 h-5 opacity-70" />
+                            {membro.email}
+                          </div>
+                        </td>
+
+                        <td className="py-6 px-8">
+                          <span className={`inline-flex px-5 py-2 rounded-full text-sm font-medium border ${getRoleBadge(membro.role)}`}>
+                            {membro.role}
+                          </span>
+                        </td>
+
+                        <td className="py-6 px-8">
+                          <span className={`px-5 py-2 rounded-full text-sm font-medium ${
+                            membro.status === 'ativo'
+                              ? 'bg-green-900/40 text-green-300 border-green-800/50'
+                              : 'bg-red-900/40 text-red-300 border-red-800/50'
+                          }`}>
+                            {membro.status?.toUpperCase() || 'Ativo'}
+                          </span>
+                        </td>
+
+                        <td className="py-6 px-8 text-right">
+                          <div className="flex items-center justify-end gap-4">
+                            <button
+                              onClick={() => handleEdit(membro)}
+                              className="p-3 hover:bg-zinc-800 rounded-xl transition-colors group"
+                              title="Editar membro"
+                            >
+                              <Edit className="w-6 h-6 text-zinc-400 group-hover:text-indigo-400" />
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteMember(membro.id, membro.name)}
+                              className="p-3 hover:bg-zinc-800 rounded-xl transition-colors group"
+                              title="Remover membro"
+                            >
+                              <Trash2 className="w-6 h-6 text-zinc-400 group-hover:text-red-400" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          {/* Modal Adicionar/Editar */}
+          {isModalOpen && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-zinc-900 rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto border border-zinc-800 shadow-2xl">
+                <div className="p-8 border-b border-zinc-800">
+                  <h2 className="text-3xl font-bold text-white">
+                    {editingMember ? 'Editar Membro' : 'Adicionar Novo Membro'}
+                  </h2>
+                  <p className="text-zinc-400 mt-2">
+                    {editingMember ? 'Atualize as informações do membro' : 'Preencha os dados do novo integrante da equipe'}
+                  </p>
                 </div>
 
-                {/* Campos */}
-                <div className="space-y-5">
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-300 mb-2">
-                      Nome completo *
-                    </label>
-                    <input
-                      type="text"
-                      value={newMember.name}
-                      onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                      placeholder="Ex: João Silva"
-                      className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-5 py-3.5 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
-                      required
-                    />
+                <div className="p-8 space-y-8">
+                  {/* Avatar */}
+                  <div className="flex flex-col items-center gap-6">
+                    <div className="relative group">
+                      {newMember.avatar ? (
+                        <img
+                          src={newMember.avatar}
+                          alt="Avatar"
+                          className="w-32 h-32 rounded-2xl object-cover border-4 border-zinc-700 shadow-2xl transition-all group-hover:scale-105 group-hover:rotate-2"
+                        />
+                      ) : (
+                        <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center text-6xl text-zinc-500 border-4 border-zinc-700 shadow-2xl">
+                          {newMember.name?.charAt(0)?.toUpperCase() || 'N'}
+                        </div>
+                      )}
+
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute -bottom-4 -right-4 bg-gradient-to-r from-indigo-600 to-purple-600 p-4 rounded-full shadow-2xl hover:scale-110 transition-all ring-4 ring-zinc-950"
+                      >
+                        <Camera className="w-7 h-7 text-white" />
+                      </button>
+
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </div>
+                    <p className="text-base text-zinc-500">Clique na câmera para adicionar ou alterar a foto</p>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-300 mb-2">
-                      E-mail *
-                    </label>
-                    <input
-                      type="email"
-                      value={newMember.email}
-                      onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-                      placeholder="joao@havk.local"
-                      className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-5 py-3.5 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {/* Campos */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-zinc-300 mb-2">
+                      <label className="block text-base font-medium text-zinc-300 mb-3">
+                        Nome completo *
+                      </label>
+                      <input
+                        type="text"
+                        value={newMember.name}
+                        onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                        placeholder="Ex: João Silva"
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-6 py-4 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors text-base"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-medium text-zinc-300 mb-3">
+                        E-mail *
+                      </label>
+                      <input
+                        type="email"
+                        value={newMember.email}
+                        onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                        placeholder="joao@havk.local"
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-6 py-4 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors text-base"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-medium text-zinc-300 mb-3">
                         Permissão
                       </label>
                       <select
                         value={newMember.role}
                         onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
-                        className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-5 py-3.5 text-zinc-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-6 py-4 text-zinc-100 focus:outline-none focus:border-indigo-500 transition-colors text-base"
                       >
                         {roles.map((role) => (
                           <option key={role} value={role}>
@@ -514,43 +533,45 @@ export default function Equipe() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-zinc-300 mb-2">
+                      <label className="block text-base font-medium text-zinc-300 mb-3">
                         Status
                       </label>
                       <select
                         value={newMember.status}
                         onChange={(e) => setNewMember({ ...newMember, status: e.target.value })}
-                        className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-5 py-3.5 text-zinc-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-6 py-4 text-zinc-100 focus:outline-none focus:border-indigo-500 transition-colors text-base"
                       >
                         <option value="ativo">Ativo</option>
                         <option value="inativo">Inativo</option>
                       </select>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex justify-end gap-4 pt-6 border-t border-zinc-800">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setEditingMember(null);
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={handleSaveMember}
-                    icon={<CheckCircle className="w-5 h-5" />}
-                  >
-                    {editingMember ? 'Salvar Alterações' : 'Adicionar Membro'}
-                  </Button>
+                  <div className="flex justify-end gap-5 pt-8 border-t border-zinc-800">
+                    <Button
+                      variant="outline"
+                      size="xl"
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        setEditingMember(null);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="xl"
+                      onClick={handleSaveMember}
+                      icon={<CheckCircle className="w-6 h-6" />}
+                    >
+                      {editingMember ? 'Salvar Alterações' : 'Adicionar Membro'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

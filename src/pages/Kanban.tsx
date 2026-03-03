@@ -330,113 +330,125 @@ export default function Kanban() {
   ========================= */
 
   return (
-    <div className="min-h-screen pt-20 px-4 bg-zinc-950">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-white">
-          Kanban
-        </h1>
-        <Button onClick={() => setShowNewModal(true)}>
-          + Nova Demanda
-        </Button>
-      </div>
-
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
+    <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
+      {/* Ajuste principal: pt-20 para header + lg:pl-64 para sidebar fixa no desktop */}
+      <div
+        className={`
+          pt-20
+          lg:pl-64
+          px-4 sm:px-6 lg:px-8
+          transition-all duration-300
+        `}
       >
-        <div className="flex gap-6 overflow-x-auto pb-4">
-          {(Object.keys(columns) as Status[]).map((columnId) => {
-            const items = columns[columnId]
+        <div className="max-w-7xl mx-auto pb-16">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl md:text-4xl font-bold text-white">
+              Kanban
+            </h1>
+            <Button onClick={() => setShowNewModal(true)}>
+              + Nova Demanda
+            </Button>
+          </div>
 
-            return (
-              <div
-                key={columnId}
-                id={columnId}
-                className="w-80 bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col"
-              >
-                <h2 className="text-lg font-semibold text-white mb-4 capitalize">
-                  {columnId}
-                </h2>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex gap-6 overflow-x-auto pb-6">
+              {(Object.keys(columns) as Status[]).map((columnId) => {
+                const items = columns[columnId]
 
-                <SortableContext
-                  items={items.map((i) => i.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-3 min-h-[400px]">
-                    {items.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => {
-                          setCurrentTask(item)
-                          setShowDetailModal(true)
+                return (
+                  <div
+                    key={columnId}
+                    id={columnId}
+                    className="min-w-[320px] w-80 bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-xl p-4 flex flex-col shadow-lg"
+                  >
+                    <h2 className="text-lg font-semibold text-white mb-4 capitalize">
+                      {columnId}
+                    </h2>
 
-                          // 🔥 se quiser redirecionar:
-                          // navigate(`/demandas/${item.id}`)
-                        }}
-                      >
-                        <SortableCard
-                          id={item.id}
-                          item={item}
-                        />
+                    <SortableContext
+                      items={items.map((i) => i.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-3 min-h-[400px]">
+                        {items.map((item) => (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              setCurrentTask(item)
+                              setShowDetailModal(true)
+                              // Alternativa: navigate(`/demandas/${item.id}`)
+                            }}
+                          >
+                            <SortableCard
+                              id={item.id}
+                              item={item}
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </SortableContext>
+
+                    <p className="text-xs text-zinc-500 mt-3 pt-2 border-t border-zinc-800">
+                      {items.length} tarefas
+                    </p>
                   </div>
-                </SortableContext>
+                )
+              })}
+            </div>
+          </DndContext>
 
-                <p className="text-xs text-zinc-500 mt-3">
-                  {items.length} tarefas
-                </p>
-              </div>
-            )
-          })}
+          {/* NEW TASK MODAL */}
+          {showNewModal && (
+            <Modal
+              title="Nova Demanda"
+              onClose={() => setShowNewModal(false)}
+              onConfirm={createNewTask}
+              confirmLabel="Criar Demanda"
+            >
+              <input
+                type="text"
+                placeholder="Título"
+                value={newTaskData.title}
+                onChange={(e) =>
+                  setNewTaskData({
+                    ...newTaskData,
+                    title: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:border-indigo-500"
+              />
+              {/* Adicione aqui os outros campos do formulário quando quiser expandir */}
+            </Modal>
+          )}
+
+          {/* DETAIL MODAL */}
+          {showDetailModal && currentTask && (
+            <Modal
+              title={currentTask.title}
+              onClose={() => setShowDetailModal(false)}
+              onConfirm={saveTask}
+              confirmLabel="Salvar Alterações"
+            >
+              <input
+                type="text"
+                value={currentTask.title}
+                onChange={(e) =>
+                  setCurrentTask({
+                    ...currentTask,
+                    title: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:border-indigo-500"
+              />
+              {/* Adicione aqui os outros campos editáveis */}
+            </Modal>
+          )}
         </div>
-      </DndContext>
-
-      {/* NEW TASK MODAL */}
-      {showNewModal && (
-        <Modal
-          title="Nova Demanda"
-          onClose={() => setShowNewModal(false)}
-          onConfirm={createNewTask}
-          confirmLabel="Criar Demanda"
-        >
-          <input
-            type="text"
-            placeholder="Título"
-            value={newTaskData.title}
-            onChange={(e) =>
-              setNewTaskData({
-                ...newTaskData,
-                title: e.target.value,
-              })
-            }
-            className="w-full px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-          />
-        </Modal>
-      )}
-
-      {/* DETAIL MODAL */}
-      {showDetailModal && currentTask && (
-        <Modal
-          title={currentTask.title}
-          onClose={() => setShowDetailModal(false)}
-          onConfirm={saveTask}
-          confirmLabel="Salvar Alterações"
-        >
-          <input
-            type="text"
-            value={currentTask.title}
-            onChange={(e) =>
-              setCurrentTask({
-                ...currentTask,
-                title: e.target.value,
-              })
-            }
-            className="w-full px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-white"
-          />
-        </Modal>
-      )}
+      </div>
     </div>
   )
 }

@@ -32,12 +32,12 @@ import Textarea from '../components/ui/textarea.tsx';
 import Select from '../components/ui/Select';
 import Modal from '../components/ui/Modal';
 import { cn } from '../lib/utils';
-import { AnimatePresence, motion } from 'framer-motion'; // Adicionado para animações suaves
-import Confetti from 'react-confetti'; // Para celebração ao completar objetivo
+import { AnimatePresence, motion } from 'framer-motion';
+import Confetti from 'react-confetti';
 
 // Tipagem forte e expandida
 interface Objetivo {
-  id: string; // Mudado para string para UUIDs futuros
+  id: string;
   title: string;
   description?: string;
   progress: number; // 0–100
@@ -55,7 +55,7 @@ const fakeApi = {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve(mockObjetivos);
-      }, 500); // Simula delay de rede
+      }, 500);
     });
   },
   async createObjetivo(newObj: Omit<Objetivo, 'id' | 'createdAt' | 'updatedAt'>): Promise<Objetivo> {
@@ -89,7 +89,7 @@ const fakeApi = {
   },
 };
 
-// Mock data expandido com mais exemplos e variedade
+// Mock data expandido
 const mockObjetivos: Objetivo[] = [
   {
     id: '1',
@@ -129,7 +129,7 @@ const mockObjetivos: Objetivo[] = [
     title: 'Reduzir tempo de resposta do suporte para < 2h',
     description: 'Otimizar processos e integrar IA para respostas rápidas.',
     progress: 12,
-    deadline: '2025-12-20', // Atrasado
+    deadline: '2025-12-20',
     createdAt: '2025-11-01T08:00:00Z',
     updatedAt: '2025-12-10T15:00:00Z',
     owner: { id: 'user3', name: 'João Santos' },
@@ -163,7 +163,6 @@ export default function ObjetivosPage() {
   const { t, currentLanguage } = useTranslation();
   const locale = currentLanguage === 'pt' ? ptBR : enUS;
 
-  // Estados principais
   const [objetivos, setObjetivos] = useState<Objetivo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -172,14 +171,12 @@ export default function ObjetivosPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showConfetti, setShowConfetti] = useState(false);
 
-  // Estados para modais
   const [modalType, setModalType] = useState<'create' | 'edit' | 'delete' | null>(null);
   const [selectedObjetivo, setSelectedObjetivo] = useState<Objetivo | null>(null);
   const [formData, setFormData] = useState<Partial<Objetivo>>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Carregar dados iniciais
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -190,7 +187,6 @@ export default function ObjetivosPage() {
     loadData();
   }, []);
 
-  // Cálculo de status e filtragem/ordenação
   const objetivosProcessados = useMemo(() => {
     let filtered = objetivos.map((obj) => {
       const deadlineDate = parseISO(obj.deadline);
@@ -207,7 +203,6 @@ export default function ObjetivosPage() {
       return { ...obj, status };
     });
 
-    // Filtro por busca
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -219,12 +214,10 @@ export default function ObjetivosPage() {
       );
     }
 
-    // Filtro por status
     if (filterStatus !== 'all') {
       filtered = filtered.filter((obj) => obj.status === filterStatus);
     }
 
-    // Ordenação
     filtered.sort((a, b) => {
       let compare = 0;
       if (sortBy === 'deadline') {
@@ -286,7 +279,6 @@ export default function ObjetivosPage() {
     }
   };
 
-  // Handlers para modais e CRUD
   const openCreateModal = () => {
     setModalType('create');
     setFormData({
@@ -294,7 +286,7 @@ export default function ObjetivosPage() {
       description: '',
       progress: 0,
       deadline: addDays(new Date(), 30).toISOString().split('T')[0],
-      owner: { id: 'user1', name: 'Pedro Silva' }, // Default para o user logado
+      owner: { id: 'user1', name: 'Pedro Silva' },
       tags: [],
     });
     setFormErrors({});
@@ -353,7 +345,6 @@ export default function ObjetivosPage() {
       closeModal();
     } catch (error) {
       console.error(error);
-      // Adicionar toast de erro aqui se tiver componente
     } finally {
       setIsSubmitting(false);
     }
@@ -370,7 +361,6 @@ export default function ObjetivosPage() {
     });
   };
 
-  // Opções para selects
   const statusOptions = [
     { value: 'all', label: t('todos') },
     { value: 'not_started', label: t('naoIniciado') },
@@ -386,275 +376,282 @@ export default function ObjetivosPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-950 pb-20">
+    <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
       {showConfetti && <Confetti width={window.innerWidth} height={window.innerHeight} recycle={false} />}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-10 lg:pt-16">
-        {/* Header expandido */}
-        <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="rounded-2xl bg-zinc-800/50 p-4 shadow-lg ring-1 ring-zinc-700/30">
-              <Target className="h-10 w-10 text-zinc-100" strokeWidth={1.5} />
-            </div>
-            <div>
-              <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-                {t('objetivosEResultados')}
-              </h1>
-              <p className="mt-2 text-lg text-zinc-300">
-                {t('acompanhamentoDeMetasDaEquipeEDashboardInterativo')}
-              </p>
-            </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant="outline"
-              size="md"
-              icon={<FileText className="h-4 w-4" />}
-              disabled={isLoading || objetivos.length === 0}
-              // onClick={exportarDados}
-            >
-              {t('exportarRelatorio')}
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              icon={<Plus className="h-5 w-5" />}
-              onClick={openCreateModal}
-              disabled={isLoading}
-            >
-              {t('novoObjetivo')}
-            </Button>
-          </div>
-        </div>
-
-        {/* Filtros e busca */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400" />
-            <Input
-              type="text"
-              placeholder={t('buscarPorTituloDescricaoOuTag')}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-10"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200"
-              >
-                <CloseIcon className="h-5 w-5" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Filter className="h-5 w-5 text-zinc-400" />
-            <Select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              options={statusOptions}
-              className="w-48"
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <ChevronDown className="h-5 w-5 text-zinc-400" />
-            <Select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              options={sortOptions}
-              className="w-40"
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              className="px-2"
-            >
-              {sortOrder === 'asc' ? '↑' : '↓'}
-            </Button>
-          </div>
-        </div>
-
-        {/* Conteúdo principal com animações */}
-        <AnimatePresence mode="wait">
-          {isLoading ? (
-            <motion.div
-              key="loading"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-            >
-              {[...Array(8)].map((_, i) => (
-                <Card key={i} className="animate-pulse h-64 bg-zinc-900/30 shadow-xl" />
-              ))}
-            </motion.div>
-          ) : objetivosProcessados.length === 0 ? (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card className="py-20 text-center shadow-2xl">
-                <Target className="mx-auto h-16 w-16 text-zinc-500" />
-                <h3 className="mt-6 text-2xl font-bold text-zinc-100">
-                  {t('nenhumObjetivoEncontrado')}
-                </h3>
-                <p className="mt-3 text-lg text-zinc-400 max-w-lg mx-auto">
-                  {t('crieSeuPrimeiroObjetivoOuAjusteFiltros')}
+      {/* Ajuste principal: pt-20 para header + lg:pl-64 para sidebar fixa no desktop */}
+      <div
+        className={`
+          pt-20
+          lg:pl-64
+          px-4 sm:px-6 lg:px-8
+          transition-all duration-300
+        `}
+      >
+        <div className="mx-auto max-w-7xl pb-20 space-y-10">
+          {/* Header */}
+          <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="rounded-2xl bg-zinc-800/50 p-4 shadow-lg ring-1 ring-zinc-700/30">
+                <Target className="h-10 w-10 text-zinc-100" strokeWidth={1.5} />
+              </div>
+              <div>
+                <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+                  {t('objetivosEResultados')}
+                </h1>
+                <p className="mt-2 text-lg text-zinc-300">
+                  {t('acompanhamentoDeMetasDaEquipeEDashboardInterativo')}
                 </p>
-                <Button
-                  variant="primary"
-                  className="mt-8 px-8"
-                  icon={<Plus className="h-5 w-5" />}
-                  onClick={openCreateModal}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="outline"
+                size="md"
+                icon={<FileText className="h-4 w-4" />}
+                disabled={isLoading || objetivos.length === 0}
+              >
+                {t('exportarRelatorio')}
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                icon={<Plus className="h-5 w-5" />}
+                onClick={openCreateModal}
+                disabled={isLoading}
+              >
+                {t('novoObjetivo')}
+              </Button>
+            </div>
+          </div>
+
+          {/* Filtros e busca */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400" />
+              <Input
+                type="text"
+                placeholder={t('buscarPorTituloDescricaoOuTag')}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-10"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200"
                 >
-                  {t('criarObjetivo')}
-                </Button>
-              </Card>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="content"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-            >
-              {objetivosProcessados.map((obj, index) => {
-                const statusConfig = getStatusConfig(obj.status);
-                const StatusIcon = statusConfig.icon;
+                  <CloseIcon className="h-5 w-5" />
+                </button>
+              )}
+            </div>
 
-                return (
-                  <motion.div
-                    key={obj.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
+            <div className="flex items-center gap-3">
+              <Filter className="h-5 w-5 text-zinc-400" />
+              <Select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                options={statusOptions}
+                className="w-48"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <ChevronDown className="h-5 w-5 text-zinc-400" />
+              <Select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                options={sortOptions}
+                className="w-40"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="px-2"
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Conteúdo principal */}
+          <AnimatePresence mode="wait">
+            {isLoading ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              >
+                {[...Array(8)].map((_, i) => (
+                  <Card key={i} className="animate-pulse h-64 bg-zinc-900/30 shadow-xl" />
+                ))}
+              </motion.div>
+            ) : objetivosProcessados.length === 0 ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Card className="py-20 text-center shadow-2xl">
+                  <Target className="mx-auto h-16 w-16 text-zinc-500" />
+                  <h3 className="mt-6 text-2xl font-bold text-zinc-100">
+                    {t('nenhumObjetivoEncontrado')}
+                  </h3>
+                  <p className="mt-3 text-lg text-zinc-400 max-w-lg mx-auto">
+                    {t('crieSeuPrimeiroObjetivoOuAjusteFiltros')}
+                  </p>
+                  <Button
+                    variant="primary"
+                    className="mt-8 px-8"
+                    icon={<Plus className="h-5 w-5" />}
+                    onClick={openCreateModal}
                   >
-                    <Card
-                      hoverable
-                      className="flex h-full flex-col overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl"
+                    {t('criarObjetivo')}
+                  </Button>
+                </Card>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="content"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              >
+                {objetivosProcessados.map((obj, index) => {
+                  const statusConfig = getStatusConfig(obj.status);
+                  const StatusIcon = statusConfig.icon;
+
+                  return (
+                    <motion.div
+                      key={obj.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
                     >
-                      <div className="flex items-start justify-between gap-4 p-6 pb-3">
-                        <div className="flex-1">
-                          <h3 className="line-clamp-2 text-lg font-semibold text-zinc-100">
-                            {obj.title}
-                          </h3>
-                          {obj.description && (
-                            <p className="mt-1 line-clamp-2 text-sm text-zinc-400">
-                              {obj.description}
-                            </p>
-                          )}
-                        </div>
-
-                        <DropdownMenu
-                          trigger={
-                            <button className="rounded-full p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
-                              <MoreVertical className="h-5 w-5" />
-                            </button>
-                          }
-                          items={[
-                            {
-                              label: t('editar'),
-                              icon: Edit,
-                              onClick: () => openEditModal(obj),
-                            },
-                            {
-                              label: t('excluir'),
-                              icon: Trash2,
-                              variant: 'destructive',
-                              onClick: () => openDeleteModal(obj),
-                            },
-                          ]}
-                        />
-                      </div>
-
-                      <div className="flex-1 space-y-5 px-6 pb-6">
-                        {/* Progresso com tooltip */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-medium text-zinc-300">{t('progresso')}</span>
-                            <Tooltip content={`${obj.progress}% ${t('concluido')}`}>
-                              <span className="text-base font-bold text-zinc-100">
-                                {obj.progress}%
-                              </span>
-                            </Tooltip>
+                      <Card
+                        hoverable
+                        className="flex h-full flex-col overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl"
+                      >
+                        <div className="flex items-start justify-between gap-4 p-6 pb-3">
+                          <div className="flex-1">
+                            <h3 className="line-clamp-2 text-lg font-semibold text-zinc-100">
+                              {obj.title}
+                            </h3>
+                            {obj.description && (
+                              <p className="mt-1 line-clamp-2 text-sm text-zinc-400">
+                                {obj.description}
+                              </p>
+                            )}
                           </div>
-                          <ProgressBar
-                            value={obj.progress}
-                            className={statusConfig.progressColor}
+
+                          <DropdownMenu
+                            trigger={
+                              <button className="rounded-full p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
+                                <MoreVertical className="h-5 w-5" />
+                              </button>
+                            }
+                            items={[
+                              {
+                                label: t('editar'),
+                                icon: Edit,
+                                onClick: () => openEditModal(obj),
+                              },
+                              {
+                                label: t('excluir'),
+                                icon: Trash2,
+                                variant: 'destructive',
+                                onClick: () => openDeleteModal(obj),
+                              },
+                            ]}
                           />
                         </div>
 
-                        {/* Informações adicionais */}
-                        <div className="space-y-3 text-sm">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-zinc-400">
-                              <Calendar className="h-4 w-4" />
-                              <span>{formatarData(obj.deadline)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-zinc-400">
-                              <User className="h-4 w-4" />
-                              <span>{obj.owner.name}</span>
-                            </div>
-                          </div>
-                          {obj.tags && obj.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                              {obj.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-300"
-                                >
-                                  {tag}
+                        <div className="flex-1 space-y-5 px-6 pb-6">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="font-medium text-zinc-300">{t('progresso')}</span>
+                              <Tooltip content={`${obj.progress}% ${t('concluido')}`}>
+                                <span className="text-base font-bold text-zinc-100">
+                                  {obj.progress}%
                                 </span>
-                              ))}
+                              </Tooltip>
                             </div>
-                          )}
-                          <div
-                            className={cn(
-                              'flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium',
-                              statusConfig.bg,
-                              statusConfig.color
+                            <ProgressBar
+                              value={obj.progress}
+                              className={statusConfig.progressColor}
+                            />
+                          </div>
+
+                          <div className="space-y-3 text-sm">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 text-zinc-400">
+                                <Calendar className="h-4 w-4" />
+                                <span>{formatarData(obj.deadline)}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-zinc-400">
+                                <User className="h-4 w-4" />
+                                <span>{obj.owner.name}</span>
+                              </div>
+                            </div>
+                            {obj.tags && obj.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {obj.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-300"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
                             )}
-                          >
-                            <StatusIcon className="h-4 w-4" />
-                            {statusConfig.label}
+                            <div
+                              className={cn(
+                                'flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium',
+                                statusConfig.bg,
+                                statusConfig.color
+                              )}
+                            >
+                              <StatusIcon className="h-4 w-4" />
+                              {statusConfig.label}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              fullWidth
+                              disabled={obj.status === 'completed' || isSubmitting}
+                              onClick={() => handleProgressUpdate(obj, obj.progress + 10)}
+                            >
+                              +10%
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              fullWidth
+                              onClick={() => openEditModal(obj)}
+                            >
+                              {t('detalhes')}
+                            </Button>
                           </div>
                         </div>
-
-                        {/* Ações */}
-                        <div className="flex gap-3">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            fullWidth
-                            disabled={obj.status === 'completed' || isSubmitting}
-                            onClick={() => handleProgressUpdate(obj, obj.progress + 10)}
-                          >
-                            +10%
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            fullWidth
-                            onClick={() => openEditModal(obj)}
-                          >
-                            {t('detalhes')}
-                          </Button>
-                        </div>
-                      </div>
-                    </Card>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Modal de Criação/Edição */}

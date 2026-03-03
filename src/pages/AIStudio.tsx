@@ -183,103 +183,143 @@ Posso transformar isso automaticamente em estrutura organizada.`;
   ===================================================== */
 
   return (
-    <div className="min-h-screen pt-24 px-6 bg-gradient-to-b from-black via-zinc-950 to-black text-white">
-      <div className="max-w-6xl mx-auto grid grid-cols-12 gap-6">
-
-        {/* LEFT TOOLBAR */}
-        <div className="col-span-3 space-y-4">
-          <Card title="Ferramentas IA">
-            <div className="space-y-3">
-              <Button icon={<ClipboardPlus size={16} />} onClick={createDemand}>
-                Criar Demanda
-              </Button>
-              <Button icon={<Target size={16} />} onClick={createGoal}>
-                Criar Objetivo
-              </Button>
-              <Button icon={<FolderPlus size={16} />} onClick={createProject}>
-                Criar Projeto
-              </Button>
-              <Button icon={<Clipboard size={16} />} onClick={copyLast}>
-                Copiar Última Resposta
-              </Button>
-            </div>
-          </Card>
-
-          <Card title="Estatísticas">
-            <div className="text-sm text-zinc-400 space-y-2">
-              <div>Prompts enviados: {promptCount}</div>
-              <div>Projetos: {projetos.length}</div>
-              <div>Demandas: {demandas.length}</div>
-              <div>Objetivos: {objetivos.length}</div>
-            </div>
-          </Card>
-        </div>
-
-        {/* CHAT AREA */}
-        <div className="col-span-9">
-          <Card
-            title="Havk AI Co-Pilot"
-            description="Planejamento estratégico inteligente"
-          >
-            <div className="h-[550px] overflow-y-auto mb-6 space-y-6 p-6 bg-zinc-900/60 rounded-2xl border border-zinc-800">
-
-              {history.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${
-                    msg.role === 'user'
-                      ? 'justify-end'
-                      : 'justify-start'
-                  }`}
-                >
-                  <div
-                    className={`max-w-[75%] px-5 py-4 rounded-2xl text-sm ${
-                      msg.role === 'user'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
-                    }`}
+    <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
+      {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
+      <div
+        className={`
+          pt-20
+          lg:pl-64
+          px-4 sm:px-6 lg:px-8
+          transition-all duration-300
+        `}
+      >
+        <div className="mx-auto max-w-7xl pb-16">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* LEFT TOOLBAR - Ferramentas e Estatísticas */}
+            <div className="lg:col-span-3 space-y-6">
+              <Card title="Ferramentas IA" className="shadow-xl border-zinc-800">
+                <div className="space-y-3 p-2">
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    icon={<ClipboardPlus size={16} />}
+                    onClick={createDemand}
                   >
-                    <p className="whitespace-pre-line">
-                      {msg.content}
-                    </p>
+                    Criar Demanda
+                  </Button>
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    icon={<Target size={16} />}
+                    onClick={createGoal}
+                  >
+                    Criar Objetivo
+                  </Button>
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    icon={<FolderPlus size={16} />}
+                    onClick={createProject}
+                  >
+                    Criar Projeto
+                  </Button>
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    icon={<Clipboard size={16} />}
+                    onClick={copyLast}
+                  >
+                    Copiar Última Resposta
+                  </Button>
+                </div>
+              </Card>
+
+              <Card title="Estatísticas" className="shadow-xl border-zinc-800">
+                <div className="p-4 text-sm text-zinc-400 space-y-3">
+                  <div className="flex justify-between">
+                    <span>Prompts enviados:</span>
+                    <span className="font-medium text-zinc-200">{promptCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Projetos:</span>
+                    <span className="font-medium text-zinc-200">{projetos.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Demandas:</span>
+                    <span className="font-medium text-zinc-200">{demandas.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Objetivos:</span>
+                    <span className="font-medium text-zinc-200">{objetivos.length}</span>
                   </div>
                 </div>
-              ))}
-
-              {loading && (
-                <div className="bg-zinc-800 px-5 py-4 rounded-2xl text-zinc-400 text-sm border border-zinc-700">
-                  {streamingText || 'Havk AI está analisando...'}
-                </div>
-              )}
-
-              <div ref={chatEndRef} />
+              </Card>
             </div>
 
-            <div className="flex gap-3">
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={2}
-                placeholder="Digite sua estratégia..."
-                className="flex-1 resize-none bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-100"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit();
-                  }
-                }}
-              />
-
-              <Button
-                variant="primary"
-                icon={<Send size={18} />}
-                onClick={handleSubmit}
-                loading={loading}
+            {/* CHAT AREA - Principal */}
+            <div className="lg:col-span-9">
+              <Card
+                title="Havk AI Co-Pilot"
+                description="Planejamento estratégico inteligente"
+                className="shadow-2xl border-zinc-800"
               >
-                Enviar
-              </Button>
+                <div className="h-[600px] overflow-y-auto mb-6 space-y-6 p-6 bg-zinc-900/60 rounded-2xl border border-zinc-800">
+                  {history.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[80%] px-5 py-4 rounded-2xl text-sm leading-relaxed ${
+                          msg.role === 'user'
+                            ? 'bg-indigo-600/90 text-white'
+                            : 'bg-zinc-800/90 text-zinc-200 border border-zinc-700'
+                        }`}
+                      >
+                        <p className="whitespace-pre-line">{msg.content}</p>
+                      </div>
+                    </div>
+                  ))}
+
+                  {loading && (
+                    <div className="flex justify-start">
+                      <div className="max-w-[80%] px-5 py-4 rounded-2xl text-sm bg-zinc-800/90 text-zinc-300 border border-zinc-700 animate-pulse">
+                        {streamingText || 'Havk AI está analisando...'}
+                      </div>
+                    </div>
+                  )}
+
+                  <div ref={chatEndRef} />
+                </div>
+
+                <div className="flex gap-3">
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    rows={2}
+                    placeholder="Digite sua estratégia, ideia ou comando..."
+                    className="flex-1 resize-none bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSubmit();
+                      }
+                    }}
+                  />
+
+                  <Button
+                    variant="primary"
+                    icon={<Send size={18} />}
+                    onClick={handleSubmit}
+                    loading={loading}
+                    disabled={loading}
+                  >
+                    Enviar
+                  </Button>
+                </div>
+              </Card>
             </div>
-          </Card>
+          </div>
         </div>
       </div>
     </div>

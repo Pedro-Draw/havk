@@ -7,21 +7,46 @@ export default function NotFound() {
   const { t } = useTranslation();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-4">
-      <div className="text-center max-w-md">
-        <AlertTriangle className="w-24 h-24 text-red-500 mx-auto mb-8" />
-        <h1 className="text-8xl font-bold text-white mb-4">404</h1>
-        <h2 className="text-3xl font-semibold text-zinc-100 mb-6">
-          {t('paginaNaoEncontrada') || 'Página não encontrada'}
-        </h2>
-        <p className="text-zinc-400 mb-10">
-          A página que você está procurando não existe ou foi movida.
-        </p>
-        <Button variant="primary" size="lg" icon={<Home />} asChild>
-          <Link to="/">
-            Voltar para o Dashboard
-          </Link>
-        </Button>
+    <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100 flex items-center justify-center">
+      {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
+      <div
+        className={`
+          pt-20
+          lg:pl-64
+          px-4 sm:px-6 lg:px-8
+          transition-all duration-300
+          w-full
+        `}
+      >
+        <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[calc(100vh-80px)]">
+          <div className="text-center max-w-md">
+            <AlertTriangle className="w-28 h-28 md:w-32 md:h-32 text-red-500 mx-auto mb-10 animate-pulse" />
+            
+            <h1 className="text-8xl md:text-9xl font-extrabold text-white mb-6 tracking-tight">
+              404
+            </h1>
+            
+            <h2 className="text-3xl md:text-4xl font-bold text-zinc-100 mb-6">
+              {t('paginaNaoEncontrada') || 'Página não encontrada'}
+            </h2>
+            
+            <p className="text-lg md:text-xl text-zinc-400 mb-12 leading-relaxed">
+              A página que você está procurando não existe, foi movida ou está temporariamente indisponível.
+            </p>
+
+            <Button
+              variant="primary"
+              size="xl"
+              icon={<Home className="w-6 h-6" />}
+              asChild
+              className="px-10 py-5 text-lg font-medium"
+            >
+              <Link to="/">
+                Voltar para o Dashboard
+              </Link>
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

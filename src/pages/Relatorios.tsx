@@ -211,12 +211,10 @@ export default function Relatorios() {
     const toastId = toast.loading('Gerando PDF (pode demorar alguns segundos)...');
 
     try {
-      // Delay maior para Recharts + dark mode renderizar completamente
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Clone o elemento para forçar background e evitar black blob
       const clone = reportRef.current.cloneNode(true) as HTMLElement;
-      clone.style.backgroundColor = '#0a0a0a'; // zinc-950 aproximado
+      clone.style.backgroundColor = '#0a0a0a';
       clone.style.position = 'absolute';
       clone.style.left = '-9999px';
       clone.style.top = '-9999px';
@@ -226,9 +224,9 @@ export default function Relatorios() {
         scale: window.devicePixelRatio || 2,
         useCORS: true,
         logging: false,
-        backgroundColor: null, // Preserva transparência / dark
+        backgroundColor: null,
         allowTaint: true,
-        removeContainer: true, // Remove clone após
+        removeContainer: true,
         width: clone.offsetWidth,
         height: clone.offsetHeight,
         windowWidth: clone.scrollWidth,
@@ -277,7 +275,7 @@ export default function Relatorios() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-20 px-6 lg:px-8 bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="w-10 h-10 animate-spin mx-auto text-zinc-400" />
           <p className="mt-4 text-zinc-400">Carregando relatórios...</p>
@@ -288,7 +286,7 @@ export default function Relatorios() {
 
   if (error) {
     return (
-      <div className="min-h-screen pt-20 px-6 lg:px-8 bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4 sm:px-6 lg:px-8">
         <Card className="max-w-md text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
           <h2 className="mt-4 text-xl font-semibold text-white">Erro ao carregar</h2>
@@ -302,143 +300,153 @@ export default function Relatorios() {
   }
 
   return (
-    <div className="min-h-screen pt-20 px-4 sm:px-6 lg:px-8 bg-zinc-950 text-zinc-100">
-      <div ref={reportRef} className="max-w-7xl mx-auto pb-16">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-zinc-800 rounded-xl">
-              <BarChart3 className="w-7 h-7 text-sky-400" />
+    <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
+      {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
+      <div
+        className={`
+          pt-20
+          lg:pl-64
+          px-4 sm:px-6 lg:px-8
+          transition-all duration-300
+        `}
+      >
+        <div ref={reportRef} className="max-w-7xl mx-auto pb-16 space-y-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-zinc-800 rounded-xl">
+                <BarChart3 className="w-7 h-7 text-sky-400" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold">{t('relatorios')}</h1>
+                <p className="text-zinc-400 text-sm mt-1">Análise de desempenho e produtividade</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">{t('relatorios')}</h1>
-              <p className="text-zinc-400 text-sm mt-1">Análise de desempenho e produtividade</p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Select
+                value={periodo}
+                onChange={(e) => setPeriodo(e.target.value as PeriodoFiltro)}
+                options={opcoesPeriodo}
+                icon={<Calendar className="w-4 h-4" />}
+                className="w-56"
+              />
+
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" icon={<Download className="w-4 h-4" />} onClick={exportarCSV}>
+                  CSV
+                </Button>
+                <Button variant="outline" size="sm" icon={<Download className="w-4 h-4" />} onClick={exportarPDF}>
+                  PDF
+                </Button>
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Select
-              value={periodo}
-              onChange={(e) => setPeriodo(e.target.value as PeriodoFiltro)}
-              options={opcoesPeriodo}
-              icon={<Calendar className="w-4 h-4" />}
-              className="w-56"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <Card className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800">
+              <p className="text-sm text-zinc-400">Total de Demandas</p>
+              <p className="text-3xl font-bold mt-1">{stats.totalDemandas}</p>
+            </Card>
 
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" icon={<Download className="w-4 h-4" />} onClick={exportarCSV}>
-                CSV
-              </Button>
-              <Button variant="outline" size="sm" icon={<Download className="w-4 h-4" />} onClick={exportarPDF}>
-                PDF
-              </Button>
-            </div>
+            <Card className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800">
+              <p className="text-sm text-zinc-400">Demandas Concluídas</p>
+              <p className="text-3xl font-bold mt-1 text-emerald-400">{stats.demandasConcluidas}</p>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800">
+              <p className="text-sm text-zinc-400">Taxa de Conclusão</p>
+              <p className="text-3xl font-bold mt-1 text-sky-400">{stats.taxaConclusao}%</p>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800">
+              <p className="text-sm text-zinc-400">Média de Tempo</p>
+              <p className="text-3xl font-bold mt-1">
+                {stats.mediaTempoConclusaoDias.toFixed(1)} <span className="text-xl">dias</span>
+              </p>
+            </Card>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-          <Card className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800">
-            <p className="text-sm text-zinc-400">Total de Demandas</p>
-            <p className="text-3xl font-bold mt-1">{stats.totalDemandas}</p>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800">
-            <p className="text-sm text-zinc-400">Demandas Concluídas</p>
-            <p className="text-3xl font-bold mt-1 text-emerald-400">{stats.demandasConcluidas}</p>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800">
-            <p className="text-sm text-zinc-400">Taxa de Conclusão</p>
-            <p className="text-3xl font-bold mt-1 text-sky-400">{stats.taxaConclusao}%</p>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800">
-            <p className="text-sm text-zinc-400">Média de Tempo</p>
-            <p className="text-3xl font-bold mt-1">
-              {stats.mediaTempoConclusaoDias.toFixed(1)} <span className="text-xl">dias</span>
-            </p>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card title="Evolução de Conclusões" description="Últimos meses" className="h-full">
-            {stats.conclusoesPorMes.length === 0 ? (
-              <div className="h-72 flex items-center justify-center text-zinc-500">
-                Nenhum dado no período selecionado
-              </div>
-            ) : (
-              <div className="h-72">
-                <ResponsiveContainer>
-                  <BarChart data={stats.conclusoesPorMes} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                    <XAxis dataKey="mes" stroke="#71717a" />
-                    <YAxis stroke="#71717a" />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
-                      labelStyle={{ color: '#e4e4e7' }}
-                    />
-                    <Bar dataKey="quantidade" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </Card>
-
-          <Card title="Distribuição por Status" description="Situação atual das demandas">
-            {stats.distribuicaoStatus.length === 0 ? (
-              <div className="h-72 flex items-center justify-center text-zinc-500">
-                Nenhum dado no período selecionado
-              </div>
-            ) : (
-              <div className="h-72">
-                <ResponsiveContainer>
-                  <RePieChart>
-                    <Pie
-                      data={stats.distribuicaoStatus}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false}
-                    >
-                      {stats.distribuicaoStatus.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={CORES_STATUS[index % CORES_STATUS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
-                    />
-                    <Legend verticalAlign="bottom" wrapperStyle={{ color: '#d4d4d8' }} />
-                  </RePieChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </Card>
-
-          <Card title="Top Performers" description="Responsáveis com mais conclusões" className="lg:col-span-2">
-            <div className="space-y-3 mt-4">
-              {stats.topUsuarios.length === 0 ? (
-                <p className="text-center text-zinc-500 py-8">Nenhum dado disponível</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card title="Evolução de Conclusões" description="Últimos meses" className="h-full">
+              {stats.conclusoesPorMes.length === 0 ? (
+                <div className="h-72 flex items-center justify-center text-zinc-500">
+                  Nenhum dado no período selecionado
+                </div>
               ) : (
-                stats.topUsuarios.map((user, idx) => (
-                  <div
-                    key={user.nome}
-                    className="flex items-center justify-between p-4 bg-zinc-900/70 rounded-lg border border-zinc-800 hover:border-zinc-700 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold">
-                        {idx + 1}
-                      </div>
-                      <span className="font-medium">{user.nome}</span>
-                    </div>
-                    <div className="text-emerald-400 font-bold">{user.concluidas} concluídas</div>
-                  </div>
-                ))
+                <div className="h-72">
+                  <ResponsiveContainer>
+                    <BarChart data={stats.conclusoesPorMes} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                      <XAxis dataKey="mes" stroke="#71717a" />
+                      <YAxis stroke="#71717a" />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
+                        labelStyle={{ color: '#e4e4e7' }}
+                      />
+                      <Bar dataKey="quantidade" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               )}
-            </div>
-          </Card>
+            </Card>
+
+            <Card title="Distribuição por Status" description="Situação atual das demandas">
+              {stats.distribuicaoStatus.length === 0 ? (
+                <div className="h-72 flex items-center justify-center text-zinc-500">
+                  Nenhum dado no período selecionado
+                </div>
+              ) : (
+                <div className="h-72">
+                  <ResponsiveContainer>
+                    <RePieChart>
+                      <Pie
+                        data={stats.distribuicaoStatus}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {stats.distribuicaoStatus.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={CORES_STATUS[index % CORES_STATUS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
+                      />
+                      <Legend verticalAlign="bottom" wrapperStyle={{ color: '#d4d4d8' }} />
+                    </RePieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </Card>
+
+            <Card title="Top Performers" description="Responsáveis com mais conclusões" className="lg:col-span-2">
+              <div className="space-y-3 mt-4">
+                {stats.topUsuarios.length === 0 ? (
+                  <p className="text-center text-zinc-500 py-8">Nenhum dado disponível</p>
+                ) : (
+                  stats.topUsuarios.map((user, idx) => (
+                    <div
+                      key={user.nome}
+                      className="flex items-center justify-between p-4 bg-zinc-900/70 rounded-lg border border-zinc-800 hover:border-zinc-700 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold">
+                          {idx + 1}
+                        </div>
+                        <span className="font-medium">{user.nome}</span>
+                      </div>
+                      <div className="text-emerald-400 font-bold">{user.concluidas} concluídas</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

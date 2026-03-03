@@ -1,0 +1,745 @@
+{
+  "projectInfo": {
+    "totalFiles": 104,
+    "timestamp": "2026-03-03T15:59:16.204Z"
+  },
+  "structure": [
+    "📄 README.md",
+    "📁 dist",
+    "📁 dist/assets",
+    "📄 dist/assets/favicon-CyIE-ZDt.jpg",
+    "📄 dist/assets/index-CZWLpEW1.css",
+    "📄 dist/assets/index-Dnejze24.js",
+    "📄 dist/assets/index-Dnejze24.js.map",
+    "📄 dist/assets/index.es-CS4d6fee.js",
+    "📄 dist/assets/index.es-CS4d6fee.js.map",
+    "📄 dist/assets/purify.es-B9ZVCkUG.js",
+    "📄 dist/assets/purify.es-B9ZVCkUG.js.map",
+    "📄 dist/favicon.ico",
+    "📄 dist/index.html",
+    "📄 dist/manifest.json",
+    "📄 dist/vite.svg",
+    "📄 eslint.config.js",
+    "📄 havk-deep-audit.js",
+    "📁 image",
+    "📄 image/favicon.jpg",
+    "📄 index.html",
+    "📄 notas-footer.txt",
+    "📄 notas.txt",
+    "📄 package-lock.json",
+    "📄 package.json",
+    "📄 postcss.config.js",
+    "📁 public",
+    "📄 public/favicon.ico",
+    "📄 public/manifest.json",
+    "📄 public/vite.svg",
+    "📄 setup-structure.sh",
+    "📁 src",
+    "📄 src/App.css",
+    "📄 src/App.tsx",
+    "📁 src/assets",
+    "📄 src/assets/react.svg",
+    "📁 src/components",
+    "📁 src/components/common",
+    "📄 src/components/common/ThemeToggle.tsx",
+    "📁 src/components/kanban",
+    "📄 src/components/kanban/SortableCard.tsx",
+    "📁 src/components/layout",
+    "📄 src/components/layout/Footer.tsx",
+    "📄 src/components/layout/MobileMenu.tsx",
+    "📄 src/components/layout/ProtectedRoute.tsx",
+    "📄 src/components/layout/Sidebar.tsx",
+    "📄 src/components/layout/Topbar.tsx",
+    "📁 src/components/ui",
+    "📄 src/components/ui/Button.tsx",
+    "📄 src/components/ui/Card.tsx",
+    "📄 src/components/ui/Input.tsx",
+    "📄 src/components/ui/Modal.tsx",
+    "📄 src/components/ui/ProgressBar.tsx",
+    "📄 src/components/ui/Select.tsx",
+    "📄 src/components/ui/Toast.tsx",
+    "📄 src/components/ui/Tooltip.tsx",
+    "📄 src/components/ui/dropdown-menu.tsx",
+    "📄 src/components/ui/textarea.tsx",
+    "📁 src/db",
+    "📄 src/db/indexedDB.ts",
+    "📁 src/hooks",
+    "📄 src/hooks/useAuth.ts",
+    "📄 src/hooks/useLanguage.ts",
+    "📄 src/hooks/useTheme.ts",
+    "📁 src/i18n",
+    "📁 src/i18n/translations",
+    "📄 src/i18n/translations/en.ts",
+    "📄 src/i18n/translations/pt-BR.ts",
+    "📄 src/i18n/useTranslation.ts",
+    "📄 src/index.css",
+    "📁 src/lib",
+    "📄 src/lib/utils.ts",
+    "📄 src/main.tsx",
+    "📁 src/pages",
+    "📄 src/pages/AIStudio.tsx",
+    "📄 src/pages/Calendario.tsx",
+    "📄 src/pages/ChatGlobal.tsx",
+    "📄 src/pages/Configuracoes.tsx",
+    "📄 src/pages/Dashboard.tsx",
+    "📄 src/pages/DemandaDetail.tsx",
+    "📄 src/pages/Equipe.tsx",
+    "📄 src/pages/Gantt.tsx",
+    "📄 src/pages/Inbox.tsx",
+    "📄 src/pages/Kanban.tsx",
+    "📄 src/pages/NotFound.tsx",
+    "📄 src/pages/Notas.tsx",
+    "📄 src/pages/Objetivos.tsx",
+    "📄 src/pages/Projetos.tsx",
+    "📄 src/pages/Relatorios.tsx",
+    "📄 src/pages/Templates.tsx",
+    "📄 src/pages/TimeTracker.tsx",
+    "📁 src/pages/auth",
+    "📄 src/pages/auth/ForgotPassword.tsx",
+    "📄 src/pages/auth/Login.tsx",
+    "📄 src/pages/auth/Signup.tsx",
+    "📁 src/store",
+    "📄 src/store/useAppStore.ts",
+    "📄 src/store/useSaasStore.ts",
+    "📁 src/utils",
+    "📄 src/utils/cn.ts",
+    "📄 tailwind.config.ts",
+    "📄 tsconfig.app.json",
+    "📄 tsconfig.json",
+    "📄 tsconfig.node.json",
+    "📄 vite.config.ts"
+  ],
+  "architecture": {
+    "usesZustand": true,
+    "usesIndexedDB": true,
+    "usesLocalStorage": true,
+    "usesContext": true,
+    "hasLayoutSystem": true,
+    "hasAuthFlow": true
+  },
+  "stateInsights": {},
+  "potentialProblems": [
+    "Uso de 'any' em havk-deep-audit.js",
+    "Possível memory leak em notas-footer.txt",
+    "Uso de 'any' em src/components/kanban/SortableCard.tsx",
+    "Possível memory leak em src/components/layout/Footer.tsx",
+    "Possível memory leak em src/components/layout/MobileMenu.tsx",
+    "Possível memory leak em src/components/ui/Modal.tsx",
+    "Possível memory leak em src/components/ui/Toast.tsx",
+    "Possível memory leak em src/components/ui/dropdown-menu.tsx",
+    "Possível memory leak em src/hooks/useTheme.ts",
+    "Possível memory leak em src/pages/AIStudio.tsx",
+    "Uso de 'any' em src/pages/Calendario.tsx",
+    "Possível memory leak em src/pages/ChatGlobal.tsx",
+    "Uso de 'any' em src/pages/Inbox.tsx",
+    "Possível memory leak em src/pages/Inbox.tsx",
+    "Possível memory leak em src/pages/Kanban.tsx",
+    "Uso de 'any' em src/pages/Notas.tsx",
+    "Possível memory leak em src/pages/Notas.tsx",
+    "Possível memory leak em src/pages/TimeTracker.tsx",
+    "Possível memory leak em src/pages/auth/ForgotPassword.tsx",
+    "Uso de 'any' em src/pages/auth/Login.tsx",
+    "Possível memory leak em src/pages/auth/Login.tsx",
+    "Uso de 'any' em src/pages/auth/Signup.tsx",
+    "Possível memory leak em src/pages/auth/Signup.tsx"
+  ],
+  "improvementAreas": [],
+  "fileSummaries": {
+    "README.md": {
+      "lines": 75,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "dist/assets/favicon-CyIE-ZDt.jpg": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 52042
+    },
+    "dist/assets/index-CZWLpEW1.css": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 81637
+    },
+    "dist/assets/index-Dnejze24.js": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 1592227
+    },
+    "dist/assets/index-Dnejze24.js.map": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 6398189
+    },
+    "dist/assets/index.es-CS4d6fee.js": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 150557
+    },
+    "dist/assets/index.es-CS4d6fee.js.map": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 636537
+    },
+    "dist/assets/purify.es-B9ZVCkUG.js": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 22683
+    },
+    "dist/assets/purify.es-B9ZVCkUG.js.map": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 92901
+    },
+    "dist/favicon.ico": {
+      "lines": 1,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "dist/index.html": {
+      "lines": 25,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "dist/manifest.json": {
+      "lines": 15,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "dist/vite.svg": {
+      "lines": 1,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "eslint.config.js": {
+      "lines": 24,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "havk-deep-audit.js": {
+      "lines": 136,
+      "hasAPI": true,
+      "hasMock": true,
+      "hasAI": true,
+      "hasState": true,
+      "hasRouting": true
+    },
+    "image/favicon.jpg": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 52042
+    },
+    "index.html": {
+      "lines": 24,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "notas-footer.txt": {
+      "lines": 305,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": true,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "notas.txt": {
+      "lines": 64,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": true,
+      "hasState": true,
+      "hasRouting": true
+    },
+    "package-lock.json": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 137915
+    },
+    "package.json": {
+      "lines": 52,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "postcss.config.js": {
+      "lines": 5,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "public/favicon.ico": {
+      "lines": 1,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "public/manifest.json": {
+      "lines": 15,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "public/vite.svg": {
+      "lines": 1,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "setup-structure.sh": {
+      "lines": 66,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": true,
+      "hasState": true,
+      "hasRouting": true
+    },
+    "src/App.css": {
+      "lines": 95,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/App.tsx": {
+      "lines": 110,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": true,
+      "hasState": false,
+      "hasRouting": true
+    },
+    "src/assets/react.svg": {
+      "lines": 1,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/common/ThemeToggle.tsx": {
+      "lines": 35,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/kanban/SortableCard.tsx": {
+      "lines": 120,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/layout/Footer.tsx": {
+      "lines": 282,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/components/layout/MobileMenu.tsx": {
+      "lines": 146,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/components/layout/ProtectedRoute.tsx": {
+      "lines": 14,
+      "hasAPI": false,
+      "hasMock": true,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": true
+    },
+    "src/components/layout/Sidebar.tsx": {
+      "lines": 205,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/layout/Topbar.tsx": {
+      "lines": 81,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/components/ui/Button.tsx": {
+      "lines": 64,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/ui/Card.tsx": {
+      "lines": 45,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/ui/Input.tsx": {
+      "lines": 40,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/ui/Modal.tsx": {
+      "lines": 76,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/ui/ProgressBar.tsx": {
+      "lines": 24,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/ui/Select.tsx": {
+      "lines": 51,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/ui/Toast.tsx": {
+      "lines": 50,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/ui/Tooltip.tsx": {
+      "lines": 18,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/components/ui/dropdown-menu.tsx": {
+      "lines": 51,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/components/ui/textarea.tsx": {
+      "lines": 19,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/db/indexedDB.ts": {
+      "lines": 197,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/hooks/useAuth.ts": {
+      "lines": 31,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/hooks/useLanguage.ts": {
+      "lines": 22,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/hooks/useTheme.ts": {
+      "lines": 46,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/i18n/translations/en.ts": {
+      "lines": 117,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": true,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/i18n/translations/pt-BR.ts": {
+      "lines": 116,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": true,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/i18n/useTranslation.ts": {
+      "lines": 23,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/index.css": {
+      "lines": 112,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": true,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/lib/utils.ts": {
+      "lines": 3,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/main.tsx": {
+      "lines": 13,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/pages/AIStudio.tsx": {
+      "lines": 287,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": true,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/pages/Calendario.tsx": {
+      "lines": 300,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/pages/ChatGlobal.tsx": {
+      "lines": 108,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/pages/Configuracoes.tsx": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 22211
+    },
+    "src/pages/Dashboard.tsx": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 22259
+    },
+    "src/pages/DemandaDetail.tsx": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 19745
+    },
+    "src/pages/Equipe.tsx": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 21074
+    },
+    "src/pages/Gantt.tsx": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 15724
+    },
+    "src/pages/Inbox.tsx": {
+      "lines": 241,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/pages/Kanban.tsx": {
+      "lines": 442,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": true,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/pages/NotFound.tsx": {
+      "lines": 28,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/pages/Notas.tsx": {
+      "lines": 124,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/pages/Objetivos.tsx": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 28468
+    },
+    "src/pages/Projetos.tsx": {
+      "lines": 58,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/pages/Relatorios.tsx": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 16231
+    },
+    "src/pages/Templates.tsx": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 16762
+    },
+    "src/pages/TimeTracker.tsx": {
+      "lines": 306,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/pages/auth/ForgotPassword.tsx": {
+      "lines": 119,
+      "hasAPI": true,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/pages/auth/Login.tsx": {
+      "lines": 157,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/pages/auth/Signup.tsx": {
+      "lines": 284,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": true,
+      "hasRouting": false
+    },
+    "src/store/useAppStore.ts": {
+      "note": "Arquivo muito grande - resumido",
+      "size": 14221
+    },
+    "src/store/useSaasStore.ts": {
+      "lines": 63,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "src/utils/cn.ts": {
+      "lines": 7,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "tailwind.config.ts": {
+      "lines": 12,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "tsconfig.app.json": {
+      "lines": 29,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "tsconfig.json": {
+      "lines": 30,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "tsconfig.node.json": {
+      "lines": 24,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": false,
+      "hasState": false,
+      "hasRouting": false
+    },
+    "vite.config.ts": {
+      "lines": 22,
+      "hasAPI": false,
+      "hasMock": false,
+      "hasAI": true,
+      "hasState": false,
+      "hasRouting": false
+    }
+  }
+}
