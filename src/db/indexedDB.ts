@@ -1,5 +1,5 @@
 // IndexedDB wrapper completo para o Havk - offline-first
-// Armazena: user, demandas, notas, chatMensagens, templates, preferencias
+// Armazena: user, membros, demandas, notas, chatMensagens, templates, preferencias
 
 interface DBStore {
   name: string;
@@ -19,19 +19,19 @@ const STORES: DBStore[] = [
     indexes: [{ name: 'email', keyPath: 'email', unique: true }],
   },
   {
-  name: 'membros',
-  keyPath: 'id',
-  autoIncrement: false,
-  indexes: [
-    { name: 'email', keyPath: 'email', unique: false },
-    { name: 'role', keyPath: 'role' },
-    { name: 'status', keyPath: 'status' },
-  ],
-},
+    name: 'membros',
+    keyPath: 'id',
+    autoIncrement: false,
+    indexes: [
+      { name: 'email', keyPath: 'email', unique: false },
+      { name: 'role', keyPath: 'role' },
+      { name: 'status', keyPath: 'status' },
+    ],
+  },
   {
     name: 'demandas',
     keyPath: 'id',
-    autoIncrement: true,
+    autoIncrement: true,           // mantido como você queria originalmente
     indexes: [
       { name: 'status', keyPath: 'status' },
       { name: 'prioridade', keyPath: 'prioridade' },
@@ -87,7 +87,7 @@ export const openDB = (): Promise<IDBDatabase> => {
         if (!upgradeDb.objectStoreNames.contains(store.name)) {
           const objectStore = upgradeDb.createObjectStore(store.name, {
             keyPath: store.keyPath,
-            autoIncrement: store.autoIncrement,
+            autoIncrement: store.autoIncrement ?? false,
           });
 
           store.indexes?.forEach((index) => {
@@ -116,9 +116,34 @@ export const getItem = async <T>(storeName: string, key: IDBValidKey): Promise<T
   return new Promise((resolve, reject) => {
     const tx = database.transaction(storeName, 'readonly');
     const store = tx.objectStore(storeName);
-    const request = store.get(key);
 
-    request.onsuccess = () => resolve(request.result);
+    let searchKey: IDBValidKey = key;
+
+    // Conversão inteligente para demandas (resolve o problema number vs string)
+    if (storeName === 'demandas') {
+      if (typeof key === 'string' && /^\d+$/.test(key)) {
+        searchKey = Number(key); // tenta como número primeiro
+      }
+    }
+
+    const request = store.get(searchKey);
+
+    request.onsuccess = () => {
+      if (request.result !== undefined) {
+        resolve(request.result as T | undefined);
+        return;
+      }
+
+      // Fallback: se não achou como number, tenta como string (para dados inconsistentes)
+      if (searchKey !== key && typeof key === 'string') {
+        const fallbackReq = store.get(key);
+        fallbackReq.onsuccess = () => resolve(fallbackReq.result as T | undefined);
+        fallbackReq.onerror = () => reject(fallbackReq.error);
+      } else {
+        resolve(undefined);
+      }
+    };
+
     request.onerror = () => reject(request.error);
   });
 };
@@ -140,7 +165,17 @@ export const deleteItem = async (storeName: string, key: IDBValidKey): Promise<v
   return new Promise((resolve, reject) => {
     const tx = database.transaction(storeName, 'readwrite');
     const store = tx.objectStore(storeName);
-    const request = store.delete(key);
+
+    let deleteKey: IDBValidKey = key;
+
+    // Mesma conversão inteligente para demandas
+    if (storeName === 'demandas') {
+      if (typeof key === 'string' && /^\d+$/.test(key)) {
+        deleteKey = Number(key);
+      }
+    }
+
+    const request = store.delete(deleteKey);
 
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
@@ -154,7 +189,7 @@ export const getAll = async <T>(storeName: string): Promise<T[]> => {
     const store = tx.objectStore(storeName);
     const request = store.getAll();
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(request.result as T[]);
     request.onerror = () => reject(request.error);
   });
 };
@@ -171,7 +206,7 @@ export const getByIndex = async <T>(
     const index = store.index(indexName);
     const request = index.getAll(query);
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(request.result as T[]);
     request.onerror = () => reject(request.error);
   });
 };
