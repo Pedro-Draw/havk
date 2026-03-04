@@ -1,4 +1,4 @@
-// pages/DemandaDetail.tsx  (ou mantenha o nome que já usa)
+// pages/DemandaDetail.tsx
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../i18n/useTranslation';
@@ -16,6 +16,9 @@ import {
   ArrowLeft,
   ListTodo,
   Plus,
+  Paperclip,
+  User,
+  Calendar,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -43,6 +46,7 @@ export default function DemandaDetail() {
 
   const [newMessage, setNewMessage] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const [nota, setNota] = useState('');
   const [notaOriginal, setNotaOriginal] = useState('');
@@ -50,7 +54,9 @@ export default function DemandaDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedFields, setEditedFields] = useState<Partial<Demanda>>({});
 
-  // Modal criação
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newDemandaForm, setNewDemandaForm] = useState({
     title: '',
@@ -58,16 +64,11 @@ export default function DemandaDetail() {
     priority: 'media' as 'baixa' | 'media' | 'alta' | 'urgente',
     status: 'aberta' as 'aberta' | 'em-progresso' | 'concluida' | 'bloqueada',
     prazo: '',
-    responsavel: '', // ← compatível com assignee no store
+    responsavel: '',
   });
 
-  // Encontra a demanda atual (quando tem :id)
   const demanda = idParam ? demandas.find(d => d.id === idParam) : null;
-
-  // Mensagens do chat filtradas por essa demanda
   const filteredChat = chatMensagens.filter(m => m.demandaId === idParam);
-
-  // Nota associada (assumindo 1 nota por demanda por enquanto)
   const existingNota = notas.find(n => n.demandaId === idParam);
 
   useEffect(() => {
@@ -81,27 +82,46 @@ export default function DemandaDetail() {
   }, [existingNota]);
 
   useEffect(() => {
-    // Scroll automático para última mensagem
-    setTimeout(() => {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 120);
-  }, [filteredChat]);
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  }, [filteredChat, selectedFiles]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !idParam) return;
+    if ((!newMessage.trim() && selectedFiles.length === 0) || !idParam) return;
 
     try {
-      await addChatMensagem({
-        message: newMessage.trim(),
-        demandaId: idParam,
-        senderId: 'current-user', // TODO: pegar id real do usuário logado
-        channel: 'demanda',
-      });
+      if (newMessage.trim()) {
+        await addChatMensagem({
+          message: newMessage.trim(),
+          demandaId: idParam,
+          senderId: 'current-user', // TODO: substituir pelo usuário real logado
+          channel: 'demanda',
+        });
+      }
+
+      if (selectedFiles.length > 0) {
+        // TODO: implementar upload real para storage (Firebase/S3/etc) e salvar URLs
+        toast.success(`${selectedFiles.length} arquivo(s) anexado(s) com sucesso`);
+        setSelectedFiles([]);
+      }
+
       setNewMessage('');
-      toast.success('Mensagem enviada');
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       toast.error('Erro ao enviar mensagem');
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setSelectedFiles(prev => [...prev, ...filesArray]);
+    }
+  };
+
+  const removeFilePreview = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSaveNota = async () => {
@@ -177,13 +197,13 @@ export default function DemandaDetail() {
         status: newDemandaForm.status,
         priority: newDemandaForm.priority,
         prazo: newDemandaForm.prazo || undefined,
-        assignee: newDemandaForm.responsavel?.trim() || undefined, // ← mapeia para o campo do store
+        responsavel: newDemandaForm.responsavel?.trim() || undefined,
+        createdBy: "Pedrin", // substituir por usuário real
       });
 
       toast.success('Demanda criada!');
       setShowCreateModal(false);
 
-      // Limpa formulário
       setNewDemandaForm({
         title: '',
         description: '',
@@ -199,32 +219,53 @@ export default function DemandaDetail() {
     }
   };
 
+  const calcularPrazo = (prazoString: string) => {
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+
+    let prazo: Date;
+    try {
+      if (prazoString.includes('T')) {
+        const [ano, mes, dia] = prazoString.split('T')[0].split('-').map(Number);
+        prazo = new Date(ano, mes - 1, dia);
+      } else {
+        const [ano, mes, dia] = prazoString.split('-').map(Number);
+        prazo = new Date(ano, mes - 1, dia);
+      }
+      prazo.setHours(0,0,0,0);
+      const diffTime = prazo.getTime() - hoje.getTime();
+      const diffDias = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      return { diffDias, prazo };
+    } catch {
+      return null;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-indigo-500"></div>
       </div>
     );
   }
 
-  // LISTA DE DEMANDAS (quando não tem :id na URL)
   if (!idParam) {
     const sortedDemandas = [...demandas].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
     return (
-      <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-        <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
-          <div className="mx-auto max-w-7xl pb-20">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-12">
-              <div className="flex items-center gap-4">
-                <div className="p-4 bg-gradient-to-br from-indigo-600/20 to-purple-600/20 rounded-2xl shadow-lg">
-                  <ListTodo className="w-10 h-10 text-indigo-400" />
+      <div className="min-h-screen bg-zinc-950 text-zinc-100">
+        <div className="pt-20 lg:pl-[320px] px-5 sm:px-8 lg:px-10">
+          <div className="mx-auto max-w-7xl pb-16">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
+              <div className="flex items-center gap-5">
+                <div className="p-4 bg-indigo-500/10 rounded-2xl">
+                  <ListTodo className="w-12 h-12 text-indigo-400" />
                 </div>
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-bold text-white">Demandas</h1>
-                  <p className="text-zinc-400 mt-1">
+                  <h1 className="text-4xl font-bold">Demandas</h1>
+                  <p className="text-zinc-400 mt-1 text-lg">
                     {sortedDemandas.length} {sortedDemandas.length === 1 ? 'demanda' : 'demandas'}
                   </p>
                 </div>
@@ -241,14 +282,14 @@ export default function DemandaDetail() {
             </div>
 
             {sortedDemandas.length === 0 ? (
-              <Card className="text-center py-20 border-zinc-800 shadow-2xl">
-                <AlertTriangle className="w-20 h-20 mx-auto mb-6 text-yellow-500/70" />
-                <h2 className="text-3xl font-bold mb-4 text-zinc-200">Nenhuma demanda ainda</h2>
-                <p className="text-zinc-500 mb-10 max-w-lg mx-auto">
-                  Comece criando sua primeira demanda para organizar suas tarefas.
+              <Card className="text-center py-24 border-zinc-800/50 bg-zinc-900/40 rounded-2xl">
+                <AlertTriangle className="w-24 h-24 mx-auto mb-6 text-amber-500/70" />
+                <h2 className="text-3xl font-bold mb-4 text-zinc-100">Nenhuma demanda ainda</h2>
+                <p className="text-zinc-400 mb-8 max-w-md mx-auto">
+                  Crie sua primeira demanda para começar a organizar o trabalho.
                 </p>
-                <Button variant="outline" size="xl" onClick={() => setShowCreateModal(true)}>
-                  Criar primeira demanda
+                <Button variant="primary" size="xl" onClick={() => setShowCreateModal(true)}>
+                  Criar agora
                 </Button>
               </Card>
             ) : (
@@ -257,38 +298,73 @@ export default function DemandaDetail() {
                   <Card
                     key={dem.id}
                     hoverable
-                    className="border border-zinc-800 bg-zinc-900/60 shadow-lg hover:shadow-2xl hover:border-indigo-600/50 transition-all duration-300 cursor-pointer flex flex-col rounded-xl overflow-hidden"
+                    className="bg-zinc-900/70 border border-zinc-800 hover:border-indigo-500/50 hover:shadow-2xl transition-all duration-300 rounded-2xl overflow-hidden cursor-pointer flex flex-col h-full backdrop-blur-sm"
                     onClick={() => navigate(`/demandas/${dem.id}`)}
                   >
                     <div className="p-6 flex flex-col flex-1">
-                      <h3 className="font-semibold text-lg text-white line-clamp-2 mb-4">
-                        {translateUserContent(dem.title || 'Sem título')}
+                      <h3 className="font-semibold text-xl text-white mb-4 line-clamp-2 leading-tight">
+                        {dem.title || 'Sem título'}
                       </h3>
-                      <div className="flex flex-wrap gap-2 mt-auto">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
-                            {
-                              aberta: 'bg-indigo-900/40 text-indigo-300',
-                              'em-progresso': 'bg-blue-900/40 text-blue-300',
-                              concluida: 'bg-emerald-900/40 text-emerald-300',
-                              bloqueada: 'bg-red-900/40 text-red-300',
-                            }[dem.status] || 'bg-zinc-800 text-zinc-400'
-                          }`}
-                        >
-                          {t(dem.status) || dem.status}
-                        </span>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
-                            {
-                              urgente: 'bg-red-900/40 text-red-300',
-                              alta: 'bg-orange-900/40 text-orange-300',
-                              media: 'bg-yellow-900/40 text-yellow-300',
-                              baixa: 'bg-green-900/40 text-green-300',
-                            }[dem.priority] || 'bg-zinc-800 text-zinc-400'
-                          }`}
-                        >
-                          {t(dem.priority) || dem.priority}
-                        </span>
+
+                      <div className="space-y-4 mt-auto">
+                        <div className="flex items-center gap-3 text-sm text-zinc-300">
+                          <User size={18} className="text-zinc-400" />
+                          <span className="font-medium">
+                            {dem.createdBy || dem.responsavel || 'Criador desconhecido'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 text-sm">
+                          <Calendar size={18} className="text-zinc-400" />
+                          {dem.prazo ? (() => {
+                            const resultado = calcularPrazo(dem.prazo);
+                            if (!resultado) return <span className="text-zinc-500">Prazo inválido</span>;
+                            const { diffDias, prazo } = resultado;
+                            let colorClass = 'text-blue-400';
+                            let label = `Entrega: ${prazo.toLocaleDateString('pt-BR')}`;
+                            if (dem.status === 'concluida') {
+                              colorClass = 'text-emerald-400';
+                              label = 'Concluída';
+                            } else if (diffDias < 0) {
+                              colorClass = 'text-red-500';
+                              label = `Atrasada (${Math.abs(diffDias)} dia${Math.abs(diffDias) !== 1 ? 's' : ''})`;
+                            } else if (diffDias <= 3) {
+                              colorClass = 'text-yellow-400';
+                              label = `Entrega em ${diffDias} dia${diffDias !== 1 ? 's' : ''}`;
+                            }
+                            return <span className={`${colorClass} font-medium`}>{label}</span>;
+                          })() : (
+                            <span className="text-zinc-500">Sem prazo definido</span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2.5">
+                          <span
+                            className={`px-4 py-1.5 rounded-full text-xs font-medium ${
+                              {
+                                aberta: 'bg-blue-900/40 text-blue-300 border border-blue-700/30',
+                                'em-progresso': 'bg-cyan-900/40 text-cyan-300 border border-cyan-700/30',
+                                concluida: 'bg-green-900/40 text-green-300 border border-green-700/30',
+                                bloqueada: 'bg-red-900/40 text-red-300 border border-red-700/30',
+                              }[dem.status] || 'bg-zinc-800 text-zinc-400 border border-zinc-700/30'
+                            }`}
+                          >
+                            {t(dem.status) || dem.status}
+                          </span>
+
+                          <span
+                            className={`px-4 py-1.5 rounded-full text-xs font-medium ${
+                              {
+                                urgente: 'bg-red-900/40 text-red-300 border border-red-700/30',
+                                alta: 'bg-orange-900/40 text-orange-300 border border-orange-700/30',
+                                media: 'bg-amber-900/40 text-amber-300 border border-amber-700/30',
+                                baixa: 'bg-green-900/40 text-green-300 border border-green-700/30',
+                              }[dem.priority] || 'bg-zinc-800 text-zinc-400 border border-zinc-700/30'
+                            }`}
+                          >
+                            {t(dem.priority) || dem.priority}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -298,7 +374,6 @@ export default function DemandaDetail() {
           </div>
         </div>
 
-        {/* Modal Nova Demanda */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
             <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -390,10 +465,6 @@ export default function DemandaDetail() {
     );
   }
 
-  // ────────────────────────────────────────────────
-  //                  DETALHE DA DEMANDA
-  // ────────────────────────────────────────────────
-
   if (!demanda) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-zinc-300 px-6">
@@ -410,22 +481,22 @@ export default function DemandaDetail() {
   }
 
   const prioridadeColor = {
-    urgente: 'text-red-400 bg-red-950/40 border-red-800/60',
-    alta: 'text-orange-400 bg-orange-950/40 border-orange-800/60',
-    media: 'text-yellow-400 bg-yellow-950/40 border-yellow-800/60',
-    baixa: 'text-green-400 bg-green-950/40 border-green-800/60',
-  }[demanda.priority] || 'text-zinc-400 bg-zinc-900/40 border-zinc-700/60';
+    urgente: 'text-red-400 bg-red-950/40 border-red-800/50',
+    alta: 'text-orange-400 bg-orange-950/40 border-orange-800/50',
+    media: 'text-amber-400 bg-amber-950/40 border-amber-800/50',
+    baixa: 'text-green-400 bg-green-950/40 border-green-800/50',
+  }[demanda.priority] || 'text-zinc-400 bg-zinc-900/40 border-zinc-700/50';
 
   const statusColor = {
-    concluida: 'text-emerald-400 bg-emerald-950/40 border-emerald-800/60',
-    'em-progresso': 'text-blue-400 bg-blue-950/40 border-blue-800/60',
-    aberta: 'text-indigo-400 bg-indigo-950/40 border-indigo-800/60',
-    bloqueada: 'text-red-400 bg-red-950/40 border-red-800/60',
-  }[demanda.status] || 'text-zinc-400 bg-zinc-900/40 border-zinc-700/60';
+    concluida: 'text-green-400 bg-green-950/40 border-green-800/50',
+    'em-progresso': 'text-cyan-400 bg-cyan-950/40 border-cyan-800/50',
+    aberta: 'text-blue-400 bg-blue-950/40 border-blue-800/50',
+    bloqueada: 'text-red-400 bg-red-950/40 border-red-800/50',
+  }[demanda.status] || 'text-zinc-400 bg-zinc-900/40 border-zinc-700/50';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-950 to-zinc-900 text-zinc-100">
-      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <div className="pt-20 lg:pl-[320px] px-5 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-7xl pb-24">
           {/* Cabeçalho */}
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-12">
@@ -499,7 +570,7 @@ export default function DemandaDetail() {
           {/* Conteúdo das tabs */}
           {tab === 'detalhes' && (
             <div className="space-y-10">
-              <Card title="Informações Principais" className="border-zinc-800/60 shadow-2xl bg-zinc-900/70 rounded-2xl">
+              <Card title="Informações Principais" className="border-zinc-800/60 bg-zinc-900/70 rounded-2xl">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                   <div>
                     <label className="text-sm text-zinc-400 block mb-2 font-medium">Status</label>
@@ -568,14 +639,18 @@ export default function DemandaDetail() {
                       />
                     ) : (
                       <div className="text-lg font-medium">
-                        {demanda.prazo ? new Date(demanda.prazo).toLocaleDateString('pt-BR') : 'Sem prazo'}
+                        {demanda.prazo ? (() => {
+                        const [ano, mes, dia] = demanda.prazo.split('T')[0].split('-').map(Number);
+                        const prazo = new Date(ano, mes - 1, dia);
+                        return prazo.toLocaleDateString('pt-BR');
+                      })() : 'Sem prazo'}
                       </div>
                     )}
                   </div>
                 </div>
               </Card>
 
-              <Card title="Descrição" className="border-zinc-800/60 shadow-2xl bg-zinc-900/70 rounded-2xl">
+              <Card title="Descrição" className="border-zinc-800/60 bg-zinc-900/70 rounded-2xl">
                 {isEditing ? (
                   <textarea
                     value={editedFields.description ?? demanda.description ?? ''}
@@ -593,68 +668,118 @@ export default function DemandaDetail() {
           )}
 
           {tab === 'chat' && (
-            <Card title="Chat da Demanda" className="border-zinc-800/60 shadow-2xl bg-zinc-900/70 rounded-2xl">
-              <div className="h-[60vh] overflow-y-auto bg-zinc-950/50 rounded-xl border border-zinc-800/80 p-6 space-y-5 mb-6 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-zinc-900">
-                {filteredChat.length === 0 ? (
+            <Card title="Chat da Demanda" className="border-zinc-800/60 bg-zinc-900/70 rounded-2xl flex flex-col h-[calc(100vh-180px)]">
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 overflow-y-auto p-6 space-y-5 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-zinc-950"
+              >
+                {filteredChat.length === 0 && selectedFiles.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-                    <MessageSquare className="w-16 h-16 mb-6 opacity-60" />
-                    <p className="text-xl font-medium">Nenhuma mensagem ainda</p>
+                    <MessageSquare className="w-20 h-20 mb-6 opacity-60" />
+                    <p className="text-2xl font-medium">Nenhuma mensagem ainda</p>
                     <p className="text-base mt-3 opacity-80">Inicie a conversa</p>
                   </div>
                 ) : (
-                  filteredChat.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.senderId === 'current-user' ? 'justify-end' : 'justify-start'}`}
-                    >
+                  <>
+                    {filteredChat.map((msg) => (
                       <div
-                        className={`
-                          max-w-[80%] rounded-2xl px-5 py-4 text-base
-                          ${msg.senderId === 'current-user'
-                            ? 'bg-indigo-600/30 rounded-tr-none border border-indigo-500/30'
-                            : 'bg-zinc-800/90 rounded-tl-none border border-zinc-700'}
-                        `}
+                        key={msg.id}
+                        className={`flex ${msg.senderId === 'current-user' ? 'justify-end' : 'justify-start'}`}
                       >
-                        <p className="text-zinc-200 leading-relaxed">{msg.message}</p>
-                        <p className="text-xs text-zinc-500 mt-2 text-right opacity-80">
-                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                        <div
+                          className={`
+                            max-w-[80%] rounded-2xl px-5 py-4 text-base
+                            ${msg.senderId === 'current-user'
+                              ? 'bg-indigo-600/30 rounded-tr-none border border-indigo-500/30'
+                              : 'bg-zinc-800/90 rounded-tl-none border border-zinc-700'}
+                          `}
+                        >
+                          <p className="text-zinc-200 leading-relaxed">{msg.message}</p>
+                          <p className="text-xs text-zinc-500 mt-2 text-right opacity-80">
+                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+
+                    {selectedFiles.map((file, idx) => (
+                      <div key={idx} className="flex justify-end">
+                        <div className="max-w-[80%] rounded-2xl px-5 py-4 bg-indigo-600/20 border border-indigo-500/30 relative">
+                          {file.type.startsWith('image/') ? (
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={file.name}
+                              className="max-h-48 rounded-lg object-contain"
+                            />
+                          ) : file.type.startsWith('video/') ? (
+                            <video
+                              src={URL.createObjectURL(file)}
+                              controls
+                              className="max-h-48 rounded-lg"
+                            />
+                          ) : (
+                            <p className="text-zinc-200">Arquivo: {file.name}</p>
+                          )}
+                          <button
+                            onClick={() => removeFilePreview(idx)}
+                            className="absolute top-2 right-2 bg-zinc-900/80 rounded-full p-1 hover:bg-red-600/80"
+                          >
+                            <X size={16} />
+                          </button>
+                          <p className="text-xs text-zinc-400 mt-2 text-right">
+                            {file.name} • {(file.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </>
                 )}
                 <div ref={chatEndRef} />
               </div>
 
-              <div className="flex gap-4">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  placeholder="Digite sua mensagem..."
-                  className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-6 py-4 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 text-base"
-                />
-                <Button
-                  variant="primary"
-                  size="lg"
-                  icon={<Send className="w-6 h-6" />}
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
-                >
-                  Enviar
-                </Button>
+              <div className="border-t border-zinc-800 p-4 bg-zinc-900/90">
+                <div className="flex items-center gap-3">
+                  <label className="cursor-pointer p-3 hover:bg-zinc-800 rounded-full transition-colors">
+                    <Paperclip className="w-6 h-6 text-zinc-400" />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder="Digite sua mensagem..."
+                    className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-5 py-3 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30"
+                  />
+
+                  <Button
+                    variant="primary"
+                    size="icon"
+                    onClick={handleSendMessage}
+                    disabled={!newMessage.trim() && selectedFiles.length === 0}
+                  >
+                    <Send className="w-5 h-5" />
+                  </Button>
+                </div>
               </div>
             </Card>
           )}
 
           {tab === 'notas' && (
-            <Card title="Notas Internas" className="border-zinc-800/60 shadow-2xl bg-zinc-900/70 rounded-2xl">
+            <Card title="Notas Internas" className="border-zinc-800/60 bg-zinc-900/70 rounded-2xl">
               <textarea
                 value={nota}
                 onChange={(e) => setNota(e.target.value)}
@@ -684,7 +809,7 @@ export default function DemandaDetail() {
           )}
 
           {tab === 'anexos' && (
-            <Card title="Anexos e Documentos" className="border-zinc-800/60 shadow-2xl bg-zinc-900/70 rounded-2xl">
+            <Card title="Anexos e Documentos" className="border-zinc-800/60 bg-zinc-900/70 rounded-2xl">
               <div className="text-center py-24 text-zinc-500">
                 <FileText className="w-24 h-24 mx-auto mb-8 opacity-60" />
                 <p className="text-3xl font-medium mb-4">Nenhum anexo ainda</p>
@@ -696,7 +821,7 @@ export default function DemandaDetail() {
           )}
 
           {tab === 'historico' && (
-            <Card title="Histórico de Alterações" className="border-zinc-800/60 shadow-2xl bg-zinc-900/70 rounded-2xl">
+            <Card title="Histórico de Alterações" className="border-zinc-800/60 bg-zinc-900/70 rounded-2xl">
               <div className="text-center py-24 text-zinc-500">
                 <Clock className="w-24 h-24 mx-auto mb-8 opacity-60" />
                 <p className="text-3xl font-medium mb-4">Histórico em desenvolvimento</p>
