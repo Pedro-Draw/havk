@@ -1,3 +1,4 @@
+// pages/Objetivos.tsx
 import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import {
@@ -34,8 +35,9 @@ import Modal from '../components/ui/Modal';
 import { cn } from '../lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import Confetti from 'react-confetti';
+import toast from 'react-hot-toast';
+import { useAppStore } from '../store/useAppStore';
 
-// Tipagem forte e expandida
 interface Objetivo {
   id: string;
   title: string;
@@ -44,127 +46,23 @@ interface Objetivo {
   deadline: string; // ISO 'YYYY-MM-DD'
   status?: 'not_started' | 'in_progress' | 'completed' | 'overdue' | 'archived';
   createdAt: string;
-  updatedAt: string;
-  owner: { id: string; name: string };
+  updatedAt?: string;
+  owner?: { id: string; name: string }; // opcional no store
   tags?: string[];
 }
-
-// Fake API interna (simula delays e CRUD sem backend real)
-const fakeApi = {
-  async fetchObjetivos(): Promise<Objetivo[]> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(mockObjetivos);
-      }, 500);
-    });
-  },
-  async createObjetivo(newObj: Omit<Objetivo, 'id' | 'createdAt' | 'updatedAt'>): Promise<Objetivo> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const id = crypto.randomUUID();
-        resolve({
-          ...newObj,
-          id,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          status: newObj.progress > 0 ? 'in_progress' : 'not_started',
-        });
-      }, 800);
-    });
-  },
-  async updateObjetivo(updated: Objetivo): Promise<Objetivo> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          ...updated,
-          updatedAt: new Date().toISOString(),
-        });
-      }, 600);
-    });
-  },
-  async deleteObjetivo(id: string): Promise<void> {
-    return new Promise((resolve) => {
-      setTimeout(resolve, 400);
-    });
-  },
-};
-
-// Mock data expandido
-const mockObjetivos: Objetivo[] = [
-  {
-    id: '1',
-    title: 'Aumentar produtividade da equipe em 30%',
-    description: 'Implementar novas ferramentas e treinamentos para otimizar workflows.',
-    progress: 65,
-    deadline: '2026-06-30',
-    createdAt: '2025-12-01T10:00:00Z',
-    updatedAt: '2026-02-20T14:30:00Z',
-    owner: { id: 'user1', name: 'Pedro Silva' },
-    tags: ['produtividade', 'equipe'],
-  },
-  {
-    id: '2',
-    title: 'Concluir 100 demandas no 1º trimestre',
-    description: 'Priorizar backlog e alocar recursos adequadamente.',
-    progress: 42,
-    deadline: '2026-03-31',
-    createdAt: '2026-01-05T09:00:00Z',
-    updatedAt: '2026-02-15T16:45:00Z',
-    owner: { id: 'user2', name: 'Ana Oliveira' },
-    tags: ['demandas', 'trimestre'],
-  },
-  {
-    id: '3',
-    title: 'Implementar OKRs na squad de produto',
-    description: 'Definir objetivos chave e resultados mensuráveis para toda a equipe.',
-    progress: 90,
-    deadline: '2026-04-15',
-    createdAt: '2026-01-10T11:00:00Z',
-    updatedAt: '2026-02-25T13:20:00Z',
-    owner: { id: 'user1', name: 'Pedro Silva' },
-    tags: ['OKRs', 'produto'],
-  },
-  {
-    id: '4',
-    title: 'Reduzir tempo de resposta do suporte para < 2h',
-    description: 'Otimizar processos e integrar IA para respostas rápidas.',
-    progress: 12,
-    deadline: '2025-12-20',
-    createdAt: '2025-11-01T08:00:00Z',
-    updatedAt: '2025-12-10T15:00:00Z',
-    owner: { id: 'user3', name: 'João Santos' },
-    tags: ['suporte', 'tempo-resposta'],
-  },
-  {
-    id: '5',
-    title: 'Lançar nova feature de analytics',
-    description: 'Desenvolver dashboard interativo com métricas em tempo real.',
-    progress: 100,
-    deadline: '2026-02-28',
-    createdAt: '2025-12-15T10:00:00Z',
-    updatedAt: '2026-02-28T18:00:00Z',
-    owner: { id: 'user1', name: 'Pedro Silva' },
-    tags: ['feature', 'analytics'],
-  },
-  {
-    id: '6',
-    title: 'Treinar 50 colaboradores em novas skills',
-    description: 'Programa de capacitação com workshops e certificações.',
-    progress: 0,
-    deadline: '2026-05-31',
-    createdAt: '2026-02-01T09:00:00Z',
-    updatedAt: '2026-02-01T09:00:00Z',
-    owner: { id: 'user4', name: 'Maria Costa' },
-    tags: ['treinamento', 'skills'],
-  },
-];
 
 export default function ObjetivosPage() {
   const { t, currentLanguage } = useTranslation();
   const locale = currentLanguage === 'pt' ? ptBR : enUS;
 
-  const [objetivos, setObjetivos] = useState<Objetivo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    objetivos: rawObjetivos,
+    addObjetivo,
+    updateObjetivo,
+    deleteObjetivo,
+    isLoading,
+  } = useAppStore();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'deadline' | 'progress' | 'title'>('deadline');
@@ -177,18 +75,9 @@ export default function ObjetivosPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      const data = await fakeApi.fetchObjetivos();
-      setObjetivos(data);
-      setIsLoading(false);
-    };
-    loadData();
-  }, []);
-
+  // Calcula status automaticamente com base em progress e deadline
   const objetivosProcessados = useMemo(() => {
-    let filtered = objetivos.map((obj) => {
+    return rawObjetivos.map((obj) => {
       const deadlineDate = parseISO(obj.deadline);
       let status: Objetivo['status'] = 'in_progress';
 
@@ -202,23 +91,27 @@ export default function ObjetivosPage() {
 
       return { ...obj, status };
     });
+  }, [rawObjetivos]);
+
+  // Aplicação de filtros e ordenação
+  const filteredAndSorted = useMemo(() => {
+    let result = [...objetivosProcessados];
 
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
-      filtered = filtered.filter(
+      result = result.filter(
         (obj) =>
           obj.title.toLowerCase().includes(lowerTerm) ||
           obj.description?.toLowerCase().includes(lowerTerm) ||
-          obj.owner.name.toLowerCase().includes(lowerTerm) ||
           obj.tags?.some((tag) => tag.toLowerCase().includes(lowerTerm))
       );
     }
 
     if (filterStatus !== 'all') {
-      filtered = filtered.filter((obj) => obj.status === filterStatus);
+      result = result.filter((obj) => obj.status === filterStatus);
     }
 
-    filtered.sort((a, b) => {
+    result.sort((a, b) => {
       let compare = 0;
       if (sortBy === 'deadline') {
         compare = parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime();
@@ -230,8 +123,8 @@ export default function ObjetivosPage() {
       return sortOrder === 'asc' ? compare : -compare;
     });
 
-    return filtered;
-  }, [objetivos, searchTerm, filterStatus, sortBy, sortOrder]);
+    return result;
+  }, [objetivosProcessados, searchTerm, filterStatus, sortBy, sortOrder]);
 
   const formatarData = (dateStr: string) => {
     try {
@@ -286,7 +179,6 @@ export default function ObjetivosPage() {
       description: '',
       progress: 0,
       deadline: addDays(new Date(), 30).toISOString().split('T')[0],
-      owner: { id: 'user1', name: 'Pedro Silva' },
       tags: [],
     });
     setFormErrors({});
@@ -295,7 +187,7 @@ export default function ObjetivosPage() {
   const openEditModal = (obj: Objetivo) => {
     setModalType('edit');
     setSelectedObjetivo(obj);
-    setFormData(obj);
+    setFormData({ ...obj });
     setFormErrors({});
   };
 
@@ -327,38 +219,61 @@ export default function ObjetivosPage() {
 
     try {
       if (modalType === 'create') {
-        const newObj = await fakeApi.createObjetivo(formData as Omit<Objetivo, 'id' | 'createdAt' | 'updatedAt'>);
-        setObjetivos((prev) => [...prev, newObj]);
-      } else if (modalType === 'edit' && selectedObjetivo) {
-        const updated = await fakeApi.updateObjetivo({ ...selectedObjetivo, ...formData });
-        setObjetivos((prev) =>
-          prev.map((o) => (o.id === updated.id ? updated : o))
-        );
-        if (updated.progress >= 100 && selectedObjetivo.progress < 100) {
+        const newObj = await addObjetivo({
+          title: formData.title!.trim(),
+          description: formData.description?.trim(),
+          progress: formData.progress || 0,
+          deadline: formData.deadline!,
+          tags: formData.tags,
+        } as any); // tipos já compatíveis
+
+        if (newObj.progress >= 100) {
           setShowConfetti(true);
           setTimeout(() => setShowConfetti(false), 5000);
         }
+        toast.success(t('objetivoCriado') || 'Objetivo criado com sucesso');
+      } else if (modalType === 'edit' && selectedObjetivo) {
+        const updated = await updateObjetivo(selectedObjetivo.id, {
+          title: formData.title?.trim(),
+          description: formData.description?.trim(),
+          progress: formData.progress,
+          deadline: formData.deadline,
+          tags: formData.tags,
+        });
+
+        if (updated.progress >= 100 && selectedObjetivo.progress < 100) {
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 5000);
+          toast.success('Objetivo concluído! 🎉');
+        } else {
+          toast.success(t('objetivoAtualizado') || 'Objetivo atualizado');
+        }
       } else if (modalType === 'delete' && selectedObjetivo) {
-        await fakeApi.deleteObjetivo(selectedObjetivo.id);
-        setObjetivos((prev) => prev.filter((o) => o.id !== selectedObjetivo.id));
+        await deleteObjetivo(selectedObjetivo.id);
+        toast.success(t('objetivoExcluido') || 'Objetivo excluído');
       }
+
       closeModal();
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao salvar objetivo');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleProgressUpdate = (obj: Objetivo, newProgress: number) => {
-    const updated = { ...obj, progress: Math.min(Math.max(newProgress, 0), 100) };
-    fakeApi.updateObjetivo(updated).then((res) => {
-      setObjetivos((prev) => prev.map((o) => (o.id === res.id ? res : o)));
-      if (newProgress >= 100) {
+  const handleProgressUpdate = async (obj: Objetivo, newProgress: number) => {
+    const clamped = Math.min(Math.max(newProgress, 0), 100);
+    try {
+      await updateObjetivo(obj.id, { progress: clamped });
+      if (clamped >= 100 && obj.progress < 100) {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 5000);
+        toast.success('Objetivo concluído! 🎉');
       }
-    });
+    } catch (err) {
+      toast.error('Erro ao atualizar progresso');
+    }
   };
 
   const statusOptions = [
@@ -375,19 +290,19 @@ export default function ObjetivosPage() {
     { value: 'title', label: t('titulo') },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
       {showConfetti && <Confetti width={window.innerWidth} height={window.innerHeight} recycle={false} />}
 
-      {/* Ajuste principal: pt-20 para header + lg:pl-64 para sidebar fixa no desktop */}
-      <div
-        className={`
-          pt-20
-          lg:pl-64
-          px-4 sm:px-6 lg:px-8
-          transition-all duration-300
-        `}
-      >
+      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
         <div className="mx-auto max-w-7xl pb-20 space-y-10">
           {/* Header */}
           <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -410,7 +325,7 @@ export default function ObjetivosPage() {
                 variant="outline"
                 size="md"
                 icon={<FileText className="h-4 w-4" />}
-                disabled={isLoading || objetivos.length === 0}
+                disabled={objetivosProcessados.length === 0}
               >
                 {t('exportarRelatorio')}
               </Button>
@@ -419,7 +334,6 @@ export default function ObjetivosPage() {
                 size="md"
                 icon={<Plus className="h-5 w-5" />}
                 onClick={openCreateModal}
-                disabled={isLoading}
               >
                 {t('novoObjetivo')}
               </Button>
@@ -476,21 +390,9 @@ export default function ObjetivosPage() {
             </div>
           </div>
 
-          {/* Conteúdo principal */}
+          {/* Grid de Objetivos */}
           <AnimatePresence mode="wait">
-            {isLoading ? (
-              <motion.div
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-              >
-                {[...Array(8)].map((_, i) => (
-                  <Card key={i} className="animate-pulse h-64 bg-zinc-900/30 shadow-xl" />
-                ))}
-              </motion.div>
-            ) : objetivosProcessados.length === 0 ? (
+            {filteredAndSorted.length === 0 ? (
               <motion.div
                 key="empty"
                 initial={{ opacity: 0, y: 20 }}
@@ -524,7 +426,7 @@ export default function ObjetivosPage() {
                 exit={{ opacity: 0 }}
                 className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               >
-                {objetivosProcessados.map((obj, index) => {
+                {filteredAndSorted.map((obj, index) => {
                   const statusConfig = getStatusConfig(obj.status);
                   const StatusIcon = statusConfig.icon;
 
@@ -595,11 +497,14 @@ export default function ObjetivosPage() {
                                 <Calendar className="h-4 w-4" />
                                 <span>{formatarData(obj.deadline)}</span>
                               </div>
-                              <div className="flex items-center gap-2 text-zinc-400">
-                                <User className="h-4 w-4" />
-                                <span>{obj.owner.name}</span>
-                              </div>
+                              {obj.owner && (
+                                <div className="flex items-center gap-2 text-zinc-400">
+                                  <User className="h-4 w-4" />
+                                  <span>{obj.owner.name}</span>
+                                </div>
+                              )}
                             </div>
+
                             {obj.tags && obj.tags.length > 0 && (
                               <div className="flex flex-wrap gap-2">
                                 {obj.tags.map((tag) => (
@@ -612,6 +517,7 @@ export default function ObjetivosPage() {
                                 ))}
                               </div>
                             )}
+
                             <div
                               className={cn(
                                 'flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium',
@@ -629,7 +535,7 @@ export default function ObjetivosPage() {
                               variant="secondary"
                               size="sm"
                               fullWidth
-                              disabled={obj.status === 'completed' || isSubmitting}
+                              disabled={obj.status === 'completed'}
                               onClick={() => handleProgressUpdate(obj, obj.progress + 10)}
                             >
                               +10%
@@ -664,7 +570,7 @@ export default function ObjetivosPage() {
         <div className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-zinc-300 mb-2">
-              {t('titulo')}
+              {t('titulo')} *
             </label>
             <Input
               value={formData.title || ''}
@@ -689,11 +595,11 @@ export default function ObjetivosPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-2">
-                {t('progresso')}
+                {t('progresso')} (%)
               </label>
               <Input
                 type="number"
-                value={formData.progress || 0}
+                value={formData.progress ?? 0}
                 onChange={(e) => setFormData({ ...formData, progress: Number(e.target.value) })}
                 min={0}
                 max={100}
@@ -703,7 +609,7 @@ export default function ObjetivosPage() {
 
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-2">
-                {t('prazo')}
+                {t('prazo')} *
               </label>
               <Input
                 type="date"
@@ -714,34 +620,19 @@ export default function ObjetivosPage() {
             </div>
           </div>
 
+          {/* Owner e Tags (simplificados, você pode expandir com selects reais) */}
           <div>
             <label className="block text-sm font-medium text-zinc-300 mb-2">
-              {t('responsavel')}
-            </label>
-            <Select
-              value={formData.owner?.id || ''}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  owner: { id: e.target.value, name: e.target.selectedOptions[0].text },
-                })
-              }
-              options={[
-                { value: 'user1', label: 'Pedro Silva' },
-                { value: 'user2', label: 'Ana Oliveira' },
-                { value: 'user3', label: 'João Santos' },
-                { value: 'user4', label: 'Maria Costa' },
-              ]}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
-              {t('tags')}
+              {t('tags')} (separadas por vírgula)
             </label>
             <Input
               value={(formData.tags || []).join(', ')}
-              onChange={(e) => setFormData({ ...formData, tags: e.target.value.split(',').map((t) => t.trim()) })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean),
+                })
+              }
               placeholder={t('exProdutividadeEquipe')}
             />
           </div>
@@ -772,6 +663,11 @@ export default function ObjetivosPage() {
         <div className="space-y-6">
           <p className="text-zinc-300">
             {t('temCertezaQueDesejaExcluir')} <span className="font-medium">{selectedObjetivo?.title}</span>?
+            {selectedObjetivo?.progress > 0 && (
+              <span className="block mt-2 text-sm text-amber-400">
+                Progresso atual: {selectedObjetivo.progress}%
+              </span>
+            )}
           </p>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={closeModal} disabled={isSubmitting}>

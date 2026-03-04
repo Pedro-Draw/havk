@@ -1,86 +1,47 @@
-import { useState, useEffect, useRef } from 'react';
+// pages/Equipe.tsx
+import { useState, useRef } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
-import { Users, UserPlus, Edit, Trash2, Camera, Search, Download, Mail, CheckCircle, AlertTriangle } from 'lucide-react';
+import {
+  Users,
+  UserPlus,
+  Edit,
+  Trash2,
+  Camera,
+  Search,
+  Download,
+  Mail,
+  CheckCircle,
+  AlertTriangle,
+} from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
-import { getAll, addItem, updateItem, deleteItem } from '../db/indexedDB';
 import toast from 'react-hot-toast';
-
-const DB_NAME = 'HavkEquipeDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'membros';
-
-// Função para garantir que o banco e o object store existam
-async function initializeDB() {
-  return new Promise<void>((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = () => {
-      reject(request.error);
-    };
-
-    request.onsuccess = () => {
-      request.result.close();
-      resolve();
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-        console.log(`Object store "${STORE_NAME}" criado com sucesso`);
-      }
-    };
-  });
-}
+import { useAppStore } from '../store/useAppStore';
 
 export default function Equipe() {
   const { t } = useTranslation();
 
-  const [membros, setMembros] = useState<any[]>([]);
+  const {
+    membros,
+    addMembro,
+    updateMembro,
+    deleteMembro,
+    isLoading,
+  } = useAppStore();
+
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const [newMember, setNewMember] = useState({
     name: '',
     email: '',
     role: 'Member',
-    avatar: null as string | null,
+    avatar: null as string | null, // base64
     status: 'ativo',
-    createdAt: new Date().toISOString(),
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Inicializa o banco na montagem do componente (só roda uma vez)
-  useEffect(() => {
-    initializeDB()
-      .then(() => {
-        loadMembros();
-      })
-      .catch((err) => {
-        console.error('Erro ao inicializar IndexedDB:', err);
-        toast.error('Falha ao inicializar o banco de dados local');
-        setLoading(false);
-      });
-  }, []);
-
-  // Carrega membros do IndexedDB
-  const loadMembros = async () => {
-    setLoading(true);
-    try {
-      const data = await getAll<any>(STORE_NAME);
-      setMembros(data || []);
-    } catch (err) {
-      console.error('Erro ao carregar membros:', err);
-      toast.error('Erro ao carregar equipe');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Filtro de busca
   const filteredMembros = membros.filter(
@@ -103,42 +64,30 @@ export default function Equipe() {
     }
 
     try {
-      let updatedMember;
-
       if (editingMember) {
         // Edição
-        updatedMember = {
-          ...editingMember,
-          ...newMember,
-          updatedAt: new Date().toISOString(),
-        };
-        await updateItem(STORE_NAME, updatedMember);
+        await updateMembro(editingMember.id, {
+          name: newMember.name.trim(),
+          email: newMember.email.trim(),
+          role: newMember.role,
+          avatar: newMember.avatar,
+          status: newMember.status,
+        });
         toast.success('Membro atualizado com sucesso');
       } else {
         // Adição
-        const id = crypto.randomUUID(); // melhor que Date.now()
-        updatedMember = {
-          ...newMember,
-          id,
-        };
-        await addItem(STORE_NAME, updatedMember);
+        await addMembro({
+          name: newMember.name.trim(),
+          email: newMember.email.trim(),
+          role: newMember.role,
+          avatar: newMember.avatar,
+          status: newMember.status,
+        });
         toast.success('Membro adicionado com sucesso');
       }
 
-      // Atualiza lista
-      await loadMembros();
-
-      // Reseta form e fecha modal
-      setNewMember({
-        name: '',
-        email: '',
-        role: 'Member',
-        avatar: null,
-        status: 'ativo',
-        createdAt: new Date().toISOString(),
-      });
-      setEditingMember(null);
-      setIsModalOpen(false);
+      // O store atualiza a lista automaticamente
+      closeModal();
     } catch (err) {
       console.error('Erro ao salvar membro:', err);
       toast.error('Erro ao salvar membro');
@@ -150,9 +99,8 @@ export default function Equipe() {
     if (!confirm(`Tem certeza que deseja remover ${name}?`)) return;
 
     try {
-      await deleteItem(STORE_NAME, id);
+      await deleteMembro(id);
       toast.success('Membro removido');
-      await loadMembros();
     } catch (err) {
       console.error('Erro ao excluir:', err);
       toast.error('Erro ao remover membro');
@@ -163,17 +111,16 @@ export default function Equipe() {
   const handleEdit = (membro: any) => {
     setEditingMember(membro);
     setNewMember({
-      name: membro.name,
-      email: membro.email,
-      role: membro.role,
+      name: membro.name || '',
+      email: membro.email || '',
+      role: membro.role || 'Member',
       avatar: membro.avatar || null,
       status: membro.status || 'ativo',
-      createdAt: membro.createdAt,
     });
     setIsModalOpen(true);
   };
 
-  // Upload de avatar
+  // Upload de avatar (base64)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -200,14 +147,14 @@ export default function Equipe() {
 
     const headers = ['Nome', 'Email', 'Permissão', 'Status', 'Data de Entrada'];
     const rows = membros.map((m) => [
-      `"${m.name?.replace(/"/g, '""') || ''}"`,
-      `"${m.email?.replace(/"/g, '""') || ''}"`,
-      m.role,
-      m.status,
+      `"${(m.name || '').replace(/"/g, '""')}"`,
+      `"${(m.email || '').replace(/"/g, '""')}"`,
+      m.role || 'Member',
+      m.status || 'ativo',
       new Date(m.createdAt).toLocaleString('pt-BR'),
     ]);
 
-    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -217,6 +164,18 @@ export default function Equipe() {
     URL.revokeObjectURL(url);
 
     toast.success('Exportado com sucesso!');
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingMember(null);
+    setNewMember({
+      name: '',
+      email: '',
+      role: 'Member',
+      avatar: null,
+      status: 'ativo',
+    });
   };
 
   const roles = [
@@ -244,17 +203,17 @@ export default function Equipe() {
     return colors[role] || 'bg-gray-800 text-gray-300 border-gray-700/50';
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-indigo-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
-      <div
-        className={`
-          pt-20
-          lg:pl-64
-          px-4 sm:px-6 lg:px-8
-          transition-all duration-300
-        `}
-      >
+      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
         <div className="mx-auto max-w-7xl pb-20">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-12">
@@ -293,7 +252,6 @@ export default function Equipe() {
                     role: 'Member',
                     avatar: null,
                     status: 'ativo',
-                    createdAt: new Date().toISOString(),
                   });
                   setIsModalOpen(true);
                 }}
@@ -324,12 +282,7 @@ export default function Equipe() {
 
           {/* Tabela / Lista */}
           <Card className="border-zinc-800 shadow-2xl overflow-hidden">
-            {loading ? (
-              <div className="p-20 flex flex-col items-center justify-center text-zinc-500">
-                <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-indigo-500 mb-6" />
-                <p className="text-xl">Carregando equipe...</p>
-              </div>
-            ) : filteredMembros.length === 0 ? (
+            {filteredMembros.length === 0 ? (
               <div className="p-20 text-center text-zinc-500">
                 <Users className="w-24 h-24 mx-auto mb-8 opacity-50" />
                 <h3 className="text-3xl font-semibold mb-4">
@@ -377,7 +330,7 @@ export default function Equipe() {
                                 className="w-14 h-14 rounded-full object-cover border-2 border-zinc-700 shadow-md"
                               />
                             ) : (
-                              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 flex items-center justify-center text-2xl font-bold text-zinc-300 border-2 border-zinc-700 shadow-md">
+                              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-950 flex items-center justify-center text-2xl font-bold text-zinc-300 border-2 border-zinc-700 shadow-md">
                                 {membro.name?.charAt(0)?.toUpperCase() || '?'}
                               </div>
                             )}
@@ -551,10 +504,7 @@ export default function Equipe() {
                     <Button
                       variant="outline"
                       size="xl"
-                      onClick={() => {
-                        setIsModalOpen(false);
-                        setEditingMember(null);
-                      }}
+                      onClick={closeModal}
                     >
                       Cancelar
                     </Button>

@@ -1,3 +1,4 @@
+// pages/Templates.tsx
 import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import {
@@ -10,15 +11,25 @@ import {
   Trash2,
   Copy,
   X,
+  Loader2,
+  Save, // ← ADICIONAR AQUI
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
-import { toast } from 'react-hot-toast';
+import toast from 'react-hot-toast';
+import { useAppStore } from '../store/useAppStore';
 
 export default function Templates() {
   const { t } = useTranslation();
 
-  const [templates, setTemplates] = useState([]);
+  const {
+    templates,
+    addTemplate,
+    updateTemplate,
+    deleteTemplate,
+    isLoading,
+  } = useAppStore();
+
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Todos');
   const [sortBy, setSortBy] = useState('recent');
@@ -26,32 +37,13 @@ export default function Templates() {
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
-  // Carregar do localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('app_templates');
-      if (stored) {
-        setTemplates(JSON.parse(stored));
-      }
-    } catch (err) {
-      console.error('Erro ao carregar templates:', err);
-    }
-  }, []);
-
-  // Salvar no localStorage sempre que mudar
-  useEffect(() => {
-    try {
-      localStorage.setItem('app_templates', JSON.stringify(templates));
-    } catch (err) {
-      console.error('Erro ao salvar templates:', err);
-    }
-  }, [templates]);
-
+  // Categorias únicas + "Todos"
   const categories = useMemo(() => {
     const cats = new Set(templates.map(t => t.category || 'Sem categoria'));
     return ['Todos', ...Array.from(cats)];
   }, [templates]);
 
+  // Templates filtrados e ordenados
   const filteredTemplates = useMemo(() => {
     let data = [...templates];
 
@@ -60,7 +52,7 @@ export default function Templates() {
       data = data.filter(t => (t.category || 'Sem categoria') === categoryFilter);
     }
 
-    // Busca por nome, descrição ou conteúdo
+    // Busca
     if (search.trim()) {
       const term = search.toLowerCase();
       data = data.filter(t =>
@@ -76,39 +68,51 @@ export default function Templates() {
     } else if (sortBy === 'az') {
       data.sort((a, b) => a.name.localeCompare(b.name));
     } else if (sortBy === 'recent') {
-      data.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+      data.sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
     }
 
     return data;
   }, [templates, search, categoryFilter, sortBy]);
 
-  const toggleFavorite = (id) => {
-    setTemplates(prev =>
-      prev.map(t =>
-        t.id === id
-          ? { ...t, favorite: !t.favorite, updatedAt: new Date().toISOString() }
-          : t
-      )
-    );
-    toast.success('Favorito atualizado!');
+  const toggleFavorite = async (id: string) => {
+    const template = templates.find(t => t.id === id);
+    if (!template) return;
+
+    try {
+      await updateTemplate(id, {
+        favorite: !template.favorite,
+        updatedAt: new Date().toISOString(),
+      });
+      toast.success(template.favorite ? 'Removido dos favoritos' : 'Adicionado aos favoritos!');
+    } catch (err) {
+      toast.error('Erro ao atualizar favorito');
+    }
   };
 
-  const deleteTemplate = (id) => {
+  const deleteTemplateLocal = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este template?')) return;
-    setTemplates(prev => prev.filter(t => t.id !== id));
-    toast.success('Template excluído com sucesso.');
+
+    try {
+      await deleteTemplate(id);
+      toast.success('Template excluído com sucesso.');
+    } catch (err) {
+      toast.error('Erro ao excluir template');
+    }
   };
 
-  const duplicateTemplate = (template) => {
-    const newTemplate = {
-      ...template,
-      id: Date.now(),
-      name: `${template.name} (cópia)`,
-      favorite: false,
-      updatedAt: new Date().toISOString(),
-    };
-    setTemplates(prev => [...prev, newTemplate]);
-    toast.success('Template duplicado!');
+  const duplicateTemplate = async (template) => {
+    try {
+      await addTemplate({
+        name: `${template.name} (cópia)`,
+        category: template.category,
+        description: template.description,
+        content: template.content,
+        favorite: false,
+      });
+      toast.success('Template duplicado!');
+    } catch (err) {
+      toast.error('Erro ao duplicar template');
+    }
   };
 
   const useTemplate = (template) => {
@@ -130,71 +134,49 @@ export default function Templates() {
     setShowModal(true);
   };
 
-  const saveTemplate = (newOrUpdatedTemplate) => {
-    const templateWithDate = {
-      ...newOrUpdatedTemplate,
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (editingTemplate) {
-      // Edição
-      setTemplates(prev =>
-        prev.map(t => (t.id === templateWithDate.id ? templateWithDate : t))
-      );
-      toast.success('Template atualizado!');
-    } else {
-      // Criação
-      setTemplates(prev => [
-        ...prev,
-        { ...templateWithDate, id: Date.now(), favorite: false },
-      ]);
-      toast.success('Template criado com sucesso!');
-    }
-
-    setShowModal(false);
-  };
-
   const generateWithAI = async () => {
     setIsGeneratingAI(true);
     toast.loading('Gerando template com IA...', { id: 'ai-gen' });
 
-    // Simulação (substitua por chamada real à API de IA quando tiver)
+    // Simulação de IA (substitua por chamada real quando tiver API)
     await new Promise(r => setTimeout(r, 2200));
 
-    const aiGenerated = {
-      name: 'Template Gerado por IA - ' + new Date().toLocaleDateString('pt-BR'),
-      category: 'IA Gerado',
-      description: 'Template criado automaticamente com assistência de IA',
-      content:
-        '# Título da Demanda\n\n' +
-        '## Objetivo\n\n' +
-        '## Passos / Requisitos\n- Item 1\n- Item 2\n\n' +
-        '## Critérios de Aceitação\n- Critério 1\n- Critério 2\n\n' +
-        '## Notas / Riscos\n\n' +
-        '## Prazo Estimado\n\n' +
-        '## Responsável',
-      favorite: false,
-      updatedAt: new Date().toISOString(),
-    };
+    try {
+      await addTemplate({
+        name: 'Template Gerado por IA - ' + new Date().toLocaleDateString('pt-BR'),
+        category: 'IA Gerado',
+        description: 'Template criado automaticamente com assistência de IA',
+        content:
+          '# Título da Demanda\n\n' +
+          '## Objetivo\n\n' +
+          '## Passos / Requisitos\n- Item 1\n- Item 2\n\n' +
+          '## Critérios de Aceitação\n- Critério 1\n- Critério 2\n\n' +
+          '## Notas / Riscos\n\n' +
+          '## Prazo Estimado\n\n' +
+          '## Responsável',
+        favorite: false,
+      });
 
-    setEditingTemplate(aiGenerated);
-    setShowModal(true);
-    setIsGeneratingAI(false);
-    toast.dismiss('ai-gen');
-    toast.success('Template gerado com sucesso!');
+      toast.success('Template gerado com sucesso!');
+    } catch (err) {
+      toast.error('Erro ao gerar template com IA');
+    } finally {
+      setIsGeneratingAI(false);
+      toast.dismiss('ai-gen');
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
-      <div
-        className={`
-          pt-20
-          lg:pl-64
-          px-4 sm:px-6 lg:px-8
-          transition-all duration-300
-        `}
-      >
+      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
         <div className="mx-auto max-w-7xl pb-20">
           {/* Cabeçalho */}
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-12">
@@ -344,7 +326,7 @@ export default function Templates() {
                         </button>
 
                         <button
-                          onClick={() => deleteTemplate(template.id)}
+                          onClick={() => deleteTemplateLocal(template.id)}
                           title="Excluir"
                         >
                           <Trash2 className="w-5 h-5 hover:text-red-400 transition-colors" />
@@ -387,7 +369,33 @@ export default function Templates() {
             <TemplateModal
               template={editingTemplate}
               onClose={() => setShowModal(false)}
-              onSave={saveTemplate}
+              onSave={async (newOrUpdated) => {
+                try {
+                  if (editingTemplate) {
+                    await updateTemplate(editingTemplate.id, {
+                      name: newOrUpdated.name,
+                      category: newOrUpdated.category,
+                      description: newOrUpdated.description,
+                      content: newOrUpdated.content,
+                      favorite: newOrUpdated.favorite,
+                      updatedAt: new Date().toISOString(),
+                    });
+                    toast.success('Template atualizado!');
+                  } else {
+                    await addTemplate({
+                      name: newOrUpdated.name,
+                      category: newOrUpdated.category,
+                      description: newOrUpdated.description,
+                      content: newOrUpdated.content,
+                      favorite: false,
+                    });
+                    toast.success('Template criado com sucesso!');
+                  }
+                  setShowModal(false);
+                } catch (err) {
+                  toast.error('Erro ao salvar template');
+                }
+              }}
             />
           )}
         </div>

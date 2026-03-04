@@ -1,0 +1,282 @@
+
+
+
+
+certo, agora vamos voltar ao que estavamos fazendo...
+
+proximo ajuste de acordo com tudo que tem em todas essas telas e funcoes e coias persolnalizadas etc, tudo deve ser traduzido para igles ou portugues de acrdo com o user, mesmo que seja alguma demanda personalizada ou sla...
+att esses arquivos e os deixe de acordo para tudo funcionar perfeitamente.
+ e me envie completo e sem resumo.
+
+
+
+
+
+useTranslation:
+
+import { useAppStore } from '../store/useAppStore';
+import ptBR from './translations/pt-BR';
+import en from './translations/en';
+
+const translations = {
+  'pt-BR': ptBR,
+  en: en,
+};
+
+export const useTranslation = () => {
+  const { language, translateContent } = useAppStore();
+
+  const t = (key: string): string => {
+    const dict = translations[language] || translations['pt-BR'];
+    return dict[key as keyof typeof dict] || key;
+  };
+
+  const translateUserContent = (text: string) => {
+    return translateContent(text, language);
+  };
+
+  return { t, translateUserContent, language };
+};
+
+ 
+en:
+
+export default {
+  login: 'Login',
+  signup: 'Sign Up',
+  forgotPassword: 'Forgot Password',
+  email: 'Email',
+  password: 'Password',
+  confirmPassword: 'Confirm Password',
+  name: 'Name',
+  createDevAccount: 'Create DEV Account Automatically',
+  autoDev: 'DEV Account (for quick tests)',
+  welcomeBack: 'Welcome Back',
+  noAccount: "Don't have an account?",
+  haveAccount: 'Already have an account?',
+
+  search: 'Search demands, chats, notes...',
+  notifications: 'Notifications',
+  profile: 'Profile',
+  newDemand: 'New Demand',
+
+  dashboard: 'Dashboard',
+  inbox: 'Unified Inbox',
+  projetos: 'Projects',
+  kanban: 'Kanban',
+  demandas: 'Demands List',
+  calendario: 'Calendar',
+  gantt: 'Gantt',
+  timeTracker: 'Time Tracker',
+  aiStudio: 'AI Studio / Co-Pilot',
+  notas: 'Notes',
+  templates: 'Templates',
+  objetivos: 'Objectives & OKRs',
+  relatorios: 'Reports & Insights',
+  equipe: 'Team & Permissions',
+  chat: 'Global Chat',
+  configuracoes: 'Settings',
+  integracoes: 'Integrations',
+  planos: 'Plans & Billing',
+  ajuda: 'Help & AI Support',
+  logout: 'Logout',
+
+  meusDados: 'My Data',
+  tema: 'Theme',
+  idioma: 'Language',
+  notificacoes: 'Notifications',
+  salvar: 'Save Changes',
+  atualizarFoto: 'Update Photo',
+  alterarSenha: 'Change Password',
+
+  light: 'Light',
+  dark: 'Dark',
+  system: 'System',
+  gray: 'Gray',
+
+  ptBR: 'Portuguese (Brazil)',
+  en: 'English',
+
+  novaDemanda: 'New Demand',
+  atrasadas: 'Overdue',
+  emProgresso: 'In Progress',
+  concluidas: 'Completed',
+  totalDemandas: 'Total Demands',
+  sugerirIA: 'AI Suggestion',
+  enviar: 'Send',
+  notasDaDemanda: 'Notes',
+  chatDaDemanda: 'Chat',
+  detalhes: 'Details',
+  atividade: 'Activity',
+  anexos: 'Attachments',
+  subtarefas: 'Subtasks',
+  historico: 'Version History',
+  prioridade: 'Priority',
+  responsavel: 'Assignee',
+  prazo: 'Due Date',
+  tags: 'Tags',
+  criar: 'Create',
+  cancelar: 'Cancel',
+  editar: 'Edit',
+  excluir: 'Delete',
+  sim: 'Yes',
+  nao: 'No',
+  carregando: 'Loading...',
+  offline: 'Offline Mode - Data saved locally',
+  sincronizando: 'Syncing when online...',
+
+  perfilAtualizado: 'Profile updated successfully!',
+  cliqueParaAlterarFoto:
+    'Click the camera to choose photo from gallery',
+  salvarAlteracoes: 'Save Changes',
+  permissoesSeguranca: 'Permissions & Security',
+
+  /* =========================
+     TIME TRACKER ADIÇÕES
+  ========================== */
+
+  timeTrackerTitle: 'Time Tracker',
+  timeTrackerDescription:
+    'Manage and track the time spent on your tasks',
+  taskNamePlaceholder: 'Current task name...',
+  start: 'Start',
+  pause: 'Pause',
+  stop: 'Finish',
+  reset: 'Reset',
+  activeSession: 'Active session running',
+  sessionHistory: 'Session History',
+  clearHistory: 'Clear history',
+  statistics: 'Statistics',
+  totalTrackedTime: 'Total tracked time',
+  totalSessions: 'Total sessions',
+
+  footer: {
+    copyright:
+      '© {{year}} Havk. All rights reserved.',
+    terms: 'Terms',
+    privacy: 'Privacy',
+    help: 'Help',
+  },
+};
+
+ 
+ 
+ 
+pt-BR:
+
+export default {
+  login: 'Entrar',
+  signup: 'Cadastrar',
+  forgotPassword: 'Esqueci minha senha',
+  email: 'E-mail',
+  password: 'Senha',
+  confirmPassword: 'Confirmar senha',
+  name: 'Nome',
+  createDevAccount: 'Criar conta DEV automática',
+  autoDev: 'Conta DEV (para testes rápidos)',
+  welcomeBack: 'Bem-vindo de volta',
+  noAccount: 'Não tem conta?',
+  haveAccount: 'Já tem conta?',
+
+  search: 'Buscar demandas, chats, notas...',
+  notifications: 'Notificações',
+  profile: 'Perfil',
+  newDemand: 'Nova Demanda',
+
+  dashboard: 'Dashboard',
+  inbox: 'Inbox Unificado',
+  projetos: 'Projetos',
+  kanban: 'Kanban',
+  demandas: 'Lista de Demandas',
+  calendario: 'Calendário',
+  gantt: 'Gantt',
+  timeTracker: 'Rastreador de Tempo',
+  aiStudio: 'AI Studio / Co-Pilot',
+  notas: 'Bloco de Notas',
+  templates: 'Templates',
+  objetivos: 'Objetivos & OKRs',
+  relatorios: 'Relatórios & Insights',
+  equipe: 'Equipe & Permissões',
+  chat: 'Chat Global',
+  configuracoes: 'Configurações',
+  integracoes: 'Integrações',
+  planos: 'Planos & Cobrança',
+  ajuda: 'Ajuda & Suporte IA',
+  logout: 'Sair',
+
+  meusDados: 'Meus Dados',
+  tema: 'Tema',
+  idioma: 'Idioma',
+  notificacoes: 'Notificações',
+  salvar: 'Salvar Alterações',
+  atualizarFoto: 'Atualizar Foto',
+  alterarSenha: 'Alterar Senha',
+
+  light: 'Claro',
+  dark: 'Escuro',
+  system: 'Sistema',
+  gray: 'Cinza',
+
+  ptBR: 'Português (Brasil)',
+  en: 'Inglês',
+
+  novaDemanda: 'Nova Demanda',
+  atrasadas: 'Atrasadas',
+  emProgresso: 'Em Progresso',
+  concluidas: 'Concluídas',
+  totalDemandas: 'Total de Demandas',
+  sugerirIA: 'Sugestão IA',
+  enviar: 'Enviar',
+  notasDaDemanda: 'Notas',
+  chatDaDemanda: 'Chat',
+  detalhes: 'Detalhes',
+  atividade: 'Atividade',
+  anexos: 'Anexos',
+  subtarefas: 'Subtarefas',
+  historico: 'Histórico de Versões',
+  prioridade: 'Prioridade',
+  responsavel: 'Responsável',
+  prazo: 'Prazo',
+  tags: 'Tags',
+  criar: 'Criar',
+  cancelar: 'Cancelar',
+  editar: 'Editar',
+  excluir: 'Excluir',
+  sim: 'Sim',
+  nao: 'Não',
+  carregando: 'Carregando...',
+  offline: 'Modo Offline - Dados salvos localmente',
+  sincronizando: 'Sincronizando ao conectar...',
+
+  perfilAtualizado: 'Perfil atualizado com sucesso!',
+  cliqueParaAlterarFoto: 'Clique na câmera para escolher foto da galeria',
+  salvarAlteracoes: 'Salvar Alterações',
+  permissoesSeguranca: 'Permissões & Segurança',
+
+  /* =========================
+     TIME TRACKER ADIÇÕES
+  ========================== */
+
+  timeTrackerTitle: 'Rastreador de Tempo',
+  timeTrackerDescription:
+    'Gerencie e acompanhe o tempo gasto em suas tarefas',
+  taskNamePlaceholder: 'Nome da tarefa atual...',
+  start: 'Iniciar',
+  pause: 'Pausar',
+  stop: 'Finalizar',
+  reset: 'Resetar',
+  activeSession: 'Sessão ativa em andamento',
+  sessionHistory: 'Histórico de Sessões',
+  clearHistory: 'Limpar histórico',
+  statistics: 'Estatísticas',
+  totalTrackedTime: 'Tempo total rastreado',
+  totalSessions: 'Total de sessões',
+
+  footer: {
+    copyright:
+      '© {{year}} Havk. Todos os direitos reservados.',
+    terms: 'Termos',
+    privacy: 'Privacidade',
+    help: 'Ajuda',
+  },
+};

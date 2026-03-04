@@ -53,10 +53,7 @@ export default function MobileMenu() {
   const menuItems = [
     { icon: LayoutDashboard, label: t('sidebar.dashboard'), path: '/' },
     { icon: Inbox, label: t('sidebar.inbox'), path: '/inbox' },
-    
-    // Novo item adicionado aqui (mesma posição lógica do sidebar)
     { icon: ListTodo, label: t('sidebar.demandas') || 'Demandas', path: '/demandas' },
-    
     { icon: FolderKanban, label: t('sidebar.projetos'), path: '/projetos' },
     { icon: ListTodo, label: t('sidebar.kanban'), path: '/kanban' },
     { icon: Calendar, label: t('sidebar.calendario'), path: '/calendario' },

@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
+// pages/Relatorios.tsx
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import {
   BarChart3,
@@ -10,7 +11,6 @@ import {
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Select from '../components/ui/Select';
-import { getAll, Demanda } from '../db/indexedDB';
 import { format, subDays, startOfYear, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { saveAs } from 'file-saver';
@@ -30,6 +30,7 @@ import {
 import toast from 'react-hot-toast';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { useAppStore } from '../store/useAppStore';
 
 type PeriodoFiltro = '30d' | '90d' | 'este-ano' | 'tudo';
 
@@ -46,8 +47,7 @@ interface Estatisticas {
 const CORES_STATUS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6b7280'];
 
 const useRelatoriosData = (periodo: PeriodoFiltro) => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { demandas, isLoading } = useAppStore();
   const [stats, setStats] = useState<Estatisticas>({
     totalDemandas: 0,
     demandasConcluidas: 0,
@@ -57,116 +57,101 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
     distribuicaoStatus: [],
     topUsuarios: [],
   });
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
+    if (isLoading) return;
 
-    const carregarDados = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      const agora = new Date();
+      let demandasFiltradas = demandas;
 
-        const todasDemandas = await getAll<Demanda>('demandas');
+      if (periodo !== 'tudo') {
+        let dataInicio: Date;
 
-        const agora = new Date();
-        let demandasFiltradas = todasDemandas;
+        if (periodo === '30d') dataInicio = subDays(agora, 30);
+        else if (periodo === '90d') dataInicio = subDays(agora, 90);
+        else if (periodo === 'este-ano') dataInicio = startOfYear(agora);
 
-        if (periodo !== 'tudo') {
-          let dataInicio: Date;
-
-          if (periodo === '30d') dataInicio = subDays(agora, 30);
-          else if (periodo === '90d') dataInicio = subDays(agora, 90);
-          else if (periodo === 'este-ano') dataInicio = startOfYear(agora);
-
-          demandasFiltradas = todasDemandas.filter((d) =>
-            d.createdAt && isWithinInterval(new Date(d.createdAt), { start: dataInicio, end: agora })
-          );
-        }
-
-        const concluidas = demandasFiltradas.filter((d) => d.status === 'concluida' || d.concluidaEm);
-
-        const total = demandasFiltradas.length;
-        const concluidasCount = concluidas.length;
-        const taxa = total > 0 ? Math.round((concluidasCount / total) * 100) : 0;
-
-        const temposConclusao = concluidas
-          .filter((d) => d.createdAt && d.concluidaEm)
-          .map((d) => {
-            const ini = new Date(d.createdAt!);
-            const fim = new Date(d.concluidaEm!);
-            return (fim.getTime() - ini.getTime()) / (1000 * 60 * 60 * 24);
-          });
-
-        const mediaDias =
-          temposConclusao.length > 0
-            ? temposConclusao.reduce((a, b) => a + b, 0) / temposConclusao.length
-            : 0;
-
-        const porMesRaw = concluidas.reduce<Record<string, number>>((acc, d) => {
-          if (d.concluidaEm) {
-            const data = new Date(d.concluidaEm);
-            const chave = format(data, 'MMM yyyy', { locale: ptBR });
-            acc[chave] = (acc[chave] || 0) + 1;
-          }
-          return acc;
-        }, {});
-
-        const conclusoesPorMes = Object.entries(porMesRaw)
-          .map(([mes, qtd]) => ({ mes, quantidade: qtd }))
-          .sort((a, b) => {
-            const dataA = new Date(a.mes);
-            const dataB = new Date(b.mes);
-            return dataA.getTime() - dataB.getTime();
-          });
-
-        const statusCount = demandasFiltradas.reduce<Record<string, number>>((acc, d) => {
-          const st = d.status || 'sem-status';
-          acc[st] = (acc[st] || 0) + 1;
-          return acc;
-        }, {});
-
-        const distribuicaoStatus = Object.entries(statusCount)
-          .map(([name, value]) => ({ name, value }))
-          .sort((a, b) => b.value - a.value);
-
-        const porUsuarioRaw = concluidas.reduce<Record<string, number>>((acc, d) => {
-          const resp = d.responsavel || 'Sem responsável';
-          acc[resp] = (acc[resp] || 0) + 1;
-          return acc;
-        }, {});
-
-        const topUsuarios = Object.entries(porUsuarioRaw)
-          .map(([nome, concluidas]) => ({ nome, concluidas }))
-          .sort((a, b) => b.concluidas - a.concluidas)
-          .slice(0, 5);
-
-        if (mounted) {
-          setStats({
-            totalDemandas: total,
-            demandasConcluidas: concluidasCount,
-            taxaConclusao: taxa,
-            mediaTempoConclusaoDias: mediaDias,
-            conclusoesPorMes,
-            distribuicaoStatus,
-            topUsuarios,
-          });
-        }
-      } catch (err) {
-        console.error(err);
-        setError('Não foi possível carregar os relatórios. Tente novamente.');
-      } finally {
-        if (mounted) setLoading(false);
+        demandasFiltradas = demandas.filter((d) =>
+          d.createdAt && isWithinInterval(new Date(d.createdAt), { start: dataInicio, end: agora })
+        );
       }
-    };
 
-    carregarDados();
+      const concluidas = demandasFiltradas.filter((d) => d.status === 'concluida');
 
-    return () => {
-      mounted = false;
-    };
-  }, [periodo]);
+      const total = demandasFiltradas.length;
+      const concluidasCount = concluidas.length;
+      const taxa = total > 0 ? Math.round((concluidasCount / total) * 100) : 0;
 
-  return { stats, loading, error };
+      const temposConclusao = concluidas
+        .filter((d) => d.createdAt && d.updatedAt)
+        .map((d) => {
+          const ini = new Date(d.createdAt!);
+          const fim = new Date(d.updatedAt!);
+          return (fim.getTime() - ini.getTime()) / (1000 * 60 * 60 * 24);
+        });
+
+      const mediaDias =
+        temposConclusao.length > 0
+          ? temposConclusao.reduce((a, b) => a + b, 0) / temposConclusao.length
+          : 0;
+
+      const porMesRaw = concluidas.reduce<Record<string, number>>((acc, d) => {
+        if (d.updatedAt) {
+          const data = new Date(d.updatedAt);
+          const chave = format(data, 'MMM yyyy', { locale: ptBR });
+          acc[chave] = (acc[chave] || 0) + 1;
+        }
+        return acc;
+      }, {});
+
+      const conclusoesPorMes = Object.entries(porMesRaw)
+        .map(([mes, qtd]) => ({ mes, quantidade: qtd }))
+        .sort((a, b) => {
+          const dataA = new Date(a.mes);
+          const dataB = new Date(b.mes);
+          return dataA.getTime() - dataB.getTime();
+        });
+
+      const statusCount = demandasFiltradas.reduce<Record<string, number>>((acc, d) => {
+        const st = d.status || 'sem-status';
+        acc[st] = (acc[st] || 0) + 1;
+        return acc;
+      }, {});
+
+      const distribuicaoStatus = Object.entries(statusCount)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+      const porUsuarioRaw = concluidas.reduce<Record<string, number>>((acc, d) => {
+        const resp = d.assignee || 'Sem responsável';
+        acc[resp] = (acc[resp] || 0) + 1;
+        return acc;
+      }, {});
+
+      const topUsuarios = Object.entries(porUsuarioRaw)
+        .map(([nome, concluidas]) => ({ nome, concluidas }))
+        .sort((a, b) => b.concluidas - a.concluidas)
+        .slice(0, 5);
+
+      setStats({
+        totalDemandas: total,
+        demandasConcluidas: concluidasCount,
+        taxaConclusao: taxa,
+        mediaTempoConclusaoDias: mediaDias,
+        conclusoesPorMes,
+        distribuicaoStatus,
+        topUsuarios,
+      });
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError('Não foi possível carregar os relatórios. Tente novamente.');
+    }
+  }, [demandas, periodo, isLoading]);
+
+  return { stats, loading: isLoading, error };
 };
 
 export default function Relatorios() {
@@ -211,8 +196,6 @@ export default function Relatorios() {
     const toastId = toast.loading('Gerando PDF (pode demorar alguns segundos)...');
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
       const clone = reportRef.current.cloneNode(true) as HTMLElement;
       clone.style.backgroundColor = '#0a0a0a';
       clone.style.position = 'absolute';
@@ -301,15 +284,7 @@ export default function Relatorios() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
-      <div
-        className={`
-          pt-20
-          lg:pl-64
-          px-4 sm:px-6 lg:px-8
-          transition-all duration-300
-        `}
-      >
+      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
         <div ref={reportRef} className="max-w-7xl mx-auto pb-16 space-y-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">

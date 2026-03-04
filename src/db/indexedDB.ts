@@ -31,34 +31,55 @@ const STORES: DBStore[] = [
   {
     name: 'demandas',
     keyPath: 'id',
-    autoIncrement: true,           // mantido como você queria originalmente
+    autoIncrement: false, // mudado para false para usar UUID string
     indexes: [
       { name: 'status', keyPath: 'status' },
-      { name: 'prioridade', keyPath: 'prioridade' },
-      { name: 'responsavel', keyPath: 'responsavelId' },
+      { name: 'priority', keyPath: 'priority' },
+      { name: 'assignee', keyPath: 'assignee' },
       { name: 'prazo', keyPath: 'prazo' },
+      { name: 'projectId', keyPath: 'projectId' },
     ],
   },
   {
     name: 'notas',
     keyPath: 'id',
-    autoIncrement: true,
+    autoIncrement: false,
     indexes: [{ name: 'demandaId', keyPath: 'demandaId' }],
   },
   {
     name: 'chatMensagens',
     keyPath: 'id',
-    autoIncrement: true,
-    indexes: [{ name: 'demandaId', keyPath: 'demandaId' }],
+    autoIncrement: false,
+    indexes: [{ name: 'demandaId', keyPath: 'demandaId' }, { name: 'channel', keyPath: 'channel' }],
   },
   {
     name: 'templates',
     keyPath: 'id',
-    autoIncrement: true,
+    autoIncrement: false,
   },
   {
     name: 'preferencias',
     keyPath: 'key',
+    autoIncrement: false,
+  },
+  {
+    name: 'projetos',
+    keyPath: 'id',
+    autoIncrement: false,
+  },
+  {
+    name: 'objetivos',
+    keyPath: 'id',
+    autoIncrement: false,
+  },
+  {
+    name: 'notifications',
+    keyPath: 'id',
+    autoIncrement: false,
+  },
+  {
+    name: 'timeEntries',
+    keyPath: 'id',
     autoIncrement: false,
   },
 ];
@@ -99,14 +120,14 @@ export const openDB = (): Promise<IDBDatabase> => {
   });
 };
 
-export const addItem = async <T>(storeName: string, item: T): Promise<number | string> => {
+export const addItem = async <T>(storeName: string, item: T): Promise<string> => {
   const database = await openDB();
   return new Promise((resolve, reject) => {
     const tx = database.transaction(storeName, 'readwrite');
     const store = tx.objectStore(storeName);
     const request = store.add(item);
 
-    request.onsuccess = () => resolve(request.result as number | string);
+    request.onsuccess = () => resolve(request.result as string);
     request.onerror = () => reject(request.error);
   });
 };
@@ -119,10 +140,10 @@ export const getItem = async <T>(storeName: string, key: IDBValidKey): Promise<T
 
     let searchKey: IDBValidKey = key;
 
-    // Conversão inteligente para demandas (resolve o problema number vs string)
+    // Suporte a string e number para demandas antigas
     if (storeName === 'demandas') {
       if (typeof key === 'string' && /^\d+$/.test(key)) {
-        searchKey = Number(key); // tenta como número primeiro
+        searchKey = Number(key);
       }
     }
 
@@ -130,14 +151,14 @@ export const getItem = async <T>(storeName: string, key: IDBValidKey): Promise<T
 
     request.onsuccess = () => {
       if (request.result !== undefined) {
-        resolve(request.result as T | undefined);
+        resolve(request.result as T);
         return;
       }
 
-      // Fallback: se não achou como number, tenta como string (para dados inconsistentes)
+      // Fallback para string se não achou como number
       if (searchKey !== key && typeof key === 'string') {
         const fallbackReq = store.get(key);
-        fallbackReq.onsuccess = () => resolve(fallbackReq.result as T | undefined);
+        fallbackReq.onsuccess = () => resolve(fallbackReq.result as T);
         fallbackReq.onerror = () => reject(fallbackReq.error);
       } else {
         resolve(undefined);
@@ -168,7 +189,6 @@ export const deleteItem = async (storeName: string, key: IDBValidKey): Promise<v
 
     let deleteKey: IDBValidKey = key;
 
-    // Mesma conversão inteligente para demandas
     if (storeName === 'demandas') {
       if (typeof key === 'string' && /^\d+$/.test(key)) {
         deleteKey = Number(key);
@@ -207,6 +227,19 @@ export const getByIndex = async <T>(
     const request = index.getAll(query);
 
     request.onsuccess = () => resolve(request.result as T[]);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+// Limpa todo o store (útil para dev/testes)
+export const clearStore = async (storeName: string): Promise<void> => {
+  const database = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    const request = store.clear();
+
+    request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
 };

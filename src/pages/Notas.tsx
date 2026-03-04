@@ -1,83 +1,98 @@
+// pages/Notas.tsx
 import { useState, useEffect } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import { NotebookPen, Plus, Save, X } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
-import { addItem, getAll, updateItem } from '../db/indexedDB';
+import toast from 'react-hot-toast';
+import { useAppStore } from '../store/useAppStore';
 
 export default function Notas() {
   const { t, translateUserContent } = useTranslation();
-  const [notas, setNotas] = useState<any[]>([]);
-  const [currentNota, setCurrentNota] = useState<any>({ id: null, title: '', content: '' });
+
+  const {
+    notas,
+    addNota,
+    updateNota,
+    isLoading,
+  } = useAppStore();
+
+  const [currentNota, setCurrentNota] = useState<{
+    id?: string;
+    title: string;
+    content: string;
+  }>({ id: undefined, title: '', content: '' });
+
   const [isEditing, setIsEditing] = useState(false);
 
-  useEffect(() => {
-    const loadNotas = async () => {
-      const data = await getAll<any>('notas');
-      setNotas(data || []);
-    };
-    loadNotas();
-  }, []);
+  // Ordena notas por updatedAt ou createdAt (mais recente primeiro)
+  const sortedNotas = [...notas].sort((a, b) => {
+    const dateA = new Date(a.updatedAt || a.createdAt).getTime();
+    const dateB = new Date(b.updatedAt || b.createdAt).getTime();
+    return dateB - dateA;
+  });
 
   const handleNewNota = () => {
-    setCurrentNota({ id: null, title: '', content: '' });
+    setCurrentNota({ id: undefined, title: '', content: '' });
+    setIsEditing(true);
+  };
+
+  const handleSelectNota = (nota: any) => {
+    setCurrentNota({
+      id: nota.id,
+      title: nota.title || '',
+      content: nota.content || '',
+    });
     setIsEditing(true);
   };
 
   const handleSave = async () => {
     if (!currentNota.title.trim() && !currentNota.content.trim()) {
-      return toast.error(t('preenchaTituloOuConteudo') || 'Preencha título ou conteúdo');
+      toast.error(t('preenchaTituloOuConteudo') || 'Preencha título ou conteúdo');
+      return;
     }
 
     try {
-      let updatedNota;
-
       if (currentNota.id) {
         // Edição
-        updatedNota = {
-          ...currentNota,
-          updatedAt: new Date().toISOString(),
-        };
-        await updateItem('notas', updatedNota);
-        setNotas((prev) =>
-          prev.map((n) => (n.id === currentNota.id ? updatedNota : n))
-        );
+        await updateNota(currentNota.id, {
+          title: currentNota.title.trim(),
+          content: currentNota.content.trim(),
+        });
         toast.success(t('notaAtualizada') || 'Nota atualizada');
       } else {
         // Criação
-        const newNota = {
-          ...currentNota,
-          createdAt: new Date().toISOString(),
-        };
-        const id = await addItem('notas', newNota);
-        setNotas((prev) => [...prev, { ...newNota, id }]);
+        await addNota({
+          title: currentNota.title.trim() || undefined,
+          content: currentNota.content.trim(),
+        });
         toast.success(t('notaCriada') || 'Nova nota criada');
       }
 
       setIsEditing(false);
-      setCurrentNota({ id: null, title: '', content: '' });
+      setCurrentNota({ id: undefined, title: '', content: '' });
     } catch (err) {
       console.error(err);
       toast.error(t('erroSalvarNota') || 'Erro ao salvar nota');
     }
   };
 
-  const selectNota = (nota: any) => {
-    setCurrentNota(nota);
-    setIsEditing(true);
+  const handleCancel = () => {
+    setIsEditing(false);
+    setCurrentNota({ id: undefined, title: '', content: '' });
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
-      <div
-        className={`
-          pt-20
-          lg:pl-64
-          px-4 sm:px-6 lg:px-8
-          transition-all duration-300
-        `}
-      >
+      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
         <div className="mx-auto max-w-7xl pb-20">
           {/* Cabeçalho */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-12">
@@ -106,7 +121,7 @@ export default function Notas() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Sidebar de notas (lista) */}
+            {/* Sidebar - Lista de notas */}
             <div className="lg:col-span-3">
               <Card title={t('minhasNotas')} className="border-zinc-800 shadow-xl h-full">
                 <div className="p-4">
@@ -121,17 +136,17 @@ export default function Notas() {
                   </Button>
 
                   <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-zinc-900">
-                    {notas.length === 0 ? (
+                    {sortedNotas.length === 0 ? (
                       <div className="text-center py-12 text-zinc-500">
                         <NotebookPen className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p className="text-lg">Nenhuma nota ainda</p>
                         <p className="text-sm mt-2">Crie sua primeira nota acima</p>
                       </div>
                     ) : (
-                      notas.map((nota) => (
+                      sortedNotas.map((nota) => (
                         <button
                           key={nota.id}
-                          onClick={() => selectNota(nota)}
+                          onClick={() => handleSelectNota(nota)}
                           className={`
                             w-full text-left p-4 rounded-xl border transition-all duration-200
                             ${currentNota.id === nota.id
@@ -140,14 +155,14 @@ export default function Notas() {
                           `}
                         >
                           <p className="font-medium text-base truncate">
-                            {nota.title || 'Sem título'}
+                            {translateUserContent(nota.title || 'Sem título')}
                           </p>
                           <p className="text-sm text-zinc-500 mt-1 line-clamp-2">
-                            {nota.content?.slice(0, 80) || 'Nota vazia'}
+                            {translateUserContent(nota.content?.slice(0, 80) || 'Nota vazia')}
                             {nota.content?.length > 80 ? '...' : ''}
                           </p>
                           <p className="text-xs text-zinc-600 mt-2">
-                            {new Date(nota.createdAt).toLocaleDateString('pt-BR')}
+                            {new Date(nota.updatedAt || nota.createdAt).toLocaleDateString('pt-BR')}
                             {nota.updatedAt && ' • Atualizado'}
                           </p>
                         </button>
@@ -197,10 +212,7 @@ export default function Notas() {
                       <Button
                         variant="outline"
                         size="lg"
-                        onClick={() => {
-                          setIsEditing(false);
-                          setCurrentNota({ id: null, title: '', content: '' });
-                        }}
+                        onClick={handleCancel}
                         icon={<X className="w-5 h-5" />}
                       >
                         {t('cancelar')}

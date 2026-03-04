@@ -1,58 +1,76 @@
+// pages/Inbox.tsx
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import { Bell, CheckCircle, AlertCircle, Check } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { getAll, addItem, updateItem } from '../db/indexedDB';
 import toast from 'react-hot-toast';
+import { useAppStore } from '../store/useAppStore';
 
-type AppNotification = {
+type NotificationType = 'success' | 'warning' | 'error';
+
+interface AppNotification {
   id: string;
-  demandaId?: number;
-  type: 'success' | 'warning' | 'error';
+  demandaId?: string;
+  type: NotificationType;
   title: string;
   message: string;
   createdAt: string;
   read: boolean;
-};
+}
 
 export default function Inbox() {
   const { t } = useTranslation();
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  const {
+    demandas,
+    notifications,
+    addNotification,
+    updateNotification, // ← assumindo que você adicionou essa action no store
+    isLoading,
+  } = useAppStore();
+
   const [filter, setFilter] = useState<'all' | 'unread' | 'critical'>('all');
 
-  // GERA NOTIFICAÇÕES BASEADO NAS DEMANDAS (ao montar + quando demandas mudam)
+  // GERA NOTIFICAÇÕES AUTOMÁTICAS BASEADO NAS DEMANDAS (ao montar + quando demandas mudam)
   useEffect(() => {
     const syncNotifications = async () => {
-      const demandas = await getAll<any>('demandas');
-      const existing = await getAll<AppNotification>('notifications');
-
       const now = new Date();
-      const newNotifications: AppNotification[] = [];
 
-      demandas.forEach((d: any) => {
+      // Evita duplicatas: verifica se já existe notificação para essa demanda
+      const existingByDemanda = new Map<string, AppNotification[]>();
+      notifications.forEach((n) => {
+        if (n.demandaId) {
+          if (!existingByDemanda.has(n.demandaId)) existingByDemanda.set(n.demandaId, []);
+          existingByDemanda.get(n.demandaId)!.push(n);
+        }
+      });
+
+      const newNotifications: Omit<AppNotification, 'id'>[] = [];
+
+      demandas.forEach((d) => {
         if (!d.prazo) return;
 
         const prazo = new Date(d.prazo);
         const diffDays = (prazo.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
 
-        const alreadyExists = existing.some((n) => n.demandaId === d.id);
+        // Já existe alguma notificação para essa demanda?
+        const hasExisting = existingByDemanda.has(d.id);
 
-        if (alreadyExists) return;
+        // Só gera se não tiver nenhuma notificação associada ainda (ou você pode refinar para evitar repetição)
+        if (hasExisting) return;
 
         if (d.status === 'concluida') {
           newNotifications.push({
-            id: crypto.randomUUID(),
             demandaId: d.id,
             type: 'success',
             title: 'Demanda concluída',
-            message: `${d.title} foi finalizada.`,
+            message: `${d.title} foi finalizada com sucesso.`,
             createdAt: new Date().toISOString(),
             read: false,
           });
         } else if (diffDays > 0 && diffDays <= 2) {
           newNotifications.push({
-            id: crypto.randomUUID(),
             demandaId: d.id,
             type: 'warning',
             title: 'Prazo próximo',
@@ -62,7 +80,6 @@ export default function Inbox() {
           });
         } else if (diffDays < 0) {
           newNotifications.push({
-            id: crypto.randomUUID(),
             demandaId: d.id,
             type: 'error',
             title: 'Demanda atrasada',
@@ -73,73 +90,72 @@ export default function Inbox() {
         }
       });
 
-      // Salva novas notificações
+      // Adiciona as novas no store (já gera ID e salva no IndexedDB)
       for (const notif of newNotifications) {
-        await addItem('notifications', notif);
+        await addNotification(notif);
       }
 
-      // Recarrega a lista completa e ordena por data (mais recente primeiro)
-      const updatedList = await getAll<AppNotification>('notifications');
-      setNotifications(
-        updatedList.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )
-      );
+      // O store já atualiza a lista automaticamente via Zustand
     };
 
     syncNotifications();
 
-    // Atualiza a cada 5 minutos (para capturar novas demandas/prazos)
+    // Atualiza a cada 5 minutos
     const interval = setInterval(syncNotifications, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [demandas, addNotification, notifications]);
 
   // FILTROS
   const filteredNotifications = useMemo(() => {
+    let list = [...notifications].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
     if (filter === 'unread') {
-      return notifications.filter((n) => !n.read);
+      list = list.filter((n) => !n.read);
     }
     if (filter === 'critical') {
-      return notifications.filter((n) => n.type === 'error');
+      list = list.filter((n) => n.type === 'error');
     }
-    return notifications;
+
+    return list;
   }, [notifications, filter]);
 
-  // MARCAR COMO LIDA
   const markAsRead = async (notif: AppNotification) => {
-    const updatedNotif = { ...notif, read: true };
-    await updateItem('notifications', updatedNotif);
-
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notif.id ? updatedNotif : n))
-    );
+    try {
+      await updateNotification(notif.id, { read: true });
+      toast.success('Marcada como lida');
+    } catch (err) {
+      toast.error('Erro ao marcar como lida');
+    }
   };
 
-  // MARCAR TODAS COMO LIDAS
   const markAllAsRead = async () => {
-    const updated = notifications.map((n) => ({ ...n, read: true }));
-
-    for (const notif of updated) {
-      await updateItem('notifications', notif);
+    try {
+      for (const notif of notifications) {
+        if (!notif.read) {
+          await updateNotification(notif.id, { read: true });
+        }
+      }
+      toast.success('Todas marcadas como lidas');
+    } catch (err) {
+      toast.error('Erro ao marcar todas');
     }
-
-    setNotifications(updated);
-    toast.success('Todas as notificações marcadas como lidas');
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
-      <div
-        className={`
-          pt-20
-          lg:pl-64
-          px-4 sm:px-6 lg:px-8
-          transition-all duration-300
-        `}
-      >
+      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
         <div className="mx-auto max-w-7xl pb-20">
           {/* Cabeçalho */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-12">
@@ -169,7 +185,7 @@ export default function Inbox() {
             )}
           </div>
 
-          <Card title="Notificações" className="border-zinc-800 shadow-2xl">
+          <Card title="Notificações" className="border-zinc-800 shadow-2xl bg-zinc-900/70 rounded-2xl">
             {/* Filtros */}
             <div className="flex flex-wrap gap-3 mb-8">
               {['all', 'unread', 'critical'].map((f) => (
@@ -191,7 +207,7 @@ export default function Inbox() {
               ))}
             </div>
 
-            {/* Lista de notificações */}
+            {/* Lista */}
             <div className="space-y-5">
               {filteredNotifications.length === 0 ? (
                 <div className="text-center py-20 text-zinc-500">

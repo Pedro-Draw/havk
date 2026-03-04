@@ -1,282 +1,313 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { useTranslation } from '../../i18n/useTranslation';
 import { useAppStore } from '../../store/useAppStore';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import { UserPlus, Eye, EyeOff } from 'lucide-react';
-import { addItem } from '../../db/indexedDB'; // ajuste o caminho se necessário
 
-type FormErrors = {
-  name?: string;
-  email?: string;
-  password?: string;
-  confirmPassword?: string;
-  general?: string;
-};
+import {
+  UserPlus,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
+
+import { FcGoogle } from 'react-icons/fc';
+import { FaGithub } from 'react-icons/fa';
+
+import toast from 'react-hot-toast';
+
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+const signupSchema = z
+  .object({
+    name: z.string().min(2, 'O nome deve ter pelo menos 2 caracteres.'),
+    email: z.string().email('Informe um email válido.'),
+    password: z
+      .string()
+      .min(8, 'Sua senha deve ter no mínimo 8 caracteres.'),
+    confirmPassword: z.string(),
+    acceptTerms: z.literal(true, {
+      errorMap: () => ({
+        message: 'Você precisa aceitar os termos para continuar.',
+      }),
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'As senhas não coincidem.',
+    path: ['confirmPassword'],
+  });
+
+type SignupFormData = z.infer<typeof signupSchema>;
 
 export default function Signup() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [createDev, setCreateDev] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [loading, setLoading] = useState(false);
-
-  const { signIn } = useAuth();
+  const { signIn, signInWithProvider } = useAuth();
   const { setUser } = useAppStore();
-  const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const emailInputRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loadingProvider, setLoadingProvider] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      acceptTerms: false,
+    },
+  });
+
+  const passwordValue = watch('password');
+
+  const passwordStrength = useMemo(() => {
+    if (!passwordValue) return 0;
+
+    let strength = 0;
+    if (passwordValue.length >= 8) strength++;
+    if (/[A-Z]/.test(passwordValue)) strength++;
+    if (/[0-9]/.test(passwordValue)) strength++;
+    if (/[^A-Za-z0-9]/.test(passwordValue)) strength++;
+
+    return strength;
+  }, [passwordValue]);
 
   useEffect(() => {
-    emailInputRef.current?.focus();
+    emailRef.current?.focus();
   }, []);
 
-  // Limpa erro específico ao começar a digitar novamente
-  useEffect(() => {
-    if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
-  }, [name]);
+  const handleProviderLogin = async (
+    provider: 'google' | 'github'
+  ) => {
+    try {
+      setLoadingProvider(true);
 
-  useEffect(() => {
-    if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
-  }, [email]);
+      const user = await signInWithProvider(provider);
 
-  useEffect(() => {
-    if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
-  }, [password]);
+      if (!user) throw new Error('Não foi possível concluir o login social.');
 
-  useEffect(() => {
-    if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
-  }, [confirmPassword]);
+      setUser({
+        ...user,
+        acceptedTermsAt: null,
+      });
 
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
-
-    if (!name.trim()) {
-      newErrors.name = t('nameRequired') || 'O nome é obrigatório';
-    } else if (name.trim().length < 2) {
-      newErrors.name = t('nameTooShort') || 'Nome muito curto';
+      navigate('/accept-terms');
+    } catch (err: any) {
+      toast.error(err.message || 'Ocorreu um erro ao autenticar.');
+    } finally {
+      setLoadingProvider(false);
     }
-
-    if (!email) {
-      newErrors.email = t('emailRequired') || 'E-mail é obrigatório';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = t('invalidEmail') || 'E-mail inválido';
-    }
-
-    if (!password) {
-      newErrors.password = t('passwordRequired') || 'Senha é obrigatória';
-    } else if (password.length < 8) {
-      newErrors.password = t('passwordMinLength') || 'A senha deve ter pelo menos 8 caracteres';
-    }
-
-    if (password !== confirmPassword) {
-      newErrors.confirmPassword = t('passwordsDontMatch') || 'As senhas não coincidem';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
-  const getPasswordStrength = () => {
-    if (!password) return 0;
-    let strength = 0;
-    if (password.length >= 8) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[^A-Za-z0-9]/.test(password)) strength++;
-    return strength;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
-    setLoading(true);
+  const onSubmit = async (data: SignupFormData, e?: any) => {
+    const formData = new FormData(e?.target);
+    if (formData.get('_gotcha')) return;
 
     try {
+      const trimmedEmail = data.email.trim().toLowerCase();
+
+      const success = await signIn(trimmedEmail, data.password);
+
+      if (!success) {
+        throw new Error('Não foi possível finalizar o cadastro.');
+      }
+
       const newUser = {
         id: `user-${Date.now()}`,
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
+        name: data.name.trim(),
+        email: trimmedEmail,
         language: 'pt-BR',
         theme: 'system',
         createdAt: new Date().toISOString(),
-        isDev: createDev,
-        // campos futuros úteis em SaaS real:
-        // plan: 'free',
-        // onboarded: false,
-        // lastLogin: new Date().toISOString(),
+        acceptedTermsAt: new Date().toISOString(),
       };
-
-      await addItem('user', newUser);
 
       setUser(newUser);
 
-      // Mock de autenticação (mantém o comportamento que você quer)
-      const success = await signIn(email.trim(), password);
-      if (!success) {
-        throw new Error('Falha ao autenticar após cadastro');
-      }
-
+      toast.success('Conta criada com sucesso! Seja bem-vindo à Havk.');
       navigate('/', { replace: true });
     } catch (err: any) {
-      console.error(err);
-      setErrors({
-        general: err.message || t('errorSignup') || 'Não foi possível criar a conta. Tente novamente.',
-      });
-    } finally {
-      setLoading(false);
+      toast.error(err.message || 'Ocorreu um erro ao criar sua conta.');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-8 shadow-2xl">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-white tracking-tight">Havk</h1>
-          <p className="text-zinc-400 mt-2 text-lg">{t('createYourAccount')}</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8">
+      <div className="w-full max-w-sm bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-6 shadow-2xl">
+        
+        {/* HEADER */}
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">
+            Havk
+          </h1>
+          <p className="text-zinc-400 mt-2 text-sm">
+            Crie sua conta gratuita e desbloqueie todo o potencial da plataforma.
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-5"
+        >
           <Input
-            label={t('fullName')}
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            error={errors.name}
-            required
+            label="Nome completo"
+            placeholder="Digite seu nome completo"
+            {...register('name')}
+            error={errors.name?.message}
             fullWidth
-            autoComplete="name"
+            size="sm"
           />
 
           <Input
-            ref={emailInputRef}
-            label={t('emailAddress')}
+            ref={emailRef}
+            label="Email profissional"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
             placeholder="nome@exemplo.com"
-            error={errors.email}
-            required
+            {...register('email')}
+            error={errors.email?.message}
             fullWidth
-            autoComplete="email"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
+            size="sm"
           />
 
-          <div className="space-y-1">
-            <Input
-              label={t('password')}
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={errors.password}
-              required
-              fullWidth
-              autoComplete="new-password"
-              trailingIcon={
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  tabIndex={-1}
-                  className="text-zinc-400 hover:text-zinc-200 focus:outline-none"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              }
-            />
-
-            {password && (
-              <div className="flex gap-1 mt-1.5">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-1 flex-1 rounded-full transition-all ${
-                      i < getPasswordStrength()
-                        ? i === 0
-                          ? 'bg-red-500'
-                          : i === 1
-                          ? 'bg-orange-500'
-                          : i === 2
-                          ? 'bg-yellow-500'
-                          : 'bg-green-500'
-                        : 'bg-zinc-700'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
           <Input
-            label={t('confirmPassword')}
-            type={showConfirm ? 'text' : 'password'}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            error={errors.confirmPassword}
-            required
+            label="Senha segura"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Crie uma senha forte"
+            {...register('password')}
+            error={errors.password?.message}
             fullWidth
-            autoComplete="new-password"
+            size="sm"
             trailingIcon={
               <button
                 type="button"
-                onClick={() => setShowConfirm(!showConfirm)}
-                tabIndex={-1}
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label="Mostrar ou ocultar senha"
                 className="text-zinc-400 hover:text-zinc-200 focus:outline-none"
               >
-                {showConfirm ? <EyeOff size={20} /> : <Eye size={20} />}
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             }
           />
 
-          <label className="flex items-center gap-2.5 text-sm text-zinc-300 select-none">
-            <input
-              type="checkbox"
-              checked={createDev}
-              onChange={(e) => setCreateDev(e.target.checked)}
-              className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-indigo-500 focus:ring-indigo-500/30 focus:ring-offset-2 focus:ring-offset-zinc-900"
-            />
-            <span>{t('createAsDeveloperAccount') || 'Criar como conta de desenvolvedor (dev tools)'}</span>
-          </label>
+          <Input
+            label="Confirmar senha"
+            type={showConfirm ? 'text' : 'password'}
+            placeholder="Repita sua senha"
+            {...register('confirmPassword')}
+            error={errors.confirmPassword?.message}
+            fullWidth
+            size="sm"
+            trailingIcon={
+              <button
+                type="button"
+                onClick={() => setShowConfirm((prev) => !prev)}
+                aria-label="Mostrar ou ocultar senha"
+                className="text-zinc-400 hover:text-zinc-200 focus:outline-none"
+              >
+                {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            }
+          />
 
-          {/* Honeypot anti-spam (invisível para humanos) */}
-          <input type="text" name="_gotcha" tabIndex={-1} className="sr-only" />
+          {/* TERMOS */}
+          <div className="space-y-1">
+            <label className="flex items-start gap-2 text-xs text-zinc-300 leading-snug">
+              <input
+                type="checkbox"
+                {...register('acceptTerms')}
+                className="mt-1 w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-indigo-500 focus:ring-indigo-500/30"
+              />
+              <span>
+                Ao criar sua conta, você concorda com nossos{' '}
+                <Link
+                  to="/termos"
+                  className="text-indigo-400 hover:underline"
+                >
+                  Termos de Uso
+                </Link>{' '}
+                e com a{' '}
+                <Link
+                  to="/privacidade"
+                  className="text-indigo-400 hover:underline"
+                >
+                  Política de Privacidade
+                </Link>.
+              </span>
+            </label>
 
-          {errors.general && (
-            <p className="text-red-400 text-sm text-center font-medium bg-red-950/40 border border-red-900/50 rounded-lg p-3">
-              {errors.general}
-            </p>
-          )}
+            {errors.acceptTerms && (
+              <p className="text-red-500 text-xs mt-1">
+                {errors.acceptTerms.message}
+              </p>
+            )}
+          </div>
+
+          <input
+            type="text"
+            name="_gotcha"
+            className="hidden"
+          />
 
           <Button
             type="submit"
-            variant="primary"
-            size="lg"
             fullWidth
-            loading={loading}
-            disabled={loading}
-            icon={<UserPlus className="w-5 h-5" />}
+            loading={isSubmitting}
+            size="md"
+            icon={<UserPlus className="w-4 h-4" />}
           >
-            {t('createAccount')}
+            Criar minha conta
           </Button>
+
+          {/* DIVISOR */}
+          <div className="flex items-center my-5">
+            <div className="flex-grow border-t border-zinc-800"></div>
+            <span className="mx-3 text-zinc-500 text-xs uppercase tracking-wide">
+              ou continue com
+            </span>
+            <div className="flex-grow border-t border-zinc-800"></div>
+          </div>
+
+          {/* LOGIN SOCIAL */}
+          <div className="space-y-3">
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              fullWidth
+              disabled={loadingProvider}
+              onClick={() => handleProviderLogin('google')}
+              icon={<FcGoogle className="w-5 h-5" />}
+            >
+              Continuar com Google
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              fullWidth
+              disabled={loadingProvider}
+              onClick={() => handleProviderLogin('github')}
+              icon={<FaGithub className="w-5 h-5" />}
+            >
+              Continuar com GitHub
+            </Button>
+          </div>
         </form>
 
-        <div className="mt-8 text-center text-sm">
-          <p className="text-zinc-500">
-            {t('alreadyHaveAccount')}{' '}
-            <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
-              {t('signIn')}
-            </Link>
-          </p>
+        <div className="mt-6 text-center text-xs text-zinc-500">
+          Já possui uma conta?{' '}
+          <Link
+            to="/login"
+            className="text-indigo-400 hover:underline font-medium"
+          >
+            Acessar painel
+          </Link>
         </div>
       </div>
     </div>

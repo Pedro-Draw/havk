@@ -10,12 +10,21 @@ const translations = {
 export const useTranslation = () => {
   const { language, translateContent } = useAppStore();
 
-  const t = (key: string): string => {
+  const t = (key: string, params?: Record<string, any>): string => {
     const dict = translations[language] || translations['pt-BR'];
-    return dict[key as keyof typeof dict] || key;
+    let text = dict[key as keyof typeof dict] || key;
+
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        text = text.replace(new RegExp(`{{${k}}}`, 'g'), String(v));
+      });
+    }
+
+    return text;
   };
 
-  const translateUserContent = (text: string) => {
+  const translateUserContent = (text: string | undefined): string => {
+    if (!text) return '';
     return translateContent(text, language);
   };
 

@@ -1,3 +1,4 @@
+// pages/TimeTracker.tsx
 import { useState, useEffect } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import {
@@ -12,52 +13,25 @@ import {
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
-
-interface HistoryEntry {
-  id: string;
-  task: string;
-  time: number;
-  date: string;
-}
+import toast from 'react-hot-toast';
+import { useAppStore } from '../store/useAppStore';
 
 export default function TimeTracker() {
   const { t } = useTranslation();
 
+  const {
+    timeEntries,
+    addTimeEntry,
+    deleteTimeEntry, // ← assumindo que você adicionou essa action
+    isLoading,
+  } = useAppStore();
+
   const [time, setTime] = useState<number>(0);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [taskName, setTaskName] = useState<string>('');
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   /* ================================
-     LOAD PERSISTED DATA
-  =================================*/
-  useEffect(() => {
-    const storedHistory = localStorage.getItem('timeTrackerHistory');
-    const storedTime = localStorage.getItem('timeTrackerCurrentTime');
-    const storedTask = localStorage.getItem('timeTrackerCurrentTask');
-
-    if (storedHistory) setHistory(JSON.parse(storedHistory));
-    if (storedTime) setTime(Number(storedTime));
-    if (storedTask) setTaskName(storedTask);
-  }, []);
-
-  /* ================================
-     SAVE DATA
-  =================================*/
-  useEffect(() => {
-    localStorage.setItem('timeTrackerHistory', JSON.stringify(history));
-  }, [history]);
-
-  useEffect(() => {
-    localStorage.setItem('timeTrackerCurrentTime', String(time));
-  }, [time]);
-
-  useEffect(() => {
-    localStorage.setItem('timeTrackerCurrentTask', taskName);
-  }, [taskName]);
-
-  /* ================================
-     TIMER
+     TIMER LOGIC
   =================================*/
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -77,16 +51,12 @@ export default function TimeTracker() {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-
-    return `${hrs.toString().padStart(2, '0')}:${mins
-      .toString()
-      .padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   /* ================================
      ACTIONS
   =================================*/
-
   const handleStartPause = () => {
     if (!taskName.trim()) {
       toast.error(t('digiteNomeTarefa') || 'Digite o nome da tarefa primeiro');
@@ -95,26 +65,29 @@ export default function TimeTracker() {
     setIsRunning((prev) => !prev);
   };
 
-  // FINALIZA sessão mas NÃO zera o timer
-  const handleStop = () => {
+  const handleStop = async () => {
     if (time === 0 || !taskName.trim()) return;
 
     setIsRunning(false);
 
-    setHistory((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
+    try {
+      await addTimeEntry({
         task: taskName.trim(),
-        time,
-        date: new Date().toLocaleString('pt-BR'),
-      },
-    ]);
+        time, // em segundos
+        date: new Date().toISOString(),
+      });
 
-    toast.success(t('sessaoRegistrada') || 'Sessão registrada no histórico');
+      toast.success(t('sessaoRegistrada') || 'Sessão registrada no histórico');
+
+      // Reset timer e task após salvar
+      setTime(0);
+      setTaskName('');
+    } catch (err) {
+      toast.error('Erro ao salvar sessão');
+      console.error(err);
+    }
   };
 
-  // Reset manual
   const handleReset = () => {
     setIsRunning(false);
     setTime(0);
@@ -122,21 +95,35 @@ export default function TimeTracker() {
     toast.success(t('timerResetado') || 'Timer resetado');
   };
 
-  const handleDeleteSession = (id: string) => {
-    setHistory((prev) => prev.filter((entry) => entry.id !== id));
-    toast.success(t('sessaoExcluida') || 'Sessão excluída');
+  const handleDeleteSession = async (id: string) => {
+    try {
+      await deleteTimeEntry(id);
+      toast.success(t('sessaoExcluida') || 'Sessão excluída');
+    } catch (err) {
+      toast.error('Erro ao excluir sessão');
+    }
   };
 
-  const handleClearHistory = () => {
+  const handleClearHistory = async () => {
     if (!confirm(t('confirmarLimparHistorico') || 'Tem certeza que deseja limpar todo o histórico?')) return;
-    setHistory([]);
-    toast.success(t('historicoLimpo') || 'Histórico limpo');
+
+    try {
+      // Como o store não tem clearAll ainda, deletamos um por um (ou adicione clearTimeEntries no store)
+      for (const entry of timeEntries) {
+        await deleteTimeEntry(entry.id);
+      }
+      toast.success(t('historicoLimpo') || 'Histórico limpo');
+    } catch (err) {
+      toast.error('Erro ao limpar histórico');
+    }
   };
 
-  const totalTime = history.reduce((acc, cur) => acc + cur.time, 0);
+  /* ================================
+     ESTATÍSTICAS
+  =================================*/
+  const totalTime = timeEntries.reduce((acc, cur) => acc + cur.time, 0);
 
-  // Agrupar por tarefa
-  const groupedByTask = history.reduce<Record<string, number>>(
+  const groupedByTask = timeEntries.reduce<Record<string, number>>(
     (acc, entry) => {
       acc[entry.task] = (acc[entry.task] || 0) + entry.time;
       return acc;
@@ -144,21 +131,21 @@ export default function TimeTracker() {
     {}
   );
 
-  /* ================================
-     RENDER
-  =================================*/
+  const sortedHistory = [...timeEntries].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
-      <div
-        className={`
-          pt-20
-          lg:pl-64
-          px-4 sm:px-6 lg:px-8
-          transition-all duration-300
-        `}
-      >
+      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
         <div className="mx-auto max-w-7xl pb-20 space-y-10">
           {/* Cabeçalho */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -208,7 +195,7 @@ export default function TimeTracker() {
                   size="xl"
                   icon={<Square className="w-6 h-6" />}
                   onClick={handleStop}
-                  disabled={time === 0}
+                  disabled={time === 0 || !isRunning}
                   className="min-w-[160px] py-6 text-lg"
                 >
                   {t('stop')}
@@ -229,7 +216,7 @@ export default function TimeTracker() {
           </Card>
 
           {/* ESTATÍSTICAS */}
-          {history.length > 0 && (
+          {timeEntries.length > 0 && (
             <Card title={t('statistics')} icon={<BarChart3 className="w-6 h-6" />} className="border-zinc-800 shadow-2xl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
                 <div className="space-y-6">
@@ -242,7 +229,7 @@ export default function TimeTracker() {
 
                   <div className="text-center">
                     <p className="text-4xl md:text-5xl font-bold text-zinc-100 mb-2">
-                      {history.length}
+                      {timeEntries.length}
                     </p>
                     <p className="text-lg text-zinc-400">{t('totalSessions')}</p>
                   </div>
@@ -253,9 +240,9 @@ export default function TimeTracker() {
                     {t('timePerTask')}
                   </p>
 
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
                     {Object.entries(groupedByTask)
-                      .sort(([, a], [, b]) => b - a) // ordena por tempo decrescente
+                      .sort(([, a], [, b]) => b - a)
                       .map(([task, seconds]) => (
                         <div
                           key={task}
@@ -276,10 +263,10 @@ export default function TimeTracker() {
           )}
 
           {/* HISTÓRICO */}
-          {history.length > 0 && (
+          {timeEntries.length > 0 && (
             <Card title={t('sessionHistory')} className="border-zinc-800 shadow-2xl">
-              <div className="space-y-4 p-2">
-                {history.map((entry) => (
+              <div className="space-y-4 p-2 max-h-96 overflow-y-auto">
+                {sortedHistory.map((entry) => (
                   <div
                     key={entry.id}
                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-zinc-900/70 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-all"
@@ -289,7 +276,10 @@ export default function TimeTracker() {
                         {entry.task}
                       </p>
                       <p className="text-sm text-zinc-500 mt-1">
-                        {entry.date}
+                        {new Date(entry.date).toLocaleString('pt-BR', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
                       </p>
                     </div>
 
@@ -323,7 +313,7 @@ export default function TimeTracker() {
             </Card>
           )}
 
-          {history.length === 0 && !time && (
+          {timeEntries.length === 0 && time === 0 && (
             <div className="text-center py-20 text-zinc-500">
               <Clock className="w-20 h-20 mx-auto mb-8 opacity-50" />
               <h3 className="text-2xl font-medium mb-4">

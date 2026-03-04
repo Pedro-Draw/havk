@@ -4,32 +4,39 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import { LogIn, Eye, EyeOff, ShieldCheck, Zap, Award, Heart } from 'lucide-react';
+import {
+  LogIn,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Zap,
+  Award,
+  Heart,
+} from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { FaGithub } from 'react-icons/fa';
 import { motion, useMotionValue, useSpring } from 'framer-motion';
+import toast from 'react-hot-toast';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [shake, setShake] = useState(false);
 
-  const {
-    signIn,
-    signInWithGoogle,
-    signInWithGithub,
-    signInAsDev,
-  } = useAuth();
+  const { signIn, signInWithGoogle, signInWithGithub, signInAsDev } =
+    useAuth();
 
   const { t } = useTranslation();
-  const emailRef = useRef<HTMLInputElement>(null);
 
-  // 🔥 Glow Effect
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
-
   const springX = useSpring(mouseX, { stiffness: 120, damping: 20 });
   const springY = useSpring(mouseY, { stiffness: 120, damping: 20 });
 
@@ -42,24 +49,52 @@ export default function Login() {
     mouseY.set(e.clientY - window.innerHeight / 2);
   };
 
+  const validateEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  const isFormValid = validateEmail(email) && password.length >= 6;
+
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!isFormValid) {
+      setError(
+        t('credenciaisInvalidas') ||
+          'Por favor, preencha os campos corretamente.'
+      );
+      triggerShake();
+      return;
+    }
+
     setLoading(true);
 
     try {
       const success = await signIn(email.trim(), password);
       if (!success) {
-        setError(t('invalidCredentials') || 'E-mail ou senha incorretos');
+        setError(
+          t('credenciaisInvalidas') ||
+            'Email ou senha incorretos.'
+        );
+        triggerShake();
       }
     } catch (err: any) {
-      setError(err.message || t('errorLogin') || 'Erro ao fazer login');
+      setError(err.message || 'Ocorreu um erro ao realizar o login.');
+      triggerShake();
+      toast.error('Ocorreu um erro ao realizar o login.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleProviderLogin = async (provider: 'google' | 'github' | 'dev') => {
+  const handleProviderLogin = async (
+    provider: 'google' | 'github' | 'dev'
+  ) => {
     setLoading(true);
     setError('');
 
@@ -68,7 +103,9 @@ export default function Login() {
       if (provider === 'github') await signInWithGithub();
       if (provider === 'dev') await signInAsDev();
     } catch (err: any) {
-      setError(err.message || 'Erro ao autenticar');
+      setError(err.message || 'Ocorreu um erro na autenticação.');
+      triggerShake();
+      toast.error('Ocorreu um erro na autenticação.');
     } finally {
       setLoading(false);
     }
@@ -79,34 +116,36 @@ export default function Login() {
       onMouseMove={handleMouseMove}
       className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 overflow-hidden"
     >
-
-      {/* GLOW BACKGROUND */}
+      {/* Glow Background */}
       <motion.div
         className="absolute inset-0 pointer-events-none opacity-30"
         style={{
           x: springX,
           y: springY,
           background:
-            "radial-gradient(circle at center, rgba(120,120,255,0.25), transparent 70%)"
+            'radial-gradient(circle at center, rgba(120,120,255,0.25), transparent 70%)',
         }}
       />
 
-      {/* LOGIN CARD */}
-      <div className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-8 shadow-2xl z-10">
-
+      {/* Card */}
+      <motion.div
+        animate={shake ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
+        transition={{ duration: 0.4 }}
+        className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-8 shadow-2xl z-10"
+      >
         <div className="text-center mb-8">
           <h1 className="text-4xl font-extrabold text-white tracking-tight">
             Havk
           </h1>
           <p className="text-zinc-400 mt-2">
-            {t('welcomeBack')}
+            {t('welcomeBack') || 'Bem-vindo de volta'}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6" noValidate>
           <Input
             ref={emailRef}
-            label={t('emailAddress')}
+            label={t('email') || 'Email'}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -114,13 +153,18 @@ export default function Login() {
             required
             fullWidth
             autoComplete="email"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') passwordRef.current?.focus();
+            }}
           />
 
           <Input
-            label={t('password')}
+            ref={passwordRef}
+            label={t('senha') || 'Senha'}
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            placeholder="Digite sua senha"
             required
             fullWidth
             autoComplete="current-password"
@@ -128,12 +172,32 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="text-zinc-400 hover:text-zinc-200 transition-colors"
+                aria-label="Mostrar ou ocultar senha"
+                className="text-zinc-400 hover:text-white transition-colors"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             }
           />
+
+          <div className="flex items-center justify-between text-sm">
+            <label className="flex items-center gap-2 text-zinc-400">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="w-4 h-4 rounded border-zinc-700 bg-zinc-800"
+              />
+              Lembrar meus dados
+            </label>
+
+            <Link
+              to="/forgot-password"
+              className="text-indigo-400 hover:text-indigo-300"
+            >
+              {t('esqueceuSenha') || 'Esqueceu sua senha?'}
+            </Link>
+          </div>
 
           {error && (
             <p className="text-red-400 text-sm text-center bg-red-950/40 border border-red-900/50 rounded-lg p-3">
@@ -147,17 +211,17 @@ export default function Login() {
             size="lg"
             fullWidth
             loading={loading}
-            disabled={loading}
+            disabled={!isFormValid || loading}
             icon={<LogIn className="w-5 h-5" />}
           >
-            {t('signIn')}
+            {loading ? 'Entrando...' : t('entrar') || 'Entrar'}
           </Button>
         </form>
 
         <div className="flex items-center my-8">
           <div className="flex-grow border-t border-zinc-800"></div>
           <span className="mx-3 text-zinc-500 text-sm">
-            ou continuar com
+            {t('ouContinuarCom') || 'Ou continue com'}
           </span>
           <div className="flex-grow border-t border-zinc-800"></div>
         </div>
@@ -172,7 +236,7 @@ export default function Login() {
             onClick={() => handleProviderLogin('google')}
             icon={<FcGoogle className="w-5 h-5" />}
           >
-            Entrar com Google
+            {t('entrarComGoogle') || 'Entrar com Google'}
           </Button>
 
           <Button
@@ -184,7 +248,7 @@ export default function Login() {
             onClick={() => handleProviderLogin('github')}
             icon={<FaGithub className="w-5 h-5" />}
           >
-            Entrar com GitHub
+            {t('entrarComGithub') || 'Entrar com GitHub'}
           </Button>
 
           <Button
@@ -195,53 +259,45 @@ export default function Login() {
             disabled={loading}
             onClick={() => handleProviderLogin('dev')}
           >
-            Entrar como Dev
+            {t('entrarComoDev') || 'Entrar como desenvolvedor'}
           </Button>
         </div>
 
-        <div className="mt-10 text-center text-sm space-y-3">
-          <Link
-            to="/forgot-password"
-            className="text-zinc-400 hover:text-zinc-200 transition-colors block"
-          >
-            {t('forgotYourPassword')}
-          </Link>
-
+        <div className="mt-10 text-center text-sm">
           <p className="text-zinc-500">
-            {t('dontHaveAccount')}{' '}
+            {t('naoTemConta') || 'Ainda não possui uma conta?'}{' '}
             <Link
               to="/signup"
               className="text-indigo-400 hover:text-indigo-300 font-medium"
             >
-              {t('signUp')}
+              {t('cadastrar') || 'Criar conta'}
             </Link>
           </p>
         </div>
-      </div>
+      </motion.div>
 
-      {/* TRUST BADGES */}
+      {/* Trust Badges */}
       <div className="flex flex-wrap justify-center gap-8 text-sm mt-16 z-10">
         <div className="flex items-center gap-2 text-zinc-400">
           <ShieldCheck className="w-4 h-4 text-green-500" />
-          Segurança Enterprise
+          Segurança empresarial
         </div>
 
         <div className="flex items-center gap-2 text-zinc-400">
           <Zap className="w-4 h-4 text-yellow-400" />
-          Alta Performance
+          Alto desempenho
         </div>
 
         <div className="flex items-center gap-2 text-zinc-400">
           <Award className="w-4 h-4 text-purple-400" />
-          SaaS Premium
+          Plataforma SaaS premium
         </div>
 
-        <div className="flex items-center gap-2 text-zinc-400">
+        {/* <div className="flex items-center gap-2 text-zinc-400">
           <Heart className="w-4 h-4 text-red-400" />
           Construído com paixão
-        </div>
+        </div> */}
       </div>
-
     </div>
   );
 }

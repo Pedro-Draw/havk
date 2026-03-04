@@ -1,3 +1,4 @@
+// App.tsx
 import { BrowserRouter as Router, Routes, Route, Outlet, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useEffect, useState } from "react";
@@ -9,7 +10,7 @@ import Topbar from "./components/layout/Topbar";
 import MobileMenu from "./components/layout/MobileMenu";
 import Footer from "./components/layout/Footer";
 
-import Splash from "./components/Splash"; // <--- import do splash
+import Splash from "./components/Splash";
 
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
@@ -37,12 +38,14 @@ import NotFound from "./pages/NotFound";
 function AppLayout() {
   const loadAll = useAppStore((state) => state.loadAll);
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
+  const user = useAppStore((state) => state.user);
 
+  // Carrega todos os dados sempre que o usuário está autenticado
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user) {
       loadAll();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user, loadAll]);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground overflow-x-hidden">

@@ -1,29 +1,25 @@
+// pages/Projetos.tsx
 import { useState } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
-import { FolderKanban, Plus, X, Save } from 'lucide-react';
+import { FolderKanban, Plus, X } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Input from '../components/ui/Input'; // assumindo que você tem esse componente
-import Textarea from '../components/ui/textarea'; // assumindo que você tem
-import { useNavigate } from 'react-router-dom'; // para redirecionar
+import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
+import { useAppStore } from '../store/useAppStore';
 
 export default function Projetos() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  // Mock de projetos (pode vir do store ou IndexedDB depois)
-  const [projetos, setProjetos] = useState([
-    { id: 1, name: 'Projeto Cliente A', status: 'ativo', demandas: 12, description: 'Projeto comercial para cliente externo' },
-    { id: 2, name: 'Interno - Redesign', status: 'em andamento', demandas: 8, description: 'Redesign do produto interno' },
-    { id: 3, name: 'Projeto Teste', status: 'concluído', demandas: 5, description: 'Projeto piloto para testes' },
-  ]);
+  const { projetos, addProjeto, isLoading } = useAppStore();
 
   // Modal de novo projeto
   const [showModal, setShowModal] = useState(false);
   const [newProject, setNewProject] = useState({
     name: '',
     description: '',
-    status: 'ativo',
+    status: 'ativo' as 'ativo' | 'em andamento' | 'concluído' | 'pausado',
   });
 
   const handleNovoProjeto = () => {
@@ -31,40 +27,47 @@ export default function Projetos() {
     setNewProject({ name: '', description: '', status: 'ativo' });
   };
 
-  const handleVerProjeto = (id: number) => {
-    navigate(`/projetos/${id}`); // rota exemplo – ajuste conforme sua estrutura
+  const handleVerProjeto = (id: string) => {
+    navigate(`/projetos/${id}`);
+    // TODO: criar página de detalhe do projeto em /projetos/:id
   };
 
-  const handleSaveNewProject = () => {
+  const handleSaveNewProject = async () => {
     if (!newProject.name.trim()) {
-      alert('O nome do projeto é obrigatório');
+      toast.error('O nome do projeto é obrigatório');
       return;
     }
 
-    const novo = {
-      id: Date.now(),
-      name: newProject.name.trim(),
-      description: newProject.description.trim(),
-      status: newProject.status,
-      demandas: 0,
-    };
+    try {
+      await addProjeto({
+        name: newProject.name.trim(),
+        description: newProject.description.trim() || undefined,
+        status: newProject.status,
+        // demandas: 0 → o store já inicializa como undefined ou 0
+      });
 
-    setProjetos((prev) => [...prev, novo]);
-    setShowModal(false);
-    alert('Projeto criado com sucesso! (mock – pode salvar no IndexedDB depois)');
+      toast.success('Projeto criado com sucesso!');
+      setShowModal(false);
+
+      // O store já atualiza a lista automaticamente
+      // Não precisa de setProjetos manual
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao criar projeto');
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      {/* Ajuste principal: pt-20 para header + lg:pl-64 para sidebar */}
-      <div
-        className={`
-          pt-20
-          lg:pl-64
-          px-4 sm:px-6 lg:px-8
-          transition-all duration-300
-        `}
-      >
+      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
         <div className="mx-auto max-w-7xl pb-20">
           {/* Cabeçalho */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-12">
@@ -77,7 +80,7 @@ export default function Projetos() {
                   {t('projetos') || 'Projetos'}
                 </h1>
                 <p className="text-zinc-400 mt-2 text-lg">
-                  {projetos.length} projetos • Organize demandas e acompanhe progresso
+                  {projetos.length} {projetos.length === 1 ? 'projeto' : 'projetos'} • Organize demandas e acompanhe progresso
                 </p>
               </div>
             </div>
@@ -99,7 +102,7 @@ export default function Projetos() {
                 key={proj.id}
                 title={proj.name}
                 hoverable
-                className="border-zinc-800 shadow-xl transition-all hover:shadow-2xl hover:border-zinc-700 flex flex-col"
+                className="border-zinc-800 shadow-xl transition-all hover:shadow-2xl hover:border-zinc-700 flex flex-col rounded-xl overflow-hidden"
               >
                 <div className="p-6 flex flex-col flex-1 space-y-5">
                   <div className="flex justify-between items-center text-base">
@@ -110,6 +113,8 @@ export default function Projetos() {
                           ? 'bg-green-900/40 text-green-300'
                           : proj.status === 'em andamento'
                           ? 'bg-blue-900/40 text-blue-300'
+                          : proj.status === 'concluído'
+                          ? 'bg-emerald-900/40 text-emerald-300'
                           : 'bg-gray-800/60 text-gray-300'
                       }`}
                     >
@@ -120,9 +125,15 @@ export default function Projetos() {
                   <div className="flex justify-between items-center text-base">
                     <span className="text-zinc-400">Demandas associadas:</span>
                     <span className="font-medium text-lg text-zinc-100">
-                      {proj.demandas}
+                      {proj.demandas ?? 0}
                     </span>
                   </div>
+
+                  {proj.description && (
+                    <p className="text-zinc-400 text-sm line-clamp-3">
+                      {proj.description}
+                    </p>
+                  )}
 
                   <div className="mt-auto pt-4">
                     <Button
@@ -142,7 +153,7 @@ export default function Projetos() {
             {/* Card "Criar novo projeto" */}
             <Card
               hoverable
-              className="border-dashed border-2 border-zinc-700 flex items-center justify-center cursor-pointer hover:border-zinc-500 transition-colors min-h-[280px] shadow-xl"
+              className="border-dashed border-2 border-zinc-700 flex items-center justify-center cursor-pointer hover:border-zinc-500 transition-colors min-h-[280px] shadow-xl rounded-xl"
               onClick={handleNovoProjeto}
             >
               <div className="text-center py-12">
@@ -153,13 +164,28 @@ export default function Projetos() {
               </div>
             </Card>
           </div>
+
+          {projetos.length === 0 && (
+            <div className="text-center py-20 mt-12">
+              <FolderKanban className="w-24 h-24 mx-auto mb-6 text-zinc-600" />
+              <h2 className="text-2xl font-bold text-zinc-200 mb-4">
+                Nenhum projeto ainda
+              </h2>
+              <p className="text-zinc-500 mb-8 max-w-md mx-auto">
+                Crie seu primeiro projeto para começar a organizar demandas e equipes.
+              </p>
+              <Button variant="primary" size="lg" onClick={handleNovoProjeto}>
+                Criar Primeiro Projeto
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Modal simples de criação de projeto */}
+      {/* Modal de criação de projeto */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 w-full max-w-lg rounded-2xl p-6 border border-zinc-800 shadow-2xl">
+          <div className="bg-zinc-900 w-full max-w-lg rounded-2xl p-6 border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-white">Novo Projeto</h2>
               <button
@@ -191,8 +217,8 @@ export default function Projetos() {
                 <textarea
                   value={newProject.description}
                   onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                  placeholder="Breve descrição do projeto..."
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:border-indigo-500 min-h-[100px]"
+                  placeholder="Breve descrição do projeto, objetivos, prazo esperado..."
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:border-indigo-500 min-h-[100px] resize-y"
                 />
               </div>
 
@@ -202,7 +228,9 @@ export default function Projetos() {
                 </label>
                 <select
                   value={newProject.status}
-                  onChange={(e) => setNewProject({ ...newProject, status: e.target.value })}
+                  onChange={(e) =>
+                    setNewProject({ ...newProject, status: e.target.value as any })
+                  }
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:border-indigo-500"
                 >
                   <option value="ativo">Ativo</option>
@@ -212,11 +240,15 @@ export default function Projetos() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-4 pt-4">
+              <div className="flex justify-end gap-4 pt-6">
                 <Button variant="outline" onClick={() => setShowModal(false)}>
                   Cancelar
                 </Button>
-                <Button variant="primary" onClick={handleSaveNewProject}>
+                <Button
+                  variant="primary"
+                  onClick={handleSaveNewProject}
+                  disabled={!newProject.name.trim()}
+                >
                   Criar Projeto
                 </Button>
               </div>

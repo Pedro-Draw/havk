@@ -1,46 +1,34 @@
-import { useEffect } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { create } from "zustand";
 
-export const useTheme = () => {
-  const { theme, setTheme } = useAppStore();
+export type Theme = "light" | "dark" | "gray" | "system";
 
-  useEffect(() => {
-    const applyTheme = () => {
-      // Remove todas as classes anteriores
-      document.documentElement.classList.remove('light', 'dark', 'gray', 'system');
+interface ThemeState {
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+}
 
-      if (theme === 'system') {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        document.documentElement.classList.add(prefersDark ? 'dark' : 'light');
-      } else {
-        document.documentElement.classList.add(theme);
-      }
+function applyTheme(theme: Theme) {
+  const root = document.documentElement;
 
-      // Garante que o body reflita o tema
-      document.body.className = theme === 'system'
-        ? window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-        : theme;
-    };
+  root.classList.remove("light", "dark", "gray");
 
-    applyTheme();
+  if (theme === "system") {
+    const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    root.classList.add(systemDark ? "dark" : "light");
+  } else {
+    root.classList.add(theme);
+  }
+}
 
-    // Listener para mudanças no tema do sistema (quando theme = system)
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      if (theme === 'system') {
-        applyTheme();
-      }
-    };
+export const useTheme = create<ThemeState>((set) => ({
+  theme: (localStorage.getItem("theme") as Theme) || "system",
 
-    mediaQuery.addEventListener('change', handleChange);
+  setTheme: (theme) => {
+    localStorage.setItem("theme", theme);
+    applyTheme(theme);
+    set({ theme });
+  },
+}));
 
-    return () => {
-      mediaQuery.removeEventListener('change', handleChange);
-    };
-  }, [theme]);
-
-  return {
-    theme,
-    setTheme,
-  };
-};
+// 🔥 inicializa automaticamente
+applyTheme((localStorage.getItem("theme") as Theme) || "system");

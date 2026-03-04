@@ -1,3 +1,4 @@
+// hooks/useAuth.ts
 import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import { auth, googleProvider, githubProvider } from '../lib/firebase';
@@ -6,84 +7,118 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
+import toast from 'react-hot-toast';
 
 export const useAuth = () => {
-  const { user, isAuthenticated, setUser, logout } = useAppStore();
+  const { user, isAuthenticated, setUser, logout: storeLogout } = useAppStore();
   const navigate = useNavigate();
 
-  // ---------------- EMAIL LOGIN REAL ----------------
+  // EMAIL + PASSWORD LOGIN
   const signIn = async (email: string, password: string): Promise<boolean> => {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
-
       const firebaseUser = result.user;
 
-      setUser({
+      const userData = {
         id: firebaseUser.uid,
-        name: firebaseUser.displayName || 'User',
-        email: firebaseUser.email,
+        name: firebaseUser.displayName || 'Usuário',
+        email: firebaseUser.email || email,
         avatar: firebaseUser.photoURL,
-        provider: 'email',
-      });
+        language: 'pt-BR',
+        theme: 'system',
+        createdAt: new Date().toISOString(),
+      };
 
-      navigate('/');
+      setUser(userData);
+      toast.success('Login realizado com sucesso!');
+      navigate('/', { replace: true });
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      toast.error('E-mail ou senha incorretos');
+      console.error('Erro no login com e-mail:', error);
       return false;
     }
   };
 
-  // ---------------- GOOGLE REAL ----------------
+  // GOOGLE LOGIN
   const signInWithGoogle = async () => {
-    const result = await signInWithPopup(auth, googleProvider);
-    const firebaseUser = result.user;
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const firebaseUser = result.user;
 
-    setUser({
-      id: firebaseUser.uid,
-      name: firebaseUser.displayName,
-      email: firebaseUser.email,
-      avatar: firebaseUser.photoURL,
-      provider: 'google',
-    });
+      const userData = {
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName,
+        email: firebaseUser.email,
+        avatar: firebaseUser.photoURL,
+        language: 'pt-BR',
+        theme: 'system',
+        createdAt: new Date().toISOString(),
+      };
 
-    navigate('/');
+      setUser(userData);
+      toast.success('Login com Google realizado!');
+      navigate('/', { replace: true });
+    } catch (error: any) {
+      toast.error('Erro ao fazer login com Google');
+      console.error('Erro Google login:', error);
+    }
   };
 
-  // ---------------- GITHUB REAL ----------------
+  // GITHUB LOGIN
   const signInWithGithub = async () => {
-    const result = await signInWithPopup(auth, githubProvider);
-    const firebaseUser = result.user;
+    try {
+      const result = await signInWithPopup(auth, githubProvider);
+      const firebaseUser = result.user;
 
-    setUser({
-      id: firebaseUser.uid,
-      name: firebaseUser.displayName,
-      email: firebaseUser.email,
-      avatar: firebaseUser.photoURL,
-      provider: 'github',
-    });
+      const userData = {
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName,
+        email: firebaseUser.email,
+        avatar: firebaseUser.photoURL,
+        language: 'pt-BR',
+        theme: 'system',
+        createdAt: new Date().toISOString(),
+      };
 
-    navigate('/');
+      setUser(userData);
+      toast.success('Login com GitHub realizado!');
+      navigate('/', { replace: true });
+    } catch (error: any) {
+      toast.error('Erro ao fazer login com GitHub');
+      console.error('Erro GitHub login:', error);
+    }
   };
 
-  // ---------------- DEV FAKE ----------------
+  // DEV MODE (FAKE LOGIN RÁPIDO)
   const signInAsDev = async () => {
-    setUser({
+    const devUser = {
       id: 'dev-001',
       name: 'Havk Developer',
       email: 'dev@havk.local',
       avatar: null,
-      provider: 'dev',
+      language: 'pt-BR',
+      theme: 'system',
+      createdAt: new Date().toISOString(),
       isDev: true,
-    });
+    };
 
-    navigate('/');
+    setUser(devUser);
+    toast.success('Entrou como desenvolvedor (modo teste)');
+    navigate('/', { replace: true });
   };
 
-  // ---------------- LOGOUT ----------------
+  // LOGOUT
   const signOut = async () => {
-    await firebaseSignOut(auth);
-    logout();
-    navigate('/login');
+    try {
+      await firebaseSignOut(auth);
+      storeLogout();
+      toast.success('Logout realizado');
+      navigate('/login', { replace: true });
+    } catch (error) {
+      toast.error('Erro ao fazer logout');
+      console.error('Erro logout:', error);
+    }
   };
 
   const isDevMode = user?.isDev ?? false;

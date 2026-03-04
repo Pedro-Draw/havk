@@ -1,3 +1,4 @@
+// pages/DemandaDetail.tsx  (ou mantenha o nome que já usa)
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../i18n/useTranslation';
@@ -19,49 +20,27 @@ import {
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
-import { getItem, getAll, addItem, updateItem } from '../db/indexedDB';
-
-interface Demanda {
-  id: number;
-  title: string;
-  description: string;
-  status: 'aberta' | 'em-progresso' | 'concluida' | 'bloqueada';
-  prioridade: 'baixa' | 'media' | 'alta' | 'urgente';
-  prazo?: string;
-  responsavel?: string;
-  createdAt: string;
-  updatedAt?: string;
-}
-
-interface ChatMessage {
-  id?: number;
-  demandaId: number;
-  message: string;
-  createdAt: string;
-  sender?: string;
-}
-
-interface Nota {
-  id?: number;
-  demandaId: number;
-  content: string;
-  createdAt: string;
-  updatedAt?: string;
-}
+import { useAppStore } from '../store/useAppStore';
 
 export default function DemandaDetail() {
   const { id: idParam } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, translateUserContent } = useTranslation();
 
-  const [demanda, setDemanda] = useState<Demanda | null>(null);
-  const [demandasList, setDemandasList] = useState<Demanda[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    demandas,
+    chatMensagens,
+    notas,
+    addDemanda,
+    updateDemanda,
+    addChatMensagem,
+    addNota,
+    updateNota,
+    isLoading,
+  } = useAppStore();
 
   const [tab, setTab] = useState<'detalhes' | 'chat' | 'notas' | 'anexos' | 'historico'>('detalhes');
 
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -69,126 +48,57 @@ export default function DemandaDetail() {
   const [notaOriginal, setNotaOriginal] = useState('');
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editedDemanda, setEditedDemanda] = useState<Partial<Demanda>>({});
+  const [editedFields, setEditedFields] = useState<Partial<Demanda>>({});
 
   // Modal criação
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newDemandaForm, setNewDemandaForm] = useState({
     title: '',
     description: '',
-    prioridade: 'media' as Demanda['prioridade'],
-    status: 'aberta' as Demanda['status'],
+    priority: 'media' as 'baixa' | 'media' | 'alta' | 'urgente',
+    status: 'aberta' as 'aberta' | 'em-progresso' | 'concluida' | 'bloqueada',
     prazo: '',
-    responsavel: '',
+    responsavel: '', // ← compatível com assignee no store
   });
 
-  // Lista – roda apenas uma vez
-  useEffect(() => {
-    if (idParam) return;
+  // Encontra a demanda atual (quando tem :id)
+  const demanda = idParam ? demandas.find(d => d.id === idParam) : null;
 
-    let isMounted = true;
+  // Mensagens do chat filtradas por essa demanda
+  const filteredChat = chatMensagens.filter(m => m.demandaId === idParam);
 
-    const loadList = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const all = await getAll<Demanda>('demandas');
-        const sorted = all.sort((a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        if (isMounted) setDemandasList(sorted);
-      } catch (err) {
-        console.error('Erro ao carregar lista:', err);
-        if (isMounted) setError('Erro ao carregar demandas');
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    loadList();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Detalhe
-  useEffect(() => {
-    if (!idParam) return;
-
-    let isMounted = true;
-
-    const loadDetail = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const numericId = Number(idParam);
-        if (isNaN(numericId)) throw new Error('ID inválido');
-
-        const single = await getItem<Demanda>('demandas', numericId);
-        if (!single) {
-          if (isMounted) setError('Demanda não encontrada');
-          return;
-        }
-
-        if (isMounted) {
-          setDemanda(single);
-          setEditedDemanda(single);
-        }
-
-        const allChats = await getAll<ChatMessage>('chatMensagens');
-        const filteredChats = allChats
-          .filter((c) => String(c.demandaId) === String(numericId))
-          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
-        if (isMounted) setChatMessages(filteredChats);
-
-        const allNotas = await getAll<Nota>('notas');
-        const notaExistente = allNotas.find((n) => String(n.demandaId) === String(numericId));
-        if (notaExistente && isMounted) {
-          setNota(notaExistente.content || '');
-          setNotaOriginal(notaExistente.content || '');
-        }
-      } catch (err) {
-        console.error('Erro ao carregar detalhe:', err);
-        if (isMounted) setError('Erro ao carregar dados');
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    loadDetail();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [idParam]);
+  // Nota associada (assumindo 1 nota por demanda por enquanto)
+  const existingNota = notas.find(n => n.demandaId === idParam);
 
   useEffect(() => {
+    if (existingNota) {
+      setNota(existingNota.content || '');
+      setNotaOriginal(existingNota.content || '');
+    } else {
+      setNota('');
+      setNotaOriginal('');
+    }
+  }, [existingNota]);
+
+  useEffect(() => {
+    // Scroll automático para última mensagem
     setTimeout(() => {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  }, [chatMessages]);
+    }, 120);
+  }, [filteredChat]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !idParam || !demanda) return;
-    const numericId = Number(idParam);
-    if (isNaN(numericId)) return;
-
-    const messageObj: ChatMessage = {
-      demandaId: numericId,
-      message: newMessage,
-      createdAt: new Date().toISOString(),
-      sender: 'Você',
-    };
+    if (!newMessage.trim() || !idParam) return;
 
     try {
-      await addItem('chatMensagens', messageObj);
-      setChatMessages((prev) => [...prev, messageObj]);
+      await addChatMensagem({
+        message: newMessage.trim(),
+        demandaId: idParam,
+        senderId: 'current-user', // TODO: pegar id real do usuário logado
+        channel: 'demanda',
+      });
       setNewMessage('');
-      toast.success('Mensagem enviada!');
+      toast.success('Mensagem enviada');
     } catch (err) {
       toast.error('Erro ao enviar mensagem');
     }
@@ -196,26 +106,18 @@ export default function DemandaDetail() {
 
   const handleSaveNota = async () => {
     if (!idParam || nota === notaOriginal) return;
-    const numericId = Number(idParam);
-    if (isNaN(numericId)) return;
 
     try {
-      const allNotas = await getAll<Nota>('notas');
-      const existing = allNotas.find((n) => String(n.demandaId) === String(numericId));
-
-      if (existing) {
-        const updatedNota = { ...existing, content: nota, updatedAt: new Date().toISOString() };
-        await updateItem('notas', updatedNota);
+      if (existingNota) {
+        await updateNota(existingNota.id, { content: nota.trim() });
       } else {
-        await addItem('notas', {
-          demandaId: numericId,
-          content: nota,
-          createdAt: new Date().toISOString(),
+        await addNota({
+          content: nota.trim(),
+          demandaId: idParam,
         });
       }
-
       setNotaOriginal(nota);
-      toast.success('Nota salva!');
+      toast.success('Nota salva');
     } catch (err) {
       toast.error('Erro ao salvar nota');
     }
@@ -223,31 +125,24 @@ export default function DemandaDetail() {
 
   const handleToggleEdit = () => {
     if (isEditing) {
-      setEditedDemanda(demanda || {});
+      setEditedFields({});
       setIsEditing(false);
-    } else {
-      setEditedDemanda({ ...demanda });
+    } else if (demanda) {
+      setEditedFields({ ...demanda });
       setIsEditing(true);
     }
   };
 
   const handleSaveDemanda = async () => {
     if (!demanda || !idParam) return;
-    const numericId = Number(idParam);
-    if (isNaN(numericId)) return;
 
     try {
-      const updated: Demanda = {
-        ...demanda,
-        ...editedDemanda,
-        id: numericId,
+      await updateDemanda(idParam, {
+        ...editedFields,
         updatedAt: new Date().toISOString(),
-      };
-
-      await updateItem('demandas', updated);
-      setDemanda(updated);
+      });
       setIsEditing(false);
-      toast.success('Demanda atualizada!');
+      toast.success('Demanda atualizada');
     } catch (err) {
       toast.error('Erro ao atualizar demanda');
     }
@@ -255,68 +150,56 @@ export default function DemandaDetail() {
 
   const handleConcluirOuReabrir = async () => {
     if (!demanda || !idParam) return;
-    const numericId = Number(idParam);
-    if (isNaN(numericId)) return;
 
     const newStatus = demanda.status === 'concluida' ? 'aberta' : 'concluida';
 
     try {
-      const updated: Demanda = {
-        ...demanda,
+      await updateDemanda(idParam, {
         status: newStatus,
         updatedAt: new Date().toISOString(),
-      };
-      await updateItem('demandas', updated);
-      setDemanda(updated);
+      });
       toast.success(newStatus === 'concluida' ? 'Demanda concluída!' : 'Demanda reaberta!');
     } catch (err) {
-      toast.error('Erro ao atualizar status');
+      toast.error('Erro ao alterar status');
     }
   };
 
   const handleCreateDemanda = async () => {
     if (!newDemandaForm.title.trim()) {
-      toast.error('O título é obrigatório');
+      toast.error('Título é obrigatório');
       return;
     }
 
     try {
-      const nova: Omit<Demanda, 'id'> = {
+      const newId = await addDemanda({
         title: newDemandaForm.title.trim(),
         description: newDemandaForm.description.trim(),
         status: newDemandaForm.status,
-        prioridade: newDemandaForm.prioridade,
+        priority: newDemandaForm.priority,
         prazo: newDemandaForm.prazo || undefined,
-        responsavel: newDemandaForm.responsavel?.trim() || undefined,
-        createdAt: new Date().toISOString(),
-      };
+        assignee: newDemandaForm.responsavel?.trim() || undefined, // ← mapeia para o campo do store
+      });
 
-      const newId = await addItem('demandas', nova);
-
-      toast.success('Demanda criada com sucesso!');
+      toast.success('Demanda criada!');
       setShowCreateModal(false);
 
-      // Limpa form
+      // Limpa formulário
       setNewDemandaForm({
         title: '',
         description: '',
-        prioridade: 'media',
+        priority: 'media',
         status: 'aberta',
         prazo: '',
         responsavel: '',
       });
 
-      // Atualiza lista e redireciona
-      const all = await getAll<Demanda>('demandas');
-      setDemandasList(all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
       navigate(`/demandas/${newId}`);
     } catch (err) {
-      console.error(err);
       toast.error('Erro ao criar demanda');
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
@@ -324,8 +207,12 @@ export default function DemandaDetail() {
     );
   }
 
-  // LISTA
+  // LISTA DE DEMANDAS (quando não tem :id na URL)
   if (!idParam) {
+    const sortedDemandas = [...demandas].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
     return (
       <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
         <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
@@ -338,7 +225,7 @@ export default function DemandaDetail() {
                 <div>
                   <h1 className="text-3xl md:text-4xl font-bold text-white">Demandas</h1>
                   <p className="text-zinc-400 mt-1">
-                    {demandasList.length} {demandasList.length === 1 ? 'demanda' : 'demandas'}
+                    {sortedDemandas.length} {sortedDemandas.length === 1 ? 'demanda' : 'demandas'}
                   </p>
                 </div>
               </div>
@@ -353,7 +240,7 @@ export default function DemandaDetail() {
               </Button>
             </div>
 
-            {demandasList.length === 0 ? (
+            {sortedDemandas.length === 0 ? (
               <Card className="text-center py-20 border-zinc-800 shadow-2xl">
                 <AlertTriangle className="w-20 h-20 mx-auto mb-6 text-yellow-500/70" />
                 <h2 className="text-3xl font-bold mb-4 text-zinc-200">Nenhuma demanda ainda</h2>
@@ -366,7 +253,7 @@ export default function DemandaDetail() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {demandasList.map((dem) => (
+                {sortedDemandas.map((dem) => (
                   <Card
                     key={dem.id}
                     hoverable
@@ -375,7 +262,7 @@ export default function DemandaDetail() {
                   >
                     <div className="p-6 flex flex-col flex-1">
                       <h3 className="font-semibold text-lg text-white line-clamp-2 mb-4">
-                        {dem.title || 'Sem título'}
+                        {translateUserContent(dem.title || 'Sem título')}
                       </h3>
                       <div className="flex flex-wrap gap-2 mt-auto">
                         <span
@@ -397,10 +284,10 @@ export default function DemandaDetail() {
                               alta: 'bg-orange-900/40 text-orange-300',
                               media: 'bg-yellow-900/40 text-yellow-300',
                               baixa: 'bg-green-900/40 text-green-300',
-                            }[dem.prioridade] || 'bg-zinc-800 text-zinc-400'
+                            }[dem.priority] || 'bg-zinc-800 text-zinc-400'
                           }`}
                         >
-                          {t(dem.prioridade) || dem.prioridade}
+                          {t(dem.priority) || dem.priority}
                         </span>
                       </div>
                     </div>
@@ -449,8 +336,8 @@ export default function DemandaDetail() {
                   <div>
                     <label className="block text-sm text-zinc-400 mb-2 font-medium">Prioridade</label>
                     <select
-                      value={newDemandaForm.prioridade}
-                      onChange={(e) => setNewDemandaForm({ ...newDemandaForm, prioridade: e.target.value as Demanda['prioridade'] })}
+                      value={newDemandaForm.priority}
+                      onChange={(e) => setNewDemandaForm({ ...newDemandaForm, priority: e.target.value as any })}
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-5 py-3 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
                     >
                       <option value="baixa">Baixa</option>
@@ -486,7 +373,12 @@ export default function DemandaDetail() {
                   <Button variant="secondary" size="lg" onClick={() => setShowCreateModal(false)}>
                     Cancelar
                   </Button>
-                  <Button variant="primary" size="lg" onClick={handleCreateDemanda} disabled={!newDemandaForm.title.trim()}>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    onClick={handleCreateDemanda}
+                    disabled={!newDemandaForm.title.trim()}
+                  >
                     Criar Demanda
                   </Button>
                 </div>
@@ -498,31 +390,31 @@ export default function DemandaDetail() {
     );
   }
 
-  // ERRO DETALHE
-  if (error || !demanda) {
+  // ────────────────────────────────────────────────
+  //                  DETALHE DA DEMANDA
+  // ────────────────────────────────────────────────
+
+  if (!demanda) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-zinc-300 px-6">
         <AlertTriangle className="w-24 h-24 text-red-500 mb-8 opacity-80" />
         <h2 className="text-4xl font-bold mb-4">{t('erro') || 'Erro'}</h2>
         <p className="text-xl text-center max-w-lg mb-10">
-          {error || t('demandaNaoEncontrada') || 'Demanda não encontrada ou ID inválido.'}
+          Demanda não encontrada ou ID inválido.
         </p>
         <Button variant="primary" size="xl" asChild>
-          <Link to="/demandas">
-            {t('voltarAsDemandas') || 'Voltar para Demandas'}
-          </Link>
+          <Link to="/demandas">Voltar para Demandas</Link>
         </Button>
       </div>
     );
   }
 
-  // DETALHE (mantido seu layout anterior, só com id corrigido)
   const prioridadeColor = {
     urgente: 'text-red-400 bg-red-950/40 border-red-800/60',
     alta: 'text-orange-400 bg-orange-950/40 border-orange-800/60',
     media: 'text-yellow-400 bg-yellow-950/40 border-yellow-800/60',
     baixa: 'text-green-400 bg-green-950/40 border-green-800/60',
-  }[demanda.prioridade.toLowerCase()] || 'text-zinc-400 bg-zinc-900/40 border-zinc-700/60';
+  }[demanda.priority] || 'text-zinc-400 bg-zinc-900/40 border-zinc-700/60';
 
   const statusColor = {
     concluida: 'text-emerald-400 bg-emerald-950/40 border-emerald-800/60',
@@ -547,8 +439,8 @@ export default function DemandaDetail() {
               <div className="flex-1">
                 {isEditing ? (
                   <input
-                    value={editedDemanda.title || ''}
-                    onChange={(e) => setEditedDemanda({ ...editedDemanda, title: e.target.value })}
+                    value={editedFields.title ?? demanda.title}
+                    onChange={(e) => setEditedFields({ ...editedFields, title: e.target.value })}
                     className="text-3xl md:text-4xl font-bold bg-zinc-900/80 border border-zinc-700 rounded-xl px-5 py-3 w-full focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
                     placeholder="Título da Demanda"
                   />
@@ -613,8 +505,8 @@ export default function DemandaDetail() {
                     <label className="text-sm text-zinc-400 block mb-2 font-medium">Status</label>
                     {isEditing ? (
                       <select
-                        value={editedDemanda.status || demanda.status}
-                        onChange={(e) => setEditedDemanda({ ...editedDemanda, status: e.target.value as Demanda['status'] })}
+                        value={editedFields.status ?? demanda.status}
+                        onChange={(e) => setEditedFields({ ...editedFields, status: e.target.value as any })}
                         className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 text-zinc-100"
                       >
                         <option value="aberta">Aberta</option>
@@ -633,8 +525,8 @@ export default function DemandaDetail() {
                     <label className="text-sm text-zinc-400 block mb-2 font-medium">Prioridade</label>
                     {isEditing ? (
                       <select
-                        value={editedDemanda.prioridade || demanda.prioridade}
-                        onChange={(e) => setEditedDemanda({ ...editedDemanda, prioridade: e.target.value as Demanda['prioridade'] })}
+                        value={editedFields.priority ?? demanda.priority}
+                        onChange={(e) => setEditedFields({ ...editedFields, priority: e.target.value as any })}
                         className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 text-zinc-100"
                       >
                         <option value="baixa">Baixa</option>
@@ -644,7 +536,7 @@ export default function DemandaDetail() {
                       </select>
                     ) : (
                       <div className={`inline-flex px-5 py-2 rounded-full font-medium ${prioridadeColor}`}>
-                        {t(demanda.prioridade) || demanda.prioridade}
+                        {t(demanda.priority) || demanda.priority}
                       </div>
                     )}
                   </div>
@@ -653,14 +545,14 @@ export default function DemandaDetail() {
                     <label className="text-sm text-zinc-400 block mb-2 font-medium">Responsável</label>
                     {isEditing ? (
                       <input
-                        value={editedDemanda.responsavel || ''}
-                        onChange={(e) => setEditedDemanda({ ...editedDemanda, responsavel: e.target.value })}
+                        value={editedFields.assignee ?? demanda.assignee ?? ''}
+                        onChange={(e) => setEditedFields({ ...editedFields, assignee: e.target.value })}
                         className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 text-zinc-100"
                         placeholder="Nome ou email"
                       />
                     ) : (
                       <div className="text-lg font-medium">
-                        {demanda.responsavel || 'Não atribuído'}
+                        {demanda.assignee || 'Não atribuído'}
                       </div>
                     )}
                   </div>
@@ -670,8 +562,8 @@ export default function DemandaDetail() {
                     {isEditing ? (
                       <input
                         type="date"
-                        value={editedDemanda.prazo || ''}
-                        onChange={(e) => setEditedDemanda({ ...editedDemanda, prazo: e.target.value })}
+                        value={editedFields.prazo ?? demanda.prazo ?? ''}
+                        onChange={(e) => setEditedFields({ ...editedFields, prazo: e.target.value })}
                         className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 text-zinc-100"
                       />
                     ) : (
@@ -686,8 +578,8 @@ export default function DemandaDetail() {
               <Card title="Descrição" className="border-zinc-800/60 shadow-2xl bg-zinc-900/70 rounded-2xl">
                 {isEditing ? (
                   <textarea
-                    value={editedDemanda.description || ''}
-                    onChange={(e) => setEditedDemanda({ ...editedDemanda, description: e.target.value })}
+                    value={editedFields.description ?? demanda.description ?? ''}
+                    onChange={(e) => setEditedFields({ ...editedFields, description: e.target.value })}
                     className="w-full h-56 bg-zinc-900 border border-zinc-700 rounded-xl p-6 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 resize-none text-base leading-relaxed"
                     placeholder="Descreva a demanda..."
                   />
@@ -700,26 +592,25 @@ export default function DemandaDetail() {
             </div>
           )}
 
-          {/* Chat */}
           {tab === 'chat' && (
             <Card title="Chat da Demanda" className="border-zinc-800/60 shadow-2xl bg-zinc-900/70 rounded-2xl">
               <div className="h-[60vh] overflow-y-auto bg-zinc-950/50 rounded-xl border border-zinc-800/80 p-6 space-y-5 mb-6 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-zinc-900">
-                {chatMessages.length === 0 ? (
+                {filteredChat.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-zinc-500">
                     <MessageSquare className="w-16 h-16 mb-6 opacity-60" />
                     <p className="text-xl font-medium">Nenhuma mensagem ainda</p>
                     <p className="text-base mt-3 opacity-80">Inicie a conversa</p>
                   </div>
                 ) : (
-                  chatMessages.map((msg, index) => (
+                  filteredChat.map((msg) => (
                     <div
-                      key={index}
-                      className={`flex ${msg.sender === 'Você' ? 'justify-end' : 'justify-start'}`}
+                      key={msg.id}
+                      className={`flex ${msg.senderId === 'current-user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
                         className={`
                           max-w-[80%] rounded-2xl px-5 py-4 text-base
-                          ${msg.sender === 'Você'
+                          ${msg.senderId === 'current-user'
                             ? 'bg-indigo-600/30 rounded-tr-none border border-indigo-500/30'
                             : 'bg-zinc-800/90 rounded-tl-none border border-zinc-700'}
                         `}
@@ -762,7 +653,6 @@ export default function DemandaDetail() {
             </Card>
           )}
 
-          {/* Notas */}
           {tab === 'notas' && (
             <Card title="Notas Internas" className="border-zinc-800/60 shadow-2xl bg-zinc-900/70 rounded-2xl">
               <textarea
@@ -793,7 +683,6 @@ export default function DemandaDetail() {
             </Card>
           )}
 
-          {/* Anexos e Histórico mantidos como placeholder */}
           {tab === 'anexos' && (
             <Card title="Anexos e Documentos" className="border-zinc-800/60 shadow-2xl bg-zinc-900/70 rounded-2xl">
               <div className="text-center py-24 text-zinc-500">

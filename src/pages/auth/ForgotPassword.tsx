@@ -1,9 +1,11 @@
+// pages/ForgotPassword.tsx
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../../i18n/useTranslation';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { Mail, ArrowLeft } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -25,22 +27,26 @@ export default function ForgotPassword() {
     setMessage('');
     setLoading(true);
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError(t('invalidEmail') || 'Digite um e-mail válido');
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError(t('emailInvalido') || 'Digite um e-mail válido');
       setLoading(false);
+      toast.error(t('emailInvalido') || 'E-mail inválido');
       return;
     }
 
     try {
-      // Aqui no futuro: fetch('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) })
+      // Simulação de envio (futuro: chamar API real)
       await new Promise((r) => setTimeout(r, 1400));
+
       setSubmitted(true);
       setMessage(
-        t('resetLinkSent') ||
+        t('linkRecuperacaoEnviado') ||
           'Se o e-mail existir em nosso sistema, enviaremos um link de recuperação.'
       );
+      toast.success(t('emailEnviado') || 'E-mail enviado com sucesso!');
     } catch (err) {
-      setError(t('errorSending') || 'Não foi possível enviar o e-mail. Tente novamente.');
+      setError(t('erroEnviarEmail') || 'Não foi possível enviar o e-mail. Tente novamente.');
+      toast.error(t('erroEnviarEmail') || 'Erro ao enviar e-mail');
     } finally {
       setLoading(false);
     }
@@ -55,14 +61,16 @@ export default function ForgotPassword() {
               <Mail className="w-8 h-8 text-green-400" />
             </div>
           </div>
-          <h2 className="text-2xl font-bold text-white mb-3">{t('checkYourEmail')}</h2>
+          <h2 className="text-2xl font-bold text-white mb-3">
+            {t('verifiqueSeuEmail')}
+          </h2>
           <p className="text-zinc-300 mb-8">{message}</p>
           <Link
             to="/login"
             className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 font-medium"
           >
             <ArrowLeft size={18} />
-            {t('backToLogin')}
+            {t('voltarLogin')}
           </Link>
         </div>
       </div>
@@ -74,13 +82,13 @@ export default function ForgotPassword() {
       <div className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-8 shadow-2xl">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-extrabold text-white tracking-tight">Havk</h1>
-          <p className="text-zinc-400 mt-2 text-lg">{t('recoverYourPassword')}</p>
+          <p className="text-zinc-400 mt-2 text-lg">{t('recuperarSenha')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input
             ref={emailRef}
-            label={t('emailAddress')}
+            label={t('email')}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -100,7 +108,7 @@ export default function ForgotPassword() {
             disabled={loading}
             icon={<Mail className="w-5 h-5" />}
           >
-            {t('sendRecoveryLink')}
+            {t('enviarLinkRecuperacao')}
           </Button>
         </form>
 
@@ -110,7 +118,7 @@ export default function ForgotPassword() {
             className="inline-flex items-center gap-2 text-zinc-400 hover:text-zinc-200 transition-colors"
           >
             <ArrowLeft size={16} />
-            {t('backToLogin')}
+            {t('voltarLogin')}
           </Link>
         </div>
       </div>

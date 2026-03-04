@@ -1,6 +1,7 @@
+// store/useAppStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { getAll, getItem, addItem, updateItem, deleteItem } from '../db/indexedDB'; // ← importe deleteItem e addItem!
+import { getAll, getItem, addItem, updateItem, deleteItem } from '../db/indexedDB';
 import toast from 'react-hot-toast';
 
 /* =====================================================
@@ -32,24 +33,28 @@ interface Demanda extends BaseEntity {
   priority: 'baixa' | 'media' | 'alta' | 'urgente';
   projectId?: string;
   assignee?: string;
+  prazo?: string;
+  prazoInicio?: string;
 }
 
 interface Nota extends BaseEntity {
   title?: string;
   content: string;
-  demandaId?: string; // opcional: vincular a demanda
+  demandaId?: string;
 }
 
 interface ChatMensagem extends BaseEntity {
   message: string;
   senderId?: string;
-  demandaId?: string; // para chat por demanda
-  channel?: 'global' | string; // para chat global ou por projeto
+  demandaId?: string;
+  channel?: 'global' | string;
 }
 
 interface Projeto extends BaseEntity {
   name: string;
   description?: string;
+  status?: 'ativo' | 'em andamento' | 'concluído' | 'pausado';
+  demandas?: number;
 }
 
 interface Objetivo extends BaseEntity {
@@ -58,8 +63,38 @@ interface Objetivo extends BaseEntity {
   deadline?: string;
 }
 
+interface Notification extends BaseEntity {
+  type: 'success' | 'warning' | 'error';
+  title: string;
+  message: string;
+  demandaId?: string;
+  read: boolean;
+}
+
+interface Membro extends BaseEntity {
+  name: string;
+  email: string;
+  role: string;
+  avatar?: string | null;
+  status: 'ativo' | 'inativo';
+}
+
+interface Template extends BaseEntity {
+  name: string;
+  category: string;
+  description: string;
+  content: string;
+  favorite: boolean;
+}
+
+interface TimeEntry extends BaseEntity {
+  task: string;
+  time: number; // segundos
+  date: string;
+}
+
 /* =====================================================
-   🤖 MOCK AI TRANSLATE
+   🤖 MOCK AI TRANSLATE (pode trocar por API real)
 ===================================================== */
 
 const mockAITranslate = (text: string, targetLang: 'pt-BR' | 'en'): string => {
@@ -69,7 +104,7 @@ const mockAITranslate = (text: string, targetLang: 'pt-BR' | 'en'): string => {
 };
 
 /* =====================================================
-   🧠 STORE
+   🧠 STORE - ÚNICA FONTE DA VERDADE
 ===================================================== */
 
 interface AppState {
@@ -85,14 +120,30 @@ interface AppState {
   chatMensagens: ChatMensagem[];
   projetos: Projeto[];
   objetivos: Objetivo[];
+  notifications: Notification[];
+  membros: Membro[];
+  templates: Template[];
+  timeEntries: TimeEntry[];
 
-  setUser: (user: User | null) => void;
+  // Preferências de notificações
+  notificationPreferences: {
+    newDemanda: boolean;
+    chat: boolean;
+    prazos: boolean;
+    system: boolean;
+    emailMarketing: boolean;   // extra
+  };
+  setNotificationPref: (key: keyof AppState['notificationPreferences'], value: boolean) => void;
+
+  // Auth & Config
+  setUser: (user: User | null) => Promise<void>;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
 
   setTheme: (theme: 'light' | 'dark' | 'system' | 'gray') => void;
   setLanguage: (lang: 'pt-BR' | 'en') => Promise<void>;
 
+  // Load all data from IndexedDB
   loadAll: () => Promise<void>;
 
   // Demandas
@@ -118,6 +169,22 @@ interface AppState {
   updateObjetivo: (id: string, data: Partial<Objetivo>) => Promise<void>;
   deleteObjetivo: (id: string) => Promise<void>;
 
+  // Notificações
+  addNotification: (data: Omit<Notification, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+
+  // Membros
+  addMembro: (data: Omit<Membro, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  updateMembro: (id: string, data: Partial<Membro>) => Promise<void>;
+  deleteMembro: (id: string) => Promise<void>;
+
+  // Templates
+  addTemplate: (data: Omit<Template, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  updateTemplate: (id: string, data: Partial<Template>) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
+
+  // Time Entries
+  addTimeEntry: (data: Omit<TimeEntry, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+
   // Tradução
   translateContent: (text: string, targetLang: 'pt-BR' | 'en') => string;
   translateAllUserContent: (targetLang: 'pt-BR' | 'en') => Promise<void>;
@@ -138,30 +205,58 @@ export const useAppStore = create<AppState>()(
       chatMensagens: [],
       projetos: [],
       objetivos: [],
+      notifications: [],
+      membros: [],
+      templates: [],
+      timeEntries: [],
 
-      /* AUTH */
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
+      notificationPreferences: {
+        newDemanda: true,
+        chat: true,
+        prazos: true,
+        system: true,
+        emailMarketing: true,
+      },
+
+      setNotificationPref: (key, value) =>
+        set(state => ({
+          notificationPreferences: {
+            ...state.notificationPreferences,
+            [key]: value
+          }
+        })),
+
+      /* AUTH & CONFIG */
+      setUser: async (user) => {
+        set({ user, isAuthenticated: !!user });
+
+        if (user) {
+          // Salva usuário no IndexedDB (para persistência extra)
+          await addItem('user', user);
+          // Carrega todos os dados do usuário logado
+          set({ isLoading: true });
+          await get().loadAll();
+          set({ isLoading: false });
+        }
+      },
 
       login: async (email, password) => {
+        // TODO: trocar por API real quando tiver backend
         if (email.includes('dev')) {
           const devUser = await getItem<User>('user', 'dev-user');
           if (devUser) {
-            set({
-              user: devUser,
-              isAuthenticated: true,
-              language: devUser.language,
-              theme: devUser.theme,
-              isLoading: true,
-            });
-            await get().loadAll(); // Carrega tudo após login
+            await get().setUser(devUser);
+            toast.success('Login realizado com sucesso');
             return true;
           }
         }
-        toast.error('Login falhou');
+
+        // Aqui você pode adicionar login real com Firebase ou outra API
+        toast.error('Credenciais inválidas');
         return false;
       },
 
-      logout: () => {
+      logout: async () => {
         set({
           user: null,
           isAuthenticated: false,
@@ -170,46 +265,87 @@ export const useAppStore = create<AppState>()(
           chatMensagens: [],
           projetos: [],
           objetivos: [],
+          notifications: [],
+          membros: [],
+          templates: [],
+          timeEntries: [],
         });
+        // Limpa IndexedDB se quiser (opcional)
+        // await clearAllStores(); // função que você pode criar
         toast.success('Logout realizado');
       },
 
-      /* CONFIG */
-      setTheme: (theme) => {
-        set({ theme });
-        if (get().user) updateItem('user', { ...get().user, theme });
+      setTheme: (newTheme) => {
+        set({ theme: newTheme });
 
-        document.documentElement.classList.remove('light', 'dark', 'gray');
-        if (theme === 'system') {
+        // Salva no user se estiver logado
+        if (get().user) {
+          updateItem('user', { ...get().user, theme: newTheme });
+        }
+
+        const root = document.documentElement;
+
+        // Remove classes antigas
+        root.classList.remove('light', 'dark', 'gray');
+
+        if (newTheme === 'system') {
+          // Segue preferência do sistema
           const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          document.documentElement.classList.add(prefersDark ? 'dark' : 'light');
+          root.classList.add(prefersDark ? 'dark' : 'light');
         } else {
-          document.documentElement.classList.add(theme);
+          // Aplica o tema escolhido diretamente
+          root.classList.add(newTheme);
         }
       },
 
       setLanguage: async (lang) => {
         set({ language: lang });
         await get().translateAllUserContent(lang);
-        if (get().user) await updateItem('user', { ...get().user, language: lang });
-        toast.success(`Idioma alterado para ${lang}`);
+        if (get().user) {
+          await updateItem('user', { ...get().user, language: lang });
+        }
+        toast.success(`Idioma alterado para ${lang === 'pt-BR' ? 'Português' : 'English'}`);
       },
 
-      /* LOAD ALL */
+      /* CARREGAMENTO AUTOMÁTICO DE TODOS OS DADOS */
       loadAll: async () => {
         set({ isLoading: true });
         try {
-          const [demandas, notas, chatMensagens, projetos, objetivos] = await Promise.all([
+          const [
+            demandas,
+            notas,
+            chatMensagens,
+            projetos,
+            objetivos,
+            notifications,
+            membros,
+            templates,
+            timeEntries,
+          ] = await Promise.all([
             getAll<Demanda>('demandas'),
             getAll<Nota>('notas'),
             getAll<ChatMensagem>('chatMensagens'),
             getAll<Projeto>('projetos'),
             getAll<Objetivo>('objetivos'),
+            getAll<Notification>('notifications'),
+            getAll<Membro>('membros'),
+            getAll<Template>('templates'),
+            getAll<TimeEntry>('timeEntries'),
           ]);
 
-          set({ demandas, notas, chatMensagens, projetos, objetivos });
+          set({
+            demandas: demandas || [],
+            notas: notas || [],
+            chatMensagens: chatMensagens || [],
+            projetos: projetos || [],
+            objetivos: objetivos || [],
+            notifications: notifications || [],
+            membros: membros || [],
+            templates: templates || [],
+            timeEntries: timeEntries || [],
+          });
         } catch (err) {
-          console.error('Erro ao carregar dados:', err);
+          console.error('Erro ao carregar dados do IndexedDB:', err);
           toast.error('Falha ao carregar dados do banco local');
         } finally {
           set({ isLoading: false });
@@ -227,9 +363,9 @@ export const useAppStore = create<AppState>()(
         };
 
         try {
-          await addItem('demandas', nova); // ← addItem, não updateItem!
+          await addItem('demandas', nova);
           set((state) => ({ demandas: [...state.demandas, nova] }));
-          toast.success('Demanda criada');
+          toast.success('Demanda criada com sucesso');
           return id;
         } catch (err) {
           toast.error('Erro ao criar demanda');
@@ -270,7 +406,7 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      /* NOTAS (similar para as outras entidades) */
+      /* NOTAS */
       addNota: async (data) => {
         const id = crypto.randomUUID();
         const nova: Nota = {
@@ -352,11 +488,10 @@ export const useAppStore = create<AppState>()(
       },
 
       deleteProjeto: async (id) => {
-        // Opcional: remover referências em demandas
-        const demandas = get().demandas.map((d) =>
+        const demandasAtualizadas = get().demandas.map((d) =>
           d.projectId === id ? { ...d, projectId: undefined } : d
         );
-        set({ demandas });
+        set({ demandas: demandasAtualizadas });
 
         await deleteItem('projetos', id);
         set((state) => ({
@@ -365,7 +500,7 @@ export const useAppStore = create<AppState>()(
         toast.success('Projeto excluído');
       },
 
-      /* OBJETIVOS (similar) */
+      /* OBJETIVOS */
       addObjetivo: async (data) => {
         const id = crypto.randomUUID();
         const novo: Objetivo = {
@@ -391,12 +526,136 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      deleteObjetivo: async (id) => {
-        await deleteItem('objetivos', id);
+      deleteObjetivo: async (id: string) => {
+        try {
+          await deleteItem('objetivos', id);
+          set((state) => ({
+            objetivos: state.objetivos.filter((o) => o.id !== id),
+          }));
+          toast.success('Objetivo excluído');
+        } catch (err) {
+          toast.error('Erro ao excluir objetivo');
+        }
+      },
+
+      /* NOTIFICAÇÕES */
+      addNotification: async (data) => {
+        const id = crypto.randomUUID();
+        const nova: Notification = {
+          ...data,
+          id,
+          createdAt: new Date().toISOString(),
+        };
+
+        await addItem('notifications', nova);
+        set((state) => ({ notifications: [...state.notifications, nova] }));
+        return id;
+      },
+
+      /* MEMBROS */
+      addMembro: async (data) => {
+        const id = crypto.randomUUID();
+        const novo: Membro = {
+          ...data,
+          id,
+          createdAt: new Date().toISOString(),
+        };
+
+        await addItem('membros', novo);
+        set((state) => ({ membros: [...state.membros, novo] }));
+        toast.success('Membro adicionado');
+        return id;
+      },
+
+      updateMembro: async (id: string, data: Partial<Membro>) => {
+        const current = get().membros.find((m) => m.id === id);
+        if (!current) return;
+
+        const updated: Membro = {
+          ...current,
+          ...data,
+          updatedAt: new Date().toISOString(),
+        };
+
+        try {
+          await updateItem('membros', updated);
+          set((state) => ({
+            membros: state.membros.map((m) => (m.id === id ? updated : m)),
+          }));
+          toast.success('Membro atualizado');
+        } catch (err) {
+          toast.error('Erro ao atualizar membro');
+        }
+      },
+
+      deleteMembro: async (id: string) => {
+        try {
+          await deleteItem('membros', id);
+          set((state) => ({
+            membros: state.membros.filter((m) => m.id !== id),
+          }));
+          toast.success('Membro excluído');
+        } catch (err) {
+          toast.error('Erro ao excluir membro');
+        }
+      },
+
+      /* TEMPLATES */
+      addTemplate: async (data) => {
+        const id = crypto.randomUUID();
+        const novo: Template = {
+          ...data,
+          id,
+          createdAt: new Date().toISOString(),
+        };
+
+        await addItem('templates', novo);
+        set((state) => ({ templates: [...state.templates, novo] }));
+        toast.success('Template criado');
+        return id;
+      },
+
+      updateTemplate: async (id: string, data: Partial<Template>) => {
+        const current = get().templates.find((t) => t.id === id);
+        if (!current) return;
+
+        const updated: Template = {
+          ...current,
+          ...data,
+          updatedAt: new Date().toISOString(),
+        };
+
+        await updateItem('templates', updated);
         set((state) => ({
-          objetivos: state.objetivos.filter((o) => o.id !== id),
+          templates: state.templates.map((t) => (t.id === id ? updated : t)),
         }));
-        toast.success('Objetivo removido');
+        toast.success('Template atualizado');
+      },
+
+      deleteTemplate: async (id: string) => {
+        try {
+          await deleteItem('templates', id);
+          set((state) => ({
+            templates: state.templates.filter((t) => t.id !== id),
+          }));
+          toast.success('Template excluído');
+        } catch (err) {
+          toast.error('Erro ao excluir template');
+        }
+      },
+
+      /* TIME ENTRIES */
+      addTimeEntry: async (data) => {
+        const id = crypto.randomUUID();
+        const novo: TimeEntry = {
+          ...data,
+          id,
+          createdAt: new Date().toISOString(),
+        };
+
+        await addItem('timeEntries', novo);
+        set((state) => ({ timeEntries: [...state.timeEntries, novo] }));
+        return id;
       },
 
       /* TRADUÇÃO */
@@ -428,11 +687,7 @@ export const useAppStore = create<AppState>()(
             }
           }
 
-          // Chat (opcional, pode ser pesado)
-          // let chats = await getAll<ChatMensagem>('chatMensagens');
-          // ... similar
-
-          set({ demandas, notas /* , chatMensagens: chats */ });
+          set({ demandas, notas });
           toast.success('Conteúdo traduzido');
         } catch (err) {
           toast.error('Erro na tradução');
@@ -448,25 +703,35 @@ export const useAppStore = create<AppState>()(
         user: state.user,
         theme: state.theme,
         language: state.language,
-        // Não persistir listas grandes — elas vêm do IndexedDB
+        notificationPreferences: state.notificationPreferences,
+        // As listas grandes são salvas no IndexedDB pelas actions, não no localStorage
       }),
     }
   )
 );
 
 /* =====================================================
-   🌗 THEME LISTENER
+   🌗 APPLY THEME ON STARTUP
 ===================================================== */
 
 if (typeof window !== 'undefined') {
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  const handleChange = () => {
-    const store = useAppStore.getState();
-    if (store.theme === 'system') {
-      document.documentElement.classList.toggle('dark', mediaQuery.matches);
-      document.documentElement.classList.toggle('light', !mediaQuery.matches);
+  const applyTheme = (theme: 'light' | 'dark' | 'system' | 'gray') => {
+    document.documentElement.classList.remove('light', 'dark', 'gray');
+
+    if (theme === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.add(prefersDark ? 'dark' : 'light');
+    } else {
+      document.documentElement.classList.add(theme);
     }
   };
-  mediaQuery.addEventListener('change', handleChange);
-  handleChange();
+
+  // aplica ao iniciar
+  const state = useAppStore.getState();
+  applyTheme(state.theme);
+
+  // reaplica sempre que mudar
+  useAppStore.subscribe((state) => {
+    applyTheme(state.theme);
+  });
 }

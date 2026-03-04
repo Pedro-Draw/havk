@@ -1,3 +1,4 @@
+// pages/NotFound.tsx
 import { useTranslation } from '../i18n/useTranslation';
 import { AlertTriangle, Home } from 'lucide-react';
 import Button from '../components/ui/Button';
@@ -19,10 +20,12 @@ export default function NotFound() {
         `}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[calc(100vh-80px)]">
-          <div className="text-center max-w-md">
-            <AlertTriangle className="w-28 h-28 md:w-32 md:h-32 text-red-500 mx-auto mb-10 animate-pulse" />
+          <div className="text-center max-w-md sm:max-w-lg">
+            <AlertTriangle
+              className="w-28 h-28 md:w-32 md:h-32 text-red-500 mx-auto mb-10 animate-pulse"
+            />
             
-            <h1 className="text-8xl md:text-9xl font-extrabold text-white mb-6 tracking-tight">
+            <h1 className="text-8xl md:text-9xl font-extrabold text-white mb-6 tracking-tight drop-shadow-lg">
               404
             </h1>
             
@@ -31,7 +34,8 @@ export default function NotFound() {
             </h2>
             
             <p className="text-lg md:text-xl text-zinc-400 mb-12 leading-relaxed">
-              A página que você está procurando não existe, foi movida ou está temporariamente indisponível.
+              {t('paginaNaoEncontradaDesc') ||
+                'A página que você está procurando não existe, foi movida ou está temporariamente indisponível.'}
             </p>
 
             <Button
@@ -39,10 +43,10 @@ export default function NotFound() {
               size="xl"
               icon={<Home className="w-6 h-6" />}
               asChild
-              className="px-10 py-5 text-lg font-medium"
+              className="px-10 py-5 text-lg font-medium shadow-lg hover:shadow-indigo-500/30 transition-all"
             >
               <Link to="/">
-                Voltar para o Dashboard
+                {t('voltarDashboard') || 'Voltar para o Dashboard'}
               </Link>
             </Button>
           </div>

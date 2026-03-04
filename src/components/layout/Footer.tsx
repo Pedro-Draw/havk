@@ -61,78 +61,76 @@ export default function Footer() {
   };
 
   return (
-    <footer className="relative bg-black border-t border-zinc-800 text-zinc-400 overflow-hidden">
+    <footer className="relative bg-black border-t border-zinc-800 text-zinc-500 overflow-hidden text-[10px]">
 
-      {/* GLOW BACKGROUND */}
+      {/* GLOW BACKGROUND - opacidade ainda menor */}
       <motion.div
-        className="absolute inset-0 pointer-events-none opacity-30"
+        className="absolute inset-0 pointer-events-none opacity-10"
         style={{
           x: springX,
           y: springY,
           background:
-            "radial-gradient(circle at center, rgba(120,120,255,0.25), transparent 70%)"
+            "radial-gradient(circle at center, rgba(120,120,255,0.15), transparent 70%)"
         }}
       />
 
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 lg:pl-[280px] py-28 relative z-10">
+      <div className="max-w-7xl mx-auto px-6 lg:px-12 lg:pl-[280px] py-6 relative z-10">
 
-        {/* TRUST BADGES */}
-        <div className="flex flex-wrap justify-center gap-8 text-sm mb-20">
+        {/* TRUST BADGES - mínimo */}
+        <div className="flex flex-wrap justify-center gap-3 opacity-70 mb-4">
 
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-green-500" />
-            Segurança Enterprise
+          <div className="flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3 text-green-500" />
+            Segurança
           </div>
 
-          <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-yellow-400" />
-            Alta Performance
+          <div className="flex items-center gap-1">
+            <Zap className="w-3 h-3 text-yellow-400" />
+            Performance
           </div>
 
-          <div className="flex items-center gap-2">
-            <Award className="w-4 h-4 text-purple-400" />
-            SaaS Premium
+          <div className="flex items-center gap-1">
+            <Award className="w-3 h-3 text-purple-400" />
+            Premium
           </div>
 
-          <div className="flex items-center gap-2">
-            <Heart className="w-4 h-4 text-red-400" />
-            Construído com paixão
+          <div className="flex items-center gap-1">
+            <Heart className="w-3 h-3 text-red-400" />
+            Paixão
           </div>
 
         </div>
 
-        {/* NEWSLETTER */}
-         {/* NEWSLETTER */}
-        <div className="p-[2px] rounded-3xl bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 mb-16">
-          <div className="bg-zinc-950 rounded-3xl p-6">
+        {/* NEWSLETTER - ultra mínima */}
+        <div className="p-[1px] rounded-lg bg-gradient-to-r from-blue-600 via-green-600 to-blue-600 mb-6">
+          <div className="bg-zinc-950 rounded-lg p-2.5">
 
-            <div className="flex flex-col md:flex-row justify-between gap-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
 
-              <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <Sparkles className="text-yellow-400 w-5 h-5" />
-                  Comunidade Havk
+              <div className="text-center sm:text-left">
+                <h2 className="text-sm font-bold text-white flex items-center gap-1.5 justify-center sm:justify-start">
+                  <Sparkles className="text-yellow-400 w-3.5 h-3.5" />
+                  Havk Comunidade
                 </h2>
-
-                <p className="text-sm text-zinc-500 mt-2">
-                  Receba novidades SaaS e segurança.
+                <p className="text-[9px] text-zinc-500 mt-0.5">
+                  Novidades SaaS no e-mail.
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex w-full sm:w-auto gap-1.5">
                 <input
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="Seu e-mail"
-                  className="px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-sm"
+                  placeholder="E-mail"
+                  className="flex-1 px-2.5 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] focus:outline-none focus:border-purple-500"
                 />
 
                 <button
                   onClick={subscribe}
-                  className="bg-white text-black px-5 py-2 rounded-xl font-semibold flex items-center gap-2 text-sm"
+                  className="bg-white text-black px-3 py-1.5 rounded-md font-semibold flex items-center gap-1 text-[10px] whitespace-nowrap"
                 >
-                  <Send className="w-4 h-4" />
-                  {subscribed ? "Inscrito" : "Inscrever"}
+                  <Send className="w-3 h-3" />
+                  {subscribed ? "OK" : "Ir"}
                 </button>
               </div>
 
@@ -140,47 +138,47 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* GRID LINKS */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-16">
+        {/* GRID LINKS - gap mínimo */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
 
           {/* BRAND */}
           <div>
-            <h1 className="text-4xl font-bold text-white">
+            <h1 className="text-lg font-bold bg-gradient-to-r from-white to-blue-400 bg-clip-text text-transparent">
               Havk
             </h1>
 
-            <p className="mt-5 text-sm text-zinc-500">
-              Plataforma SaaS moderna para gestão de equipes e produtividade.
+            <p className="mt-1 text-[10px] text-zinc-500">
+              SaaS para equipes e produtividade.
             </p>
 
-            <div className="flex gap-5 mt-6">
-              <Github className="hover:text-white cursor-pointer" />
-              <Twitter className="hover:text-white cursor-pointer" />
-              <Mail className="hover:text-white cursor-pointer" />
+            <div className="flex gap-3 mt-2">
+              <Github className="w-3.5 h-3.5 text-zinc-400 hover:text-white cursor-pointer transition-colors" />
+              <Twitter className="w-3.5 h-3.5 text-zinc-400 hover:text-white cursor-pointer transition-colors" />
+              <Mail className="w-3.5 h-3.5 text-zinc-400 hover:text-white cursor-pointer transition-colors" />
             </div>
           </div>
 
           {/* CONTACT */}
           <div>
-            <h3 className="text-white font-semibold mb-6">Contato</h3>
+            <h3 className="text-white font-semibold mb-1.5 text-[11px]">Contato</h3>
 
-            <div className="space-y-4 text-sm">
+            <div className="space-y-1 text-[10px]">
 
-              <a className="flex gap-3 hover:text-white">
-                <Phone className="w-4 h-4" />
+              <a className="flex gap-1.5 hover:text-white items-center transition-colors">
+                <Phone className="w-3 h-3 text-blue-400" />
                 (61) 98261-0405
               </a>
 
-              <a className="flex gap-3 hover:text-white">
-                <MessageCircle className="w-4 h-4" />
+              <a className="flex gap-1.5 hover:text-white items-center transition-colors">
+                <MessageCircle className="w-3 h-3 text-blue-400" />
                 WhatsApp
               </a>
 
               <a
                 href="mailto:pedrocesar.draw@gmail.com"
-                className="flex gap-3 hover:text-white"
+                className="flex gap-1.5 hover:text-white items-center transition-colors"
               >
-                <Mail className="w-4 h-4" />
+                <Mail className="w-3 h-3 text-blue-400" />
                 Email
               </a>
 
@@ -189,25 +187,23 @@ export default function Footer() {
 
           {/* LEGAL */}
           <div>
-            <h3 className="text-white font-semibold mb-6">
-              Legal
-            </h3>
+            <h3 className="text-white font-semibold mb-1.5 text-[11px]">Legal</h3>
 
-            <div className="space-y-4 text-sm">
+            <div className="space-y-1 text-[10px]">
 
-              <a className="flex gap-3 hover:text-white">
-                <FileText className="w-4 h-4" />
-                Termos de Uso
+              <a className="flex gap-1.5 hover:text-white items-center transition-colors">
+                <FileText className="w-3 h-3 text-purple-400" />
+                Termos
               </a>
 
-              <a className="flex gap-3 hover:text-white">
-                <FileText className="w-4 h-4" />
-                Política de Privacidade
+              <a className="flex gap-1.5 hover:text-white items-center transition-colors">
+                <FileText className="w-3 h-3 text-purple-400" />
+                Privacidade
               </a>
 
-              <a className="flex gap-3 hover:text-white">
-                <ShieldCheck className="w-4 h-4 text-green-500" />
-                Compliance de dados
+              <a className="flex gap-1.5 hover:text-white items-center transition-colors">
+                <ShieldCheck className="w-3 h-3 text-purple-400" />
+                Compliance
               </a>
 
             </div>
@@ -215,25 +211,23 @@ export default function Footer() {
 
           {/* TECHNOLOGY */}
           <div>
-            <h3 className="text-white font-semibold mb-6">
-              Tecnologia
-            </h3>
+            <h3 className="text-white font-semibold mb-1.5 text-[11px]">Tecnologia</h3>
 
-            <div className="space-y-4 text-sm">
+            <div className="space-y-1 text-[10px]">
 
-              <div className="flex gap-3">
-                <Server className="w-4 h-4 text-green-500" />
-                Infra Cloud
+              <div className="flex gap-1.5 items-center">
+                <Server className="w-3 h-3 text-emerald-400" />
+                Cloud
               </div>
 
-              <div className="flex gap-3">
-                <Database className="w-4 h-4" />
-                Dados criptografados
+              <div className="flex gap-1.5 items-center">
+                <Database className="w-3 h-3 text-emerald-400" />
+                Cripto
               </div>
 
-              <div className="flex gap-3">
-                <Code className="w-4 h-4" />
-                Código seguro
+              <div className="flex gap-1.5 items-center">
+                <Code className="w-3 h-3 text-emerald-400" />
+                Seguro
               </div>
 
             </div>
@@ -241,8 +235,8 @@ export default function Footer() {
 
         </div>
 
-        {/* FUTURE AI ASSISTANT NOTE (COMMENT STYLE FOR YOU) */}
-        <div className="mt-24 border-t border-zinc-800 pt-12 text-sm text-zinc-500">
+        {/* FUTURE AI ASSISTANT NOTE */}
+        <div className="mt-6 border-t border-zinc-800 pt-4 text-[10px] text-zinc-500">
 
           {/* 
           FUTURO PLANO (IDEIA SUA 👇)
@@ -258,24 +252,24 @@ export default function Footer() {
           - AIChatModal.jsx
           */}
 
-          <h3 className="text-white mb-6 flex items-center gap-2">
-            <HelpCircle className="w-5 h-5" />
+          <h3 className="text-white mb-2 flex items-center gap-1.5 text-[11px]">
+            <HelpCircle className="w-3.5 h-3.5" />
             Ajuda & Support
           </h3>
 
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 gap-2">
 
-            <div className="bg-zinc-900 p-5 rounded-2xl">
-              <p className="text-white font-medium">FAQ</p>
-              <p className="text-xs mt-2">
-                Central de ajuda e suporte.
+            <div className="bg-zinc-900 p-2.5 rounded-md">
+              <p className="text-white font-medium text-[11px]">FAQ</p>
+              <p className="text-[9px] mt-0.5 text-zinc-400">
+                Ajuda e suporte.
               </p>
             </div>
 
-            <div className="bg-zinc-900 p-5 rounded-2xl">
-              <p className="text-white font-medium">Termos & Legal</p>
-              <p className="text-xs mt-2">
-                Proteção jurídica e compliance.
+            <div className="bg-zinc-900 p-2.5 rounded-md">
+              <p className="text-white font-medium text-[11px]">Legal</p>
+              <p className="text-[9px] mt-0.5 text-zinc-400">
+                Termos e compliance.
               </p>
             </div>
 
@@ -284,13 +278,13 @@ export default function Footer() {
         </div>
 
         {/* META */}
-        <div className="mt-24 pt-10 border-t border-zinc-800 text-center text-xs text-zinc-500 space-y-4">
+        <div className="mt-4 pt-3 border-t border-zinc-800 text-center text-[10px] text-zinc-500 space-y-1">
 
-          <div className="flex justify-center gap-6">
-            <Globe />
-            <Moon />
-            <Sun />
-            <BarChart3 />
+          <div className="flex justify-center gap-3">
+            <Globe className="w-3.5 h-3.5 text-zinc-400 hover:text-white transition-colors" />
+            <Moon className="w-3.5 h-3.5 text-zinc-400 hover:text-white transition-colors" />
+            <Sun className="w-3.5 h-3.5 text-zinc-400 hover:text-white transition-colors" />
+            <BarChart3 className="w-3.5 h-3.5 text-zinc-400 hover:text-white transition-colors" />
           </div>
 
           <div>

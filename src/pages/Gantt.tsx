@@ -1,3 +1,4 @@
+// pages/Gantt.tsx
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import {
@@ -9,49 +10,18 @@ import {
   ChevronDown,
   ChevronRight,
   AlertCircle,
-  Clock,
-  CheckCircle2,
   Loader2,
-  User,
-  ArrowRight,
-  Calendar,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
-import { getAll } from '../db/indexedDB';
-import {
-  format,
-  addDays,
-  differenceInDays,
-  startOfDay,
-  isSameDay,
-  isWeekend,
-  addMonths,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-} from 'date-fns';
+import { format, addDays, differenceInDays, startOfDay, isSameDay, isWeekend, addMonths, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import html2canvas from 'html2canvas'; // npm i html2canvas
+import html2canvas from 'html2canvas';
+import { useAppStore } from '../store/useAppStore';
+import toast from 'react-hot-toast';
 
-type DemandaStatus = 'planned' | 'in_progress' | 'done' | 'blocked' | 'delayed';
-type DependencyType = 'FS' | 'SS' | 'FF' | 'SF'; // Finish-Start, etc.
+type GanttStatus = 'planned' | 'in_progress' | 'done' | 'blocked' | 'delayed';
 
-type Demanda = {
-  id: number;
-  title: string;
-  prazo: string; // ISO
-  prazoInicio?: string;
-  progresso?: number; // 0-100
-  status?: DemandaStatus;
-  prioridade?: 'low' | 'medium' | 'high' | 'critical';
-  parentId?: number; // para hierarquia
-  recursos?: string[]; // usernames ou nomes
-  dependencies?: { to: number; type: DependencyType; lag?: number }[]; // dependências
-  baselineInicio?: string;
-  baselineFim?: string;
-};
-
-const statusColors: Record<DemandaStatus, { bg: string; text: string }> = {
+const statusColors: Record<GanttStatus, { bg: string; text: string }> = {
   planned: { bg: 'bg-blue-600/70', text: 'text-blue-300' },
   in_progress: { bg: 'bg-indigo-600/80', text: 'text-indigo-200' },
   done: { bg: 'bg-green-600/80', text: 'text-green-200' },
@@ -60,45 +30,40 @@ const statusColors: Record<DemandaStatus, { bg: string; text: string }> = {
 };
 
 const prioridadeBorder: Record<string, string> = {
-  low: 'border-l-4 border-l-gray-500',
-  medium: 'border-l-4 border-l-blue-500',
-  high: 'border-l-4 border-l-orange-500',
-  critical: 'border-l-4 border-l-red-600',
+  baixa: 'border-l-4 border-l-gray-500',
+  media: 'border-l-4 border-l-blue-500',
+  alta: 'border-l-4 border-l-orange-500',
+  urgente: 'border-l-4 border-l-red-600',
 };
 
 export default function Gantt() {
   const { t } = useTranslation();
-  const [demandasRaw, setDemandasRaw] = useState<Demanda[]>([]);
-  const [demandas, setDemandas] = useState<Demanda[]>([]); // filtradas e ordenadas
-  const [loading, setLoading] = useState(true);
+  const { demandas: rawDemandas, isLoading } = useAppStore();
+
+  const [demandasFiltradas, setDemandasFiltradas] = useState<typeof rawDemandas>([]);
   const [zoom, setZoom] = useState(1.5); // px por dia
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
   const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const gridRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Filtra demandas que têm prazo definido
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const data = await getAll<Demanda>('demandas');
-      const filtered = data.filter((d) => d.prazo);
-      setDemandasRaw(filtered);
-      setLoading(false);
-    };
-    load();
-  }, []);
+    const filtered = rawDemandas.filter((d) => d.prazo);
+    setDemandasFiltradas(filtered);
+  }, [rawDemandas]);
 
-  const normalize = (date?: string | Date) => startOfDay(date ? new Date(date) : new Date());
+  const normalize = (date?: string) => startOfDay(date ? new Date(date) : new Date());
 
-  const { tree, minDate, maxDate, totalUnits, unitLabel, scale } = useMemo(() => {
-    let filtered = demandasRaw.filter(
+  const { tree, minDate, maxDate, totalUnits, unitLabel } = useMemo(() => {
+    let filtered = demandasFiltradas.filter(
       (d) => !search || d.title.toLowerCase().includes(search.toLowerCase())
     );
 
-    // Build tree structure
-    const map = new Map<number, Demanda & { children?: Demanda[] }>();
+    // Hierarquia simples (parentId) → flatten com level
+    const map = new Map<string, (typeof filtered[0] & { children?: typeof filtered[0][] })>();
     const roots: typeof map extends Map<any, infer V> ? V[] : never[] = [];
 
     filtered.forEach((d) => map.set(d.id, { ...d }));
@@ -113,8 +78,7 @@ export default function Gantt() {
       }
     });
 
-    // Flatten for rendering + calculate expanded state
-    const flat: (Demanda & { level: number; isParent: boolean })[] = [];
+    const flat: (typeof filtered[0] & { level: number; isParent: boolean })[] = [];
     const traverse = (items: typeof roots, level = 0) => {
       items.forEach((item) => {
         flat.push({ ...item, level, isParent: !!item.children?.length });
@@ -125,25 +89,28 @@ export default function Gantt() {
     };
     traverse(roots);
 
-    // Dates
+    // Cálculo de datas
+    if (flat.length === 0) {
+      return { tree: [], minDate: new Date(), maxDate: new Date(), totalUnits: 30, unitLabel: 'Dia' };
+    }
+
     let min = new Date(Math.min(...flat.map((d) => normalize(d.prazoInicio || d.prazo).getTime())));
     let max = new Date(Math.max(...flat.map((d) => normalize(d.prazo).getTime())));
 
-    min = addDays(min, -5);
-    max = addDays(max, 10);
+    min = addDays(min, -7);
+    max = addDays(max, 14);
 
     let total = differenceInDays(max, min) + 1;
-    let step = 1;
     let label = 'Dia';
 
     if (viewMode === 'week') {
-      step = 7;
       total = Math.ceil(total / 7);
       label = 'Semana';
     } else if (viewMode === 'month') {
-      const months = differenceInMonths(max, min) + 2;
-      total = months;
-      step = 30; // approx
+      const startMonth = startOfMonth(min);
+      const endMonth = startOfMonth(max);
+      const months = (endMonth.getFullYear() - startMonth.getFullYear()) * 12 + (endMonth.getMonth() - startMonth.getMonth()) + 2;
+      total = Math.max(months, 3);
       label = 'Mês';
     }
 
@@ -153,13 +120,12 @@ export default function Gantt() {
       maxDate: max,
       totalUnits: Math.max(30, total),
       unitLabel: label,
-      scale: step,
     };
-  }, [demandasRaw, search, viewMode, expanded]);
+  }, [demandasFiltradas, search, viewMode, expanded]);
 
   const todayOffset = differenceInDays(new Date(), minDate);
 
-  const toggleExpand = (id: number) => {
+  const toggleExpand = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -170,17 +136,23 @@ export default function Gantt() {
 
   const handleExportPNG = async () => {
     if (!containerRef.current) return;
-    const canvas = await html2canvas(containerRef.current, { scale: 2 });
-    const link = document.createElement('a');
-    link.download = 'gantt-export.png';
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+    try {
+      const canvas = await html2canvas(containerRef.current, { scale: 2, logging: false });
+      const link = document.createElement('a');
+      link.download = `gantt-${format(new Date(), 'yyyy-MM-dd')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      toast.success('Exportado como PNG');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao exportar imagem');
+    }
   };
 
   const autoFit = () => {
     if (!gridRef.current) return;
-    const w = gridRef.current.clientWidth - 260;
-    setZoom(w / totalUnits / 1.2);
+    const w = gridRef.current.clientWidth - 280;
+    setZoom(w / totalUnits / (viewMode === 'day' ? 1.5 : viewMode === 'week' ? 7 : 30));
   };
 
   useEffect(() => {
@@ -195,7 +167,13 @@ export default function Gantt() {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin" /></div>;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <Loader2 className="w-12 h-12 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pt-20 px-4 sm:px-6 lg:px-8 bg-zinc-950 text-zinc-100">
@@ -204,7 +182,7 @@ export default function Gantt() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex items-center gap-3">
             <GanttChart className="w-10 h-10 text-zinc-300" />
-            <h1 className="text-3xl font-bold">{t('gantt.title', 'Gantt Avançado')}</h1>
+            <h1 className="text-3xl font-bold">{t('gantt.title') || 'Gantt Avançado'}</h1>
           </div>
 
           <div className="flex flex-wrap gap-3 items-center">
@@ -215,7 +193,7 @@ export default function Gantt() {
                 placeholder="Buscar demanda..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="pl-10 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
               />
             </div>
 
@@ -250,21 +228,20 @@ export default function Gantt() {
         </div>
 
         <Card className="overflow-hidden border border-zinc-800 bg-zinc-900">
-          {/* Header */}
+          {/* Header de datas */}
           <div ref={headerRef} className="overflow-x-hidden bg-zinc-950 border-b border-zinc-800 sticky top-0 z-20">
-            {/* Meses / Semanas */}
             <div
               className="grid text-xs font-medium text-zinc-400"
               style={{ gridTemplateColumns: `260px repeat(${totalUnits}, minmax(${zoom * 1.2}px, 1fr))` }}
             >
               <div className="p-3 border-r border-zinc-800 bg-zinc-950 sticky left-0 z-10">Demanda / WBS</div>
               {Array.from({ length: totalUnits }).map((_, i) => {
-                let date;
+                let date: Date;
                 if (viewMode === 'month') {
                   date = addMonths(minDate, i);
                   return (
                     <div key={i} className="p-2 text-center border-r border-zinc-800 last:border-r-0">
-                      {format(date, 'MMM yyyy', { locale: ptBR })}
+                      {format(date, 'MMM yyyy', { locale: ptBR }).toUpperCase()}
                     </div>
                   );
                 }
@@ -281,18 +258,18 @@ export default function Gantt() {
             </div>
           </div>
 
-          {/* Grid */}
+          {/* Grid principal */}
           <div
             ref={gridRef}
             className="overflow-auto max-h-[70vh] relative"
             onScroll={handleScroll}
           >
-            <div style={{ minWidth: `${260 + totalUnits * zoom * 1.2}px`, height: `${demandas.length * 54}px` }}>
+            <div style={{ minWidth: `${260 + totalUnits * zoom * 1.2}px`, height: `${demandasFiltradas.length * 54 + 100}px` }}>
               <div
                 className="grid relative"
                 style={{ gridTemplateColumns: `260px repeat(${totalUnits}, minmax(${zoom * 1.2}px, 1fr))` }}
               >
-                {demandas.map((task) => {
+                {tree.map((task) => {
                   const start = normalize(task.prazoInicio || task.prazo);
                   const end = normalize(task.prazo);
                   const duration = Math.max(1, differenceInDays(end, start) + 1);
@@ -302,32 +279,35 @@ export default function Gantt() {
                   const width = duration * zoom * 1.2;
 
                   const isMilestone = isSameDay(start, end);
-                  const status = task.status || 'planned';
-                  const color = statusColors[status];
-                  const isCritical = false; // TODO: calcular caminho crítico real
+                  const ganttStatus: GanttStatus = task.status === 'concluida' ? 'done' :
+                                                  task.status === 'em-progresso' ? 'in_progress' :
+                                                  task.status === 'bloqueada' ? 'blocked' : 'planned';
+                  const color = statusColors[ganttStatus];
+                  const isCritical = false; // TODO: implementar detecção de caminho crítico
 
                   return (
                     <div
                       key={task.id}
-                      className={`h-14 border-b border-zinc-800 group relative ${task.level > 0 ? 'pl-' + (task.level * 4) : ''}`}
+                      className={`h-14 border-b border-zinc-800 group relative ${task.level > 0 ? 'pl-' + (task.level * 4 + 4) : ''}`}
                       style={{ gridColumn: '1 / -1' }}
                     >
-                      {/* Coluna esquerda (título + controles) */}
-                      <div className={`p-3 flex items-center gap-2 border-r border-zinc-800 bg-zinc-950/90 sticky left-0 z-10 ${prioridadeBorder[task.prioridade || 'medium']}`}>
+                      {/* Coluna esquerda: título + expandir */}
+                      <div className={`p-3 flex items-center gap-2 border-r border-zinc-800 bg-zinc-950/90 sticky left-0 z-10 ${prioridadeBorder[task.priority || 'media']}`}>
                         {task.isParent && (
                           <button onClick={() => toggleExpand(task.id)}>
                             {expanded.has(task.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                           </button>
                         )}
                         <span className="font-medium truncate flex-1">{task.title}</span>
-                        {task.recursos?.map((r, i) => (
-                          <div key={i} className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-xs" title={r}>
-                            {r[0]?.toUpperCase()}
+                        {/* Recursos (iniciais) */}
+                        {task.assignee && (
+                          <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-xs" title={task.assignee}>
+                            {task.assignee[0]?.toUpperCase()}
                           </div>
-                        ))}
+                        )}
                       </div>
 
-                      {/* Barra */}
+                      {/* Barra da tarefa */}
                       <div
                         className={`absolute top-3 h-8 rounded shadow-lg flex items-center ${color.bg} ${isCritical ? 'ring-2 ring-red-500' : ''} group-hover:ring-2 group-hover:ring-white/30 transition-all`}
                         style={{ left: `${260 + left}px`, width: `${width}px`, minWidth: isMilestone ? '20px' : '40px' }}
@@ -336,46 +316,29 @@ export default function Gantt() {
                           <div className="w-full h-full flex items-center justify-center">
                             <div className="w-4 h-4 bg-white rotate-45 shadow-lg" />
                           </div>
-                        ) : (
-                          task.progresso ? (
-                            <div className="h-full bg-white/25 rounded-l" style={{ width: `${task.progresso}%` }} />
-                          ) : null
-                        )}
+                        ) : task.progresso ? (
+                          <div className="h-full bg-white/25 rounded-l" style={{ width: `${task.progresso}%` }} />
+                        ) : null}
                       </div>
 
-                      {/* Baseline (plano original) */}
-                      {task.baselineInicio && task.baselineFim && (
-                        <div
-                          className="absolute top-1/2 h-1 bg-gray-500/70 rounded-full"
-                          style={{
-                            left: `${260 + differenceInDays(normalize(task.baselineInicio), minDate) * zoom * 1.2}px`,
-                            width: `${Math.max(1, differenceInDays(normalize(task.baselineFim), normalize(task.baselineInicio)) + 1) * zoom * 1.2}px`,
-                          }}
-                        />
-                      )}
-
-                      {/* Dependências (setas simples) */}
-                      {task.dependencies?.map((dep, idx) => {
-                        const target = demandas.find(d => d.id === dep.to);
-                        if (!target) return null;
-                        // TODO: calcular posições reais e desenhar SVG arrow
-                        return <div key={idx} className="absolute text-xs text-zinc-500">→ Dep {dep.type}</div>;
-                      })}
+                      {/* TODO: Baseline (plano original) */}
+                      {/* TODO: Dependências (setas SVG) */}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Today line */}
+              {/* Linha "Hoje" */}
               <div
                 className="absolute top-0 bottom-0 w-0.5 bg-red-500 opacity-70 z-10 pointer-events-none"
                 style={{ left: `${260 + todayOffset * zoom * 1.2}px` }}
               />
 
-              {demandas.length === 0 && (
+              {tree.length === 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500 gap-4">
                   <AlertCircle className="w-16 h-16 opacity-50" />
-                  <p className="text-lg">Nenhuma demanda encontrada</p>
+                  <p className="text-lg">Nenhuma demanda com prazo definido</p>
+                  <p className="text-sm opacity-70">Adicione prazos nas demandas para visualizar o Gantt</p>
                 </div>
               )}
             </div>
