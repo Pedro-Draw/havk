@@ -2,39 +2,48 @@ import { useState, useEffect, useRef } from 'react';
 import { Bell, Search, Menu, X } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useTranslation } from '../../i18n/useTranslation';
-import ThemeToggle from '../common/ThemeToggle'; // ajuste o caminho se necessário
-import { Link } from 'react-router-dom';
+import ThemeToggle from '../common/ThemeToggle';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function Topbar() {
+  const navigate = useNavigate();
+
   const user = useAppStore((state) => state.user);
-  const notifications = useAppStore((state) => state.notifications);
+  const notifications = useAppStore((state) => state.notifications) || [];
   const addNotification = useAppStore((state) => state.addNotification);
   const markNotificationRead = useAppStore((state) => state.markNotificationRead);
+
   const { t } = useTranslation();
 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const notificationRef = useRef<HTMLDivElement>(null);
+
+  const notificationRef = useRef<HTMLDivElement | null>(null);
 
   // Fecha dropdown ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(event.target as Node)
-      ) {
+      if (!notificationRef.current) return;
+
+      if (!notificationRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   // Simulação de notificações
   useEffect(() => {
     if (!addNotification) return;
+
     const interval = setInterval(() => {
-      const id = Math.random().toString(36).substr(2, 9);
+      const id = Math.random().toString(36).slice(2, 11);
+
       addNotification({
         id,
         message: `Nova notificação ${id}`,
@@ -44,6 +53,7 @@ export default function Topbar() {
         title: 'Nova Notificação',
       });
     }, 15000);
+
     return () => clearInterval(interval);
   }, [addNotification]);
 
@@ -53,7 +63,7 @@ export default function Topbar() {
   };
 
   const handleNovaDemanda = () => {
-    window.location.href = '/kanban';
+    navigate('/kanban');
   };
 
   return (
@@ -111,6 +121,7 @@ export default function Topbar() {
               text-zinc-500 dark:text-zinc-400
             "
           />
+
           <input
             type="text"
             placeholder={t('search')}
@@ -131,7 +142,7 @@ export default function Topbar() {
       {/* LADO DIREITO */}
       <div className="flex items-center gap-3 ml-auto relative">
 
-          {/* 🔥 BOTÃO DE TEMA ADICIONADO AQUI */}
+        {/* Tema */}
         <div className="hidden md:block">
           <ThemeToggle />
         </div>
@@ -147,7 +158,8 @@ export default function Topbar() {
           "
         >
           <Bell className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
-          {notifications?.some((n) => !n.read) && (
+
+          {notifications.some((n) => !n.read) && (
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-zinc-900" />
           )}
         </button>
@@ -165,7 +177,7 @@ export default function Topbar() {
               z-50 transition-colors
             "
           >
-            {notifications && notifications.length > 0 ? (
+            {notifications.length > 0 ? (
               notifications
                 .slice()
                 .reverse()
@@ -178,11 +190,12 @@ export default function Topbar() {
                       transition-colors
                       ${!n.read ? 'bg-zinc-100 dark:bg-zinc-700/50' : ''}
                     `}
-                    onClick={() => markNotificationRead(n.id)}
+                    onClick={() => markNotificationRead?.(n.id)}
                   >
                     <p className="text-sm text-zinc-800 dark:text-zinc-200">
                       {n.message}
                     </p>
+
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">
                       {n.time}
                     </span>
@@ -243,6 +256,7 @@ export default function Topbar() {
         >
           + {t('novaDemanda')}
         </button>
+
       </div>
     </header>
   );

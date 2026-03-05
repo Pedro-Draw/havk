@@ -1,0 +1,315 @@
+═══════════════════════════════════════════════════════════════
+              RELATÓRIO DE ANÁLISE AVANÇADA DO PROJETO SaaS
+═══════════════════════════════════════════════════════════════
+
+Caminho analisado : /Users/youhuul/ESTUDOS PESSOAL./havk-saas
+Data              : 05/03/2026, 11:09:46
+Gerado por        : análise estática avançada v1.2
+
+ESTATÍSTICAS GERAIS
+───────────────────
+Arquivos totais encontrados .........: 59
+Arquivos de código analisados ........: 59
+Total de linhas de código ............: 12.123
+Arquivos muito grandes (>1200 linhas): 0
+
+ANOTAÇÕES PENDENTES (TODO/FIXME/HACK)
+─────────────────────────────────────
+ 10 × project_analyzer.js
+  3 × src/pages/Gantt.tsx
+  2 × src/pages/DemandaDetail.tsx
+  2 × src/store/useAppStore.ts
+  1 × src/pages/Calendario.tsx
+  1 × src/pages/Projetos.tsx
+
+PROBLEMAS E MELHORIAS SUGERIDAS
+───────────────────────────────
+
+📄 project_analyzer.js  (307 linhas)
+   ⚠  console.log/debug presente (pode vazar dados sensíveis ou poluir logs)
+   ⚠  debugger; presente (pode pausar execução em prod)
+   ⚠  Possíveis anotações pendentes (10)
+
+📄 src/pages/DemandaDetail.tsx  (836 linhas)
+   ⚠  Possíveis anotações pendentes (2)
+   ⚠  Arquivo grande: 836 linhas (dificulta manutenção)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/Calendario.tsx  (428 linhas)
+   ⚠  Possíveis anotações pendentes (1)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/Configuracoes.tsx  (723 linhas)
+   ⚠  Arquivo grande: 723 linhas (dificulta manutenção)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/Gantt.tsx  (350 linhas)
+   ⚠  Possíveis anotações pendentes (3)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/Objetivos.tsx  (689 linhas)
+   ⚠  Arquivo grande: 689 linhas (dificulta manutenção)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/store/useAppStore.ts  (737 linhas)
+   ⚠  Possíveis anotações pendentes (2)
+   ⚠  Arquivo grande: 737 linhas (dificulta manutenção)
+
+📄 havk-deep-audit.js  (136 linhas)
+   ⚠  console.log/debug presente (pode vazar dados sensíveis ou poluir logs)
+
+📄 src/components/layout/MobileMenu.tsx  (147 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/components/layout/Topbar.tsx  (263 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/db/indexedDB.ts  (265 linhas)
+   ⚠  console.log/debug presente (pode vazar dados sensíveis ou poluir logs)
+
+📄 src/pages/AIStudio.tsx  (414 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/auth/Login.tsx  (303 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/auth/Signup.tsx  (315 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/ChatGlobal.tsx  (157 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/Equipe.tsx  (528 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/Inbox.tsx  (280 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/Kanban.tsx  (422 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/Projetos.tsx  (261 linhas)
+   ⚠  Possíveis anotações pendentes (1)
+
+📄 src/pages/Relatorios.tsx  (429 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/Templates.tsx  (558 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+📄 src/pages/TimeTracker.tsx  (331 linhas)
+   ⚠  Muitos ifs sem else - pode faltar handling de casos
+
+BUGS POTENCIAIS DETECTADOS (BOTÕES, LÓGICAS, ETC.)
+───────────────────────────────────────────
+
+📄 src/App.tsx  (144 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/layout/Footer.tsx  (291 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/layout/MobileMenu.tsx  (147 linhas)
+   🐛 useEffect sem array de dependências (2 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/layout/Topbar.tsx  (263 linhas)
+   🐛 useEffect sem array de dependências (2 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/Splash.tsx  (35 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/ui/Button.tsx  (64 linhas)
+   🐛 Botão sem onClick (pode não fazer nada)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/ui/dropdown-menu.tsx  (51 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/ui/Modal.tsx  (76 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/ui/Toast.tsx  (50 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/AIStudio.tsx  (414 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/auth/ForgotPassword.tsx  (127 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/auth/Login.tsx  (303 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/auth/Signup.tsx  (315 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/ChatGlobal.tsx  (157 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Configuracoes.tsx  (723 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Dashboard.tsx  (488 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/DemandaDetail.tsx  (836 linhas)
+   🐛 useEffect sem array de dependências (2 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Gantt.tsx  (350 linhas)
+   🐛 useEffect sem array de dependências (2 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Inbox.tsx  (280 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Kanban.tsx  (422 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Objetivos.tsx  (689 linhas)
+   🐛 Botão sem onClick (pode não fazer nada)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Relatorios.tsx  (429 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/TimeTracker.tsx  (331 linhas)
+   🐛 useEffect sem array de dependências (1 ocorrências) - risco de loop infinito
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 eslint.config.js  (24 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 havk-deep-audit.js  (136 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 postcss.config.js  (5 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 project_analyzer.js  (307 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/App.css  (95 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/common/ThemeToggle.tsx  (62 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/kanban/SortableCard.tsx  (120 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/layout/ProtectedRoute.tsx  (33 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/layout/Sidebar.tsx  (150 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/ui/Card.tsx  (45 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/ui/Input.tsx  (93 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/ui/ProgressBar.tsx  (24 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/ui/Select.tsx  (51 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/ui/textarea.tsx  (19 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/components/ui/Tooltip.tsx  (18 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/db/indexedDB.ts  (265 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/hooks/useAuth.ts  (136 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/hooks/useLanguage.ts  (22 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/hooks/useTheme.ts  (34 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/i18n/translations/en.ts  (240 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/i18n/translations/pt-BR.ts  (249 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/i18n/useTranslation.ts  (32 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/index.css  (34 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/lib/firebase.ts  (49 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/lib/utils.ts  (3 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/main.tsx  (13 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Calendario.tsx  (428 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Equipe.tsx  (528 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Notas.tsx  (260 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/NotFound.tsx  (57 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Projetos.tsx  (261 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/pages/Templates.tsx  (558 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/store/useAppStore.ts  (737 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 src/utils/cn.ts  (7 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 tailwind.config.ts  (21 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+📄 vite.config.ts  (22 linhas)
+   🐛 Falhas no ESLint (rode 'npx eslint' para detalhes)
+
+RECOMENDAÇÕES GERAIS
+────────────────────
+- Rode ESLint completo: npx eslint . --ext .js,.jsx,.ts,.tsx
+- Verifique dead code: npx knip
+- Adicione testes E2E com Playwright para validar botões e fluxos reais
+- Monitore prod com Sentry para bugs runtime
+
+═══════════════════════════════════════════════════════════════
+               Fim do relatório
+═══════════════════════════════════════════════════════════════

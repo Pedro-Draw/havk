@@ -1,5 +1,5 @@
 // App.tsx
-import { BrowserRouter as Router, Routes, Route, Outlet, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useEffect, useState } from "react";
 import { useAppStore } from "./store/useAppStore";
@@ -40,7 +40,6 @@ function AppLayout() {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
   const user = useAppStore((state) => state.user);
 
-  // Carrega todos os dados sempre que o usuário está autenticado
   useEffect(() => {
     if (isAuthenticated && user) {
       loadAll();
@@ -63,7 +62,12 @@ function AppLayout() {
 
       <MobileMenu />
 
-      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+        }}
+      />
     </div>
   );
 }
@@ -71,56 +75,70 @@ function AppLayout() {
 function AppWrapper() {
   const [showSplash, setShowSplash] = useState(true);
 
+  if (showSplash) {
+    return (
+      <Splash
+        duration={2000}
+        onFinish={() => setShowSplash(false)}
+      />
+    );
+  }
+
+  return <App />;
+}
+
+function AppRoutes() {
   return (
-    <>
-      {showSplash && <Splash onFinish={() => setShowSplash(false)} duration={2000} />}
-      {!showSplash && <App />}
-    </>
+    <Routes>
+      {/* Rotas públicas */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+
+      {/* Rotas protegidas */}
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/inbox" element={<Inbox />} />
+          <Route path="/projetos" element={<Projetos />} />
+          <Route path="/kanban" element={<Kanban />} />
+
+          {/* Demandas */}
+          <Route path="/demandas" element={<DemandaDetail />} />
+          <Route path="/demandas/:id" element={<DemandaDetail />} />
+
+          <Route path="/calendario" element={<Calendario />} />
+          <Route path="/gantt" element={<Gantt />} />
+          <Route path="/tempo" element={<TimeTracker />} />
+          <Route path="/ia" element={<AIStudio />} />
+          <Route path="/notas" element={<Notas />} />
+          <Route path="/templates" element={<Templates />} />
+          <Route path="/objetivos" element={<Objetivos />} />
+          <Route path="/relatorios" element={<Relatorios />} />
+          <Route path="/equipe" element={<Equipe />} />
+          <Route path="/chat" element={<ChatGlobal />} />
+          <Route path="/configuracoes" element={<Configuracoes />} />
+
+          {/* Páginas futuras */}
+          <Route path="/integracoes" element={<NotFound />} />
+          <Route path="/planos" element={<NotFound />} />
+          <Route path="/ajuda" element={<NotFound />} />
+
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 
 export default function App() {
   return (
     <Router>
-      <Routes>
-        {/** Rotas públicas */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-
-        {/** Rotas protegidas */}
-        <Route element={<ProtectedRoute />}>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/inbox" element={<Inbox />} />
-            <Route path="/projetos" element={<Projetos />} />
-            <Route path="/kanban" element={<Kanban />} />
-            {/* Adicione essas duas linhas aqui */}
-            <Route path="/demandas" element={<DemandaDetail />} />
-            <Route path="/demandas/:id" element={<DemandaDetail />} />
-            <Route path="/demandas/:id" element={<DemandaDetail />} />
-            <Route path="/calendario" element={<Calendario />} />
-            <Route path="/gantt" element={<Gantt />} />
-            <Route path="/tempo" element={<TimeTracker />} />
-            <Route path="/ia" element={<AIStudio />} />
-            <Route path="/notas" element={<Notas />} />
-            <Route path="/templates" element={<Templates />} />
-            <Route path="/objetivos" element={<Objetivos />} />
-            <Route path="/relatorios" element={<Relatorios />} />
-            <Route path="/equipe" element={<Equipe />} />
-            <Route path="/chat" element={<ChatGlobal />} />
-            <Route path="/configuracoes" element={<Configuracoes />} />
-
-            <Route path="/integracoes" element={<NotFound />} />
-            <Route path="/planos" element={<NotFound />} />
-            <Route path="/ajuda" element={<NotFound />} />
-
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Route>
-
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AppRoutes />
     </Router>
   );
 }
+
+export { AppWrapper };

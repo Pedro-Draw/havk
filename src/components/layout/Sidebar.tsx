@@ -16,19 +16,22 @@ import {
   FileText,
   MessageSquare,
   GanttChart,
-  ListTodo,  // ícone para Demandas
+  ListTodo,
 } from 'lucide-react';
 
 export default function Sidebar() {
   const { t } = useTranslation();
 
-  const linkClass =
-    'flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-all';
+  const baseClass =
+    'flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150';
 
   const activeClass = 'bg-zinc-800 text-white';
 
   const inactiveClass =
     'text-zinc-400 hover:bg-zinc-900 hover:text-white';
+
+  const getClass = ({ isActive }: { isActive: boolean }) =>
+    `${baseClass} ${isActive ? activeClass : inactiveClass}`;
 
   return (
     <aside
@@ -45,169 +48,99 @@ export default function Sidebar() {
         h-screen
         z-40
       "
+      aria-label="Sidebar"
     >
-      <div className="flex-1 overflow-y-auto px-3 pb-6">
+      <div
+        className="
+          flex-1
+          overflow-y-auto
+          px-3
+          pb-6
+          scrollbar-thin
+          scrollbar-thumb-zinc-700
+          scrollbar-track-transparent
+        "
+      >
         <nav className="flex flex-col gap-1 mt-4">
 
-          <NavLink
-            to="/"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/" className={getClass}>
             <LayoutDashboard size={18} />
-            {t('sidebar.dashboard')}
+            {t('sidebar.dashboard') || 'Dashboard'}
           </NavLink>
 
-          <NavLink
-            to="/inbox"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/inbox" className={getClass}>
             <Inbox size={18} />
-            {t('sidebar.inbox')}
+            {t('sidebar.inbox') || 'Inbox'}
           </NavLink>
 
-          {/* Novo item adicionado aqui, mantendo a sequência lógica */}
-          <NavLink
-            to="/demandas"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/demandas" className={getClass}>
             <ListTodo size={18} />
             {t('sidebar.demandas') || 'Demandas'}
           </NavLink>
 
-          <NavLink
-            to="/projetos"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/projetos" className={getClass}>
             <FolderKanban size={18} />
-            {t('sidebar.projetos')}
+            {t('sidebar.projetos') || 'Projetos'}
           </NavLink>
 
-          <NavLink
-            to="/kanban"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/kanban" className={getClass}>
             <KanbanSquare size={18} />
-            {t('sidebar.kanban')}
+            {t('sidebar.kanban') || 'Kanban'}
           </NavLink>
 
-          <NavLink
-            to="/calendario"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/calendario" className={getClass}>
             <Calendar size={18} />
-            {t('sidebar.calendario')}
+            {t('sidebar.calendario') || 'Calendário'}
           </NavLink>
 
-          <NavLink
-            to="/gantt"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/gantt" className={getClass}>
             <GanttChart size={18} />
-            {t('sidebar.gantt')}
+            {t('sidebar.gantt') || 'Gantt'}
           </NavLink>
 
-          <NavLink
-            to="/tempo"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/tempo" className={getClass}>
             <Clock size={18} />
-            {t('sidebar.timeTracker')}
+            {t('sidebar.timeTracker') || 'Tempo'}
           </NavLink>
 
-          <NavLink
-            to="/ia"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/ia" className={getClass}>
             <BrainCircuit size={18} />
-            {t('sidebar.aiStudio')}
+            {t('sidebar.aiStudio') || 'IA Studio'}
           </NavLink>
 
-          <NavLink
-            to="/notas"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/notas" className={getClass}>
             <StickyNote size={18} />
-            {t('sidebar.notas')}
+            {t('sidebar.notas') || 'Notas'}
           </NavLink>
 
-          <NavLink
-            to="/objetivos"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/objetivos" className={getClass}>
             <Target size={18} />
-            {t('sidebar.objetivos')}
+            {t('sidebar.objetivos') || 'Objetivos'}
           </NavLink>
 
-          <NavLink
-            to="/relatorios"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/relatorios" className={getClass}>
             <BarChart3 size={18} />
-            {t('sidebar.relatorios')}
+            {t('sidebar.relatorios') || 'Relatórios'}
           </NavLink>
 
-          <NavLink
-            to="/equipe"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/equipe" className={getClass}>
             <Users size={18} />
-            {t('sidebar.equipe')}
+            {t('sidebar.equipe') || 'Equipe'}
           </NavLink>
 
-          <NavLink
-            to="/chat"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/chat" className={getClass}>
             <MessageSquare size={18} />
-            {t('sidebar.chatGlobal')}
+            {t('sidebar.chatGlobal') || 'Chat'}
           </NavLink>
 
-          <NavLink
-            to="/templates"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/templates" className={getClass}>
             <FileText size={18} />
-            {t('sidebar.templates')}
+            {t('sidebar.templates') || 'Templates'}
           </NavLink>
 
-          <NavLink
-            to="/configuracoes"
-            className={({ isActive }) =>
-              `${linkClass} ${isActive ? activeClass : inactiveClass}`
-            }
-          >
+          <NavLink to="/configuracoes" className={getClass}>
             <Settings size={18} />
-            {t('sidebar.configuracoes')}
+            {t('sidebar.configuracoes') || 'Configurações'}
           </NavLink>
 
         </nav>
