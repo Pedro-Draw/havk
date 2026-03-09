@@ -8,7 +8,6 @@ import {
   AlertCircle,
   Download,
   Search,
-  Filter,
   Users,
   Clock,
   TrendingUp,
@@ -46,13 +45,12 @@ import {
   RadialLinearScale,
 } from 'chart.js';
 import { Bar, Line, Doughnut, Radar } from 'react-chartjs-2';
-import 'chart.js/auto';
 import toast from 'react-hot-toast';
-import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useAppStore } from '../store/useAppStore';
 
-// Registrar Chart.js
+// Registrar apenas o necessário
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -310,6 +308,27 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
   return { stats, demandasFiltradasBase, loading: isLoading, error };
 };
 
+async function getImageData(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = url + '?' + new Date().getTime();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject('Não foi possível criar contexto');
+      }
+    };
+    img.onerror = reject;
+  });
+}
+
 export default function Relatorios() {
   const { t } = useTranslation();
   const [periodo, setPeriodo] = useState<PeriodoFiltro>('30d');
@@ -318,6 +337,10 @@ export default function Relatorios() {
   const [filtroResponsavel, setFiltroResponsavel] = useState('todos');
   const [filtroPrioridade, setFiltroPrioridade] = useState('todos');
   const reportRef = useRef<HTMLDivElement>(null);
+  const barChartRef = useRef<any>(null);
+  const lineChartRef = useRef<any>(null);
+  const doughnutChartRef = useRef<any>(null);
+  const radarChartRef = useRef<any>(null);
 
   const { stats, demandasFiltradasBase, loading, error } = useRelatoriosData(periodo);
 
@@ -330,21 +353,14 @@ export default function Relatorios() {
         (d.titulo || '').toLowerCase().includes(texto) ||
         (d.assignee || '').toLowerCase().includes(texto) ||
         (d.status || '').toLowerCase().includes(texto) ||
-        (d.prioridade || '').toLowerCase().includes(texto)
+        (d.prioridade || '').toLowerCase().includes(texto) ||
+        (d.createdBy || '').toLowerCase().includes(texto)
       );
     }
 
-    if (filtroStatus !== 'todos') {
-      lista = lista.filter(d => d.status === filtroStatus);
-    }
-
-    if (filtroResponsavel !== 'todos') {
-      lista = lista.filter(d => d.assignee === filtroResponsavel);
-    }
-
-    if (filtroPrioridade !== 'todos') {
-      lista = lista.filter(d => d.prioridade === filtroPrioridade);
-    }
+    if (filtroStatus !== 'todos') lista = lista.filter(d => d.status === filtroStatus);
+    if (filtroResponsavel !== 'todos') lista = lista.filter(d => d.assignee === filtroResponsavel);
+    if (filtroPrioridade !== 'todos') lista = lista.filter(d => d.prioridade === filtroPrioridade);
 
     return lista;
   }, [demandasFiltradasBase, filtroTexto, filtroStatus, filtroResponsavel, filtroPrioridade]);
@@ -358,6 +374,50 @@ export default function Relatorios() {
     const set = new Set(demandasFiltradasBase.map(d => d.prioridade || 'Sem prioridade'));
     return ['todos', ...Array.from(set)];
   }, [demandasFiltradasBase]);
+
+  // ────────────────────────────────────────────────
+  // Opções SEPARADAS para cada tipo de gráfico
+  // ────────────────────────────────────────────────
+
+  const baseOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        labels: { color: '#e2e8f0', font: { size: 13 } }
+      },
+      tooltip: { backgroundColor: 'rgba(30,41,59,0.95)' },
+    },
+  };
+
+  const cartesianOptions = {
+    ...baseOptions,
+    scales: {
+      x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+      y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+    },
+  };
+
+  const doughnutOptions = {
+    ...baseOptions,
+  };
+
+  const radarOptions = {
+    ...baseOptions,
+    scales: {
+      r: {
+        beginAtZero: true,
+        angleLines: { color: '#4b5563' },
+        grid: { color: '#4b5563' },
+        pointLabels: { font: { size: 13 }, color: '#d1d5db' },
+        ticks: {
+          color: '#9ca3af',
+          backdropColor: 'transparent',
+          stepSize: 5,
+        },
+      },
+    },
+  };
 
   const exportarExcel = () => {
     const wb = XLSX.utils.book_new();
@@ -394,220 +454,215 @@ export default function Relatorios() {
 
     const detalhesData = [
       ['Detalhes das Demandas'],
-      ['ID', 'Título', 'Responsável', 'Status', 'Prioridade', 'Criado em', 'Prazo'],
+      ['ID', 'Título', 'Criado por', 'Responsável', 'Status', 'Prioridade', 'Criado em', 'Prazo'],
       ...demandasFiltradas.map(d => [
-        d.id,
+        d.id?.slice(0, 8) || '',
         d.titulo || '',
+        d.createdBy || 'Desconhecido',
         d.assignee || 'Sem responsável',
         d.status || 'Pendente',
         d.prioridade || 'Sem prioridade',
         d.createdAt ? format(new Date(d.createdAt), 'dd/MM/yyyy HH:mm') : '',
-        d.dueDate || 'Sem prazo',
+        d.dueDate ? (parseDueDate(d.dueDate) ? format(parseDueDate(d.dueDate)!, 'dd/MM/yyyy HH:mm') : d.dueDate) : 'Sem prazo',
       ]),
     ];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detalhesData), 'Detalhes');
+    const wsDetalhes = XLSX.utils.aoa_to_sheet(detalhesData);
+    wsDetalhes['!freeze'] = { xSplit: 1, ySplit: 2 };
+    XLSX.utils.book_append_sheet(wb, wsDetalhes, 'Detalhes');
 
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const data = new Blob([excelBuffer], { type: 'application/octet-stream' });
-    saveAs(data, `relatorio-havk-${format(new Date(), 'yyyy-MM-dd_HHmm')}.xlsx`);
+    saveAs(new Blob([excelBuffer]), `relatorio-havk-${format(new Date(), 'yyyy-MM-dd_HHmm')}.xlsx`);
 
-    toast.success('Excel profissional exportado!');
+    toast.success('Excel exportado com sucesso!');
   };
 
   const exportarPDF = async () => {
-    if (!reportRef.current) {
-      toast.error('Área do relatório não encontrada');
-      return;
-    }
-
-    const toastId = toast.loading('Gerando PDF profissional (aguarde renderização completa)...');
+    const toastId = toast.loading('Gerando PDF compacto e profissional...');
 
     try {
-      // Delay maior para garantir que todos os gráficos e elementos estejam prontos
-      await new Promise(resolve => setTimeout(resolve, 4000));
+      let logoData = '';
+      try {
+        logoData = await getImageData('/logo.png');
+      } catch {}
 
-      const clone = reportRef.current.cloneNode(true) as HTMLElement;
-      clone.style.background = 'linear-gradient(to bottom, #0f172a 0%, #020617 100%)';
-      clone.style.position = 'absolute';
-      clone.style.left = '-9999px';
-      clone.style.top = '-9999px';
-      clone.style.width = '1800px'; // mais largo para capturar tudo sem corte
-      clone.style.padding = '120px 100px';
-      clone.style.fontFamily = 'Helvetica, Arial, sans-serif';
-      clone.style.color = '#e2e8f0';
-      clone.style.boxSizing = 'border-box';
-      document.body.appendChild(clone);
-
-      // =============================
-// CORREÇÃO REAL DOS GRÁFICOS
-// =============================
-
-// pega os canvas originais
-const originalCanvas = reportRef.current.querySelectorAll('canvas');
-
-// pega os canvas do clone
-const cloneCanvas = clone.querySelectorAll('canvas');
-
-originalCanvas.forEach((canvas, index) => {
-
-  const dataUrl = (canvas as HTMLCanvasElement).toDataURL('image/png', 1);
-
-  const img = new Image();
-  img.src = dataUrl;
-
-  const parent = cloneCanvas[index]?.parentElement;
-
-  if (parent) {
-
-    parent.innerHTML = '';
-
-    img.style.width = '100%';
-    img.style.height = '100%';
-    img.style.objectFit = 'contain';
-
-    parent.appendChild(img);
-
-  }
-
-});
-
-      // Delay extra após resize
-      await new Promise(r => setTimeout(r, 1200));
-
-      const canvas = await html2canvas(clone, {
-        scale: 3.5, // qualidade altíssima
-        useCORS: true,
-        logging: false,
-        backgroundColor: null,
-        allowTaint: true,
-        width: clone.offsetWidth,
-        height: clone.offsetHeight,
-        windowWidth: clone.scrollWidth,
-        windowHeight: clone.scrollHeight,
-        x: 0,
-        y: 0,
-        scrollX: 0,
-        scrollY: 0,
-      });
-
-      document.body.removeChild(clone);
-
-      const imgData = canvas.toDataURL('image/png', 1.0);
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
-      // Header personalizado com degradê
-      const headerGradient = pdf.setFillColor(15, 23, 42);
-      pdf.rect(0, 0, pageWidth, 100, 'F');
-      pdf.setFillColor(30, 58, 138);
-      pdf.rect(0, 0, pageWidth, 90, 'F');
+      // Margens menores para caber mais conteúdo
+      const margin = 12;
+      let y = margin + 8;
 
-      // Logo Havk grande e centralizado
-      const logoImg = new Image();
-      logoImg.crossOrigin = 'Anonymous';
-      logoImg.src = '/logo.png';
+      const addHeader = () => {
+        pdf.setFillColor(15, 23, 42);
+        pdf.rect(0, 0, pageWidth, 10, 'F');
+        if (logoData) pdf.addImage(logoData, 'PNG', margin, 2, 6, 6);
+        pdf.setFontSize(9);
+        pdf.setTextColor(220, 220, 255);
+        pdf.text('Havk Intelligence Systems', margin + 8, 7);
+      };
 
-      await new Promise((resolve, reject) => {
-        logoImg.onload = resolve;
-        logoImg.onerror = () => {
-          console.warn('Logo não carregou');
-          resolve();
-        };
+      const addFooter = (page: number, total: number) => {
+        pdf.setFontSize(8);
+        pdf.setTextColor(140, 140, 160);
+        pdf.text(`Página ${page} de ${total} • ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, margin, pageHeight - 5);
+      };
+
+      // Capa enxuta
+      addHeader();
+      if (logoData) pdf.addImage(logoData, 'PNG', pageWidth/2 - 14, 32, 28, 28);
+      pdf.setFontSize(20);
+      pdf.setTextColor(30, 40, 80);
+      pdf.text('Relatório de Demandas', pageWidth/2, 75, { align: 'center' });
+      pdf.setFontSize(11);
+      pdf.setTextColor(100, 116, 139);
+      pdf.text(`${stats.periodoInicio} – ${stats.periodoFim}`, pageWidth/2, 88, { align: 'center' });
+
+      // Conteúdo principal – tudo mais apertado
+      pdf.addPage();
+      addHeader();
+      y = margin + 6;
+
+      pdf.setFontSize(15);
+      pdf.setTextColor(30, 40, 80);
+      pdf.text('Resumo', margin, y); y += 8;
+
+      pdf.setFontSize(10);
+      pdf.setTextColor(0);
+      const resumoLinhas = [
+        `Total Demandas: ${stats.totalDemandas}`,
+        `Concluídas: ${stats.demandasConcluidas} (${stats.taxaConclusao}%)`,
+        `Bloqueadas: ${stats.demandasBloqueadas}`,
+        `Atrasadas: ${stats.demandasAtrasadas}`,
+        `Média Tempo: ${stats.mediaTempoConclusaoDias.toFixed(1)} dias`,
+      ];
+      resumoLinhas.forEach(linha => { pdf.text(linha, margin + 4, y); y += 5.5; });
+
+      y += 4;
+      pdf.setFontSize(13);
+      pdf.text('Status', margin, y); y += 7;
+      pdf.setFontSize(9.5);
+      stats.distribuicaoStatus.forEach(s => {
+        pdf.text(`• ${s.name}: ${s.value}`, margin + 6, y); y += 5;
       });
 
-      const logoW = 70;
-      const logoH = 70;
-      pdf.addImage(logoImg, 'PNG', (pageWidth - logoW) / 2, 15, logoW, logoH, undefined, 'FAST');
+      if (periodo === 'sprint' && stats.sprintInicio) {
+        y += 4;
+        pdf.setFontSize(13);
+        pdf.text('Sprint Atual', margin, y); y += 7;
+        pdf.setFontSize(9.5);
+        pdf.text(`Início: ${stats.sprintInicio}`, margin + 6, y); y += 5;
+        pdf.text(`Fim: ${stats.sprintFim}`, margin + 6, y); y += 5;
+      }
 
-      // Título principal
-      pdf.setFontSize(32);
-      pdf.setTextColor(226, 232, 240);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('RELATÓRIO DE DEMANDAS', pageWidth / 2, 120, { align: 'center' });
+      // Gráficos menores (altura ~80–85mm ≈ dashboard)
+      pdf.addPage();
+      addHeader();
+      y = margin + 6;
 
-      pdf.setFontSize(16);
-      pdf.setTextColor(148, 163, 184);
-      pdf.text('Havk Intelligence Systems', pageWidth / 2, 140, { align: 'center' });
+      pdf.setFontSize(15);
+      pdf.text('Gráficos', margin, y); y += 9;
 
-      // Data e período
-      pdf.setFontSize(12);
-      pdf.setTextColor(100, 116, 139);
-      pdf.text(`Gerado em: ${format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}`, pageWidth / 2, 165, { align: 'center' });
-      pdf.text(`Período analisado: ${stats.periodoInicio} – ${stats.periodoFim}`, pageWidth / 2, 180, { align: 'center' });
+      const chartW = pageWidth - margin * 2;
+      const chartH = 80; // tamanho similar ao dashboard (~28rem ≈ 448px → 80mm)
 
-      // Linha divisória
-      pdf.setLineWidth(1);
-      pdf.setDrawColor(59, 130, 246);
-      pdf.line(30, 195, pageWidth - 30, 195);
-
-      // Conteúdo principal (captura completa do relatório)
-      const contentRatio = Math.min((pageWidth - 40) / canvas.width, (pageHeight - 220) / canvas.height);
-      const contentX = (pageWidth - canvas.width * contentRatio) / 2;
-      pdf.addImage(imgData, 'PNG', contentX, 210, canvas.width * contentRatio, canvas.height * contentRatio, undefined, 'FAST');
-
-      // Rodapé
-      pdf.setFontSize(10);
-      pdf.setTextColor(148, 163, 184);
-      pdf.text('Havk Intelligence Systems | Relatório Confidencial | Página 1/1', pageWidth / 2, pageHeight - 15, { align: 'center' });
-
-      pdf.save(`relatorio-havk-pro-${format(new Date(), 'yyyy-MM-dd_HHmm')}.pdf`);
-
-      toast.dismiss(toastId);
-      toast.success('PDF profissional gerado com sucesso! (logo grande, gráficos nítidos, layout moderno)');
-    } catch (err) {
-      console.error('Erro ao gerar PDF avançado:', err);
-      toast.dismiss(toastId);
-      toast.error('Erro ao gerar PDF completo. Gerando versão simplificada...');
-
-      // Fallback mais bonito
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-      const logoImg = new Image();
-      logoImg.src = '/logo.png';
-      await new Promise(r => { logoImg.onload = r; });
-
-      pdf.addImage(logoImg, 'PNG', 105 - 30, 15, 60, 60);
-
-      pdf.setFontSize(26);
-      pdf.setTextColor(30, 41, 59);
-      pdf.text('Relatório de Demandas - Havk', 105, 95, { align: 'center' });
-
-      pdf.setFontSize(12);
-      pdf.setTextColor(100);
-      pdf.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}`, 105, 110, { align: 'center' });
-      pdf.text(`Período: ${stats.periodoInicio} – ${stats.periodoFim}`, 105, 122, { align: 'center' });
-
-      let y = 150;
-      pdf.setFontSize(16);
-      pdf.setTextColor(0);
-      pdf.text('Resumo Geral', 20, y); y += 12;
-
-      pdf.setFontSize(12);
-      pdf.text(`Total de Demandas: ${stats.totalDemandas}`, 25, y); y += 10;
-      pdf.text(`Demandas Concluídas: ${stats.demandasConcluidas}`, 25, y); y += 10;
-      pdf.text(`Demandas Bloqueadas: ${stats.demandasBloqueadas}`, 25, y); y += 10;
-      pdf.text(`Demandas Atrasadas: ${stats.demandasAtrasadas}`, 25, y); y += 10;
-      pdf.text(`Taxa de Conclusão: ${stats.taxaConclusao}%`, 25, y); y += 10;
-      pdf.text(`Média de Tempo: ${stats.mediaTempoConclusaoDias.toFixed(1)} dias`, 25, y); y += 20;
-
-      if (stats.topUsuarios.length > 0) {
-        pdf.setFontSize(16);
-        pdf.text('Top Performers', 20, y); y += 12;
+      const addCompactChart = (title: string, ref: any) => {
+        if (y > pageHeight - chartH - 25) {
+          pdf.addPage();
+          addHeader();
+          y = margin + 6;
+        }
         pdf.setFontSize(12);
-        stats.topUsuarios.forEach((u, i) => {
-          pdf.text(`${i + 1}. ${u.nome} — ${u.concluidas} concluídas (${u.totalAtribuidas} atribuídas)`, 25, y); y += 10;
+        pdf.text(title, margin, y); y += 7;
+        const img = ref?.current?.toBase64Image('image/png', 1);
+        if (img) {
+          pdf.addImage(img, 'PNG', margin, y, chartW, chartH);
+          y += chartH + 10;
+        }
+      };
+
+      addCompactChart('Evolução Mensal', barChartRef);
+      addCompactChart('Distribuição Status', doughnutChartRef);
+      addCompactChart('Produtividade Devs', radarChartRef);
+      addCompactChart('Tendência Conclusões', lineChartRef);
+
+      // Top + Produtividade + Detalhes (tabelas compactas)
+      if (y > pageHeight - 140) {
+        pdf.addPage();
+        addHeader();
+        y = margin + 6;
+      }
+
+      pdf.setFontSize(14);
+      pdf.text('Top Performers', margin, y); y += 8;
+      autoTable(pdf, {
+        startY: y,
+        head: [['#', 'Nome', 'Concluidas', 'Atribuidas']],
+        body: stats.topUsuarios.map((u, i) => [i+1, u.nome, u.concluidas, u.totalAtribuidas]),
+        theme: 'striped',
+        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontSize: 9 },
+        styles: { fontSize: 8.5, cellPadding: 3.2 },
+        margin: { left: margin, right: margin },
+      });
+      y = (pdf as any).lastAutoTable.finalY + 10;
+
+      pdf.setFontSize(14);
+      pdf.text('Produtividade', margin, y); y += 8;
+      autoTable(pdf, {
+        startY: y,
+        head: [['Nome', 'Conc.', 'Atrib.', 'Média dias']],
+        body: stats.produtividadePorDev.map(d => [d.nome, d.concluidas, d.total, d.mediaDias.toFixed(1)]),
+        theme: 'striped',
+        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontSize: 9 },
+        styles: { fontSize: 8.5, cellPadding: 3.2 },
+        margin: { left: margin, right: margin },
+      });
+      y = (pdf as any).lastAutoTable.finalY + 10;
+
+      if (demandasFiltradas.length > 0) {
+        if (y > pageHeight - 140) {
+          pdf.addPage();
+          addHeader();
+          y = margin + 6;
+        }
+        pdf.setFontSize(14);
+        pdf.text('Demandas', margin, y); y += 8;
+
+        autoTable(pdf, {
+          startY: y,
+          head: [['ID', 'Título', 'Resp.', 'Status', 'Prior.', 'Prazo']],
+          body: demandasFiltradas.map(d => [
+            d.id?.slice(0,8) || '',
+            (d.titulo || '').slice(0,48) + ((d.titulo||'').length > 48 ? '...' : ''),
+            d.assignee || '—',
+            d.status || '—',
+            d.prioridade || '—',
+            d.dueDate ? (parseDueDate(d.dueDate) ? format(parseDueDate(d.dueDate)!, 'dd/MM/yy') : d.dueDate) : '—',
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [30, 58, 138], textColor: 255, fontSize: 9 },
+          styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
+          columnStyles: { 0: { cellWidth: 18 }, 1: { cellWidth: 60 }, 2: { cellWidth: 30 } },
+          margin: { left: margin, right: margin },
+          pageBreak: 'auto',
         });
       }
 
-      pdf.save(`relatorio-havk-fallback-${format(new Date(), 'yyyy-MM-dd_HHmm')}.pdf`);
-      toast.success('PDF simplificado gerado (com logo)');
+      // Finalizar todas as páginas
+      const totalPages = pdf.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        addHeader();
+        addFooter(i, totalPages);
+      }
+
+      pdf.save(`relatorio-havk-compact-${format(new Date(), 'yyyy-MM-dd_HHmm')}.pdf`);
+      toast.dismiss(toastId);
+      toast.success('PDF compacto gerado com sucesso!');
+    } catch (err) {
+      console.error(err);
+      toast.dismiss(toastId);
+      toast.error('Erro ao gerar PDF compacto');
     }
   };
 
@@ -615,7 +670,7 @@ originalCanvas.forEach((canvas, index) => {
     { value: '30d', label: 'Últimos 30 dias' },
     { value: '90d', label: 'Últimos 90 dias' },
     { value: 'este-ano', label: 'Este ano' },
-    { value: 'tudo', label: 'Todo o histórico' },
+    { value: 'tudo', label: 'Todo histórico' },
     { value: 'sprint', label: 'Sprint Atual' },
   ];
 
@@ -623,7 +678,7 @@ originalCanvas.forEach((canvas, index) => {
     labels: stats.conclusoesPorMes.map(m => m.mes),
     datasets: [
       { label: 'Concluídas', data: stats.conclusoesPorMes.map(m => m.quantidade), backgroundColor: '#10b981' },
-      { label: 'Atrasadas', data: stats.conclusoesPorMes.map(() => stats.demandasAtrasadas / stats.conclusoesPorMes.length || 0), backgroundColor: '#ef4444' },
+      { label: 'Atrasadas', data: stats.conclusoesPorMes.map(() => stats.demandasAtrasadas / (stats.conclusoesPorMes.length || 1)), backgroundColor: '#ef4444' },
     ],
   };
 
@@ -654,31 +709,18 @@ originalCanvas.forEach((canvas, index) => {
       {
         label: 'Concluídas',
         data: stats.produtividadePorDev.map(d => d.concluidas),
-        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+        backgroundColor: 'rgba(16, 185, 129, 0.25)',
         borderColor: '#10b981',
         pointBackgroundColor: '#10b981',
       },
       {
         label: 'Atribuídas',
         data: stats.produtividadePorDev.map(d => d.total),
-        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        backgroundColor: 'rgba(59, 130, 246, 0.25)',
         borderColor: '#3b82f6',
         pointBackgroundColor: '#3b82f6',
       },
     ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { labels: { color: '#e2e8f0' } },
-      title: { display: true, color: '#e2e8f0' },
-    },
-    scales: {
-      x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-      y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-    },
   };
 
   if (loading) {
@@ -686,7 +728,7 @@ originalCanvas.forEach((canvas, index) => {
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="w-12 h-12 animate-spin mx-auto text-sky-400" />
-          <p className="mt-6 text-xl text-zinc-300">Carregando relatório profissional...</p>
+          <p className="mt-6 text-xl text-zinc-300">Carregando relatório...</p>
         </div>
       </div>
     );
@@ -697,10 +739,10 @@ originalCanvas.forEach((canvas, index) => {
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
         <Card className="max-w-lg text-center bg-gradient-to-br from-red-950 to-zinc-950 border-red-800">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto" />
-          <h2 className="mt-6 text-2xl font-bold text-white">Erro ao carregar relatório</h2>
+          <h2 className="mt-6 text-2xl font-bold text-white">Erro</h2>
           <p className="mt-4 text-zinc-300">{error}</p>
           <Button className="mt-8 bg-red-600 hover:bg-red-700" onClick={() => window.location.reload()}>
-            Tentar novamente
+            Recarregar
           </Button>
         </Card>
       </div>
@@ -711,7 +753,7 @@ originalCanvas.forEach((canvas, index) => {
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 text-zinc-100">
       <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
         <div ref={reportRef} className="max-w-[1600px] mx-auto pb-20 space-y-10">
-          {/* Logo e Cabeçalho */}
+          {/* Cabeçalho */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-6">
               <div className="p-5 bg-gradient-to-br from-sky-900 to-indigo-900 rounded-2xl shadow-2xl">
@@ -738,10 +780,10 @@ originalCanvas.forEach((canvas, index) => {
               />
               <div className="flex gap-3">
                 <Button variant="outline" icon={<Download className="w-5 h-5" />} onClick={exportarExcel}>
-                  Exportar Excel
+                  Excel
                 </Button>
                 <Button variant="outline" icon={<Download className="w-5 h-5" />} onClick={exportarPDF}>
-                  Exportar PDF
+                  PDF
                 </Button>
               </div>
             </div>
@@ -763,7 +805,7 @@ originalCanvas.forEach((canvas, index) => {
                 value={filtroStatus}
                 onChange={(e) => setFiltroStatus(e.target.value)}
                 options={[
-                  { value: 'todos', label: 'Todos os status' },
+                  { value: 'todos', label: 'Todos status' },
                   { value: 'aberta', label: 'Aberta' },
                   { value: 'em-progresso', label: 'Em progresso' },
                   { value: 'concluida', label: 'Concluída' },
@@ -786,13 +828,13 @@ originalCanvas.forEach((canvas, index) => {
             </div>
           </Card>
 
-          {/* Cards */}
+          {/* Cards KPIs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
             {[
               { title: 'Total Demandas', value: stats.totalDemandas, color: 'text-white' },
               { title: 'Concluídas', value: stats.demandasConcluidas, color: 'text-emerald-400' },
-              { title: 'Taxa Conclusão', value: `${stats.taxaConclusao}%`, color: 'text-sky-400' },
-              { title: 'Média Tempo', value: `${stats.mediaTempoConclusaoDias.toFixed(1)} dias`, color: 'text-indigo-400' },
+              { title: 'Taxa %', value: `${stats.taxaConclusao}%`, color: 'text-sky-400' },
+              { title: 'Média Dias', value: `${stats.mediaTempoConclusaoDias.toFixed(1)}`, color: 'text-indigo-400' },
               { title: 'Bloqueadas', value: stats.demandasBloqueadas, color: 'text-orange-400' },
               { title: 'Atrasadas', value: stats.demandasAtrasadas, color: 'text-red-400' },
             ].map((item, i) => (
@@ -810,69 +852,64 @@ originalCanvas.forEach((canvas, index) => {
           {periodo === 'sprint' && stats.sprintInicio && (
             <Card className="bg-gradient-to-br from-indigo-950 to-purple-950 border-indigo-800 shadow-2xl">
               <h2 className="text-2xl font-bold text-indigo-300 mb-6 flex items-center gap-3">
-                <TrendingUp className="w-8 h-8" /> Relatório de Sprint Atual
+                <TrendingUp className="w-8 h-8" /> Sprint Atual
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-indigo-900/30 p-6 rounded-xl border border-indigo-700">
-                  <p className="text-indigo-300 text-sm mb-2">Início da Sprint</p>
+                  <p className="text-indigo-300 text-sm mb-2">Início</p>
                   <p className="text-2xl font-bold text-white">{stats.sprintInicio}</p>
                 </div>
                 <div className="bg-indigo-900/30 p-6 rounded-xl border border-indigo-700">
-                  <p className="text-indigo-300 text-sm mb-2">Fim da Sprint</p>
+                  <p className="text-indigo-300 text-sm mb-2">Fim</p>
                   <p className="text-2xl font-bold text-white">{stats.sprintFim}</p>
                 </div>
               </div>
             </Card>
           )}
 
-          {/* Gráficos */}
+          {/* Gráficos – altura reduzida para caber melhor */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Card title="Evolução e Atrasos" description="Concluídas vs Atrasadas por mês" className="bg-zinc-900/80 border-zinc-800">
-              <div className="h-96 pt-6">
-                <Bar data={barMultiData} options={chartOptions} />
+            <Card title="Evolução e Atrasos" description="Concluídas vs Atrasadas" className="bg-zinc-900/80 border-zinc-800">
+              <div className="h-80 pt-6">
+                <Bar ref={barChartRef} data={barMultiData} options={cartesianOptions} />
               </div>
             </Card>
 
-            <Card title="Distribuição de Status" description="Situação atual detalhada" className="bg-zinc-900/80 border-zinc-800">
-              <div className="h-96 pt-6">
-                <Doughnut data={doughnutData} options={chartOptions} />
+            <Card title="Distribuição Status" description="Situação atual" className="bg-zinc-900/80 border-zinc-800">
+              <div className="h-80 pt-6">
+                <Doughnut ref={doughnutChartRef} data={doughnutData} options={doughnutOptions} />
               </div>
             </Card>
 
-            <Card title="Produtividade por Desenvolvedor" description="Comparativo concluídas vs atribuídas" className="lg:col-span-2 bg-zinc-900/80 border-zinc-800">
-              <div className="h-96 pt-6">
-                <Radar data={radarData} options={{ ...chartOptions, scales: { r: { ticks: { color: '#94a3b8' } } } }} />
+            <Card title="Produtividade por Dev" description="Concluídas vs Atribuídas" className="lg:col-span-2 bg-zinc-900/80 border-zinc-800">
+              <div className="h-[380px] pt-6 px-4">
+                <Radar ref={radarChartRef} data={radarData} options={radarOptions} />
               </div>
             </Card>
 
             <Card title="Evolução Temporal" description="Tendência de conclusões" className="lg:col-span-2 bg-zinc-900/80 border-zinc-800">
-              <div className="h-96 pt-6">
-                <Line data={lineData} options={chartOptions} />
+              <div className="h-80 pt-6 px-4">
+                <Line ref={lineChartRef} data={lineData} options={cartesianOptions} />
               </div>
             </Card>
           </div>
 
           {/* Top Performers */}
-          <Card title="Top Performers" description="Desenvolvedores mais produtivos" className="bg-gradient-to-br from-emerald-950 to-zinc-950 border-emerald-800">
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card title="Top Performers" description="Melhores desempenhos" className="bg-gradient-to-br from-emerald-950/40 to-zinc-950 border-emerald-900/50">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 p-6">
               {stats.topUsuarios.map((user, idx) => (
-                <div
-                  key={user.nome}
-                  className="p-6 bg-zinc-900/70 rounded-2xl border border-zinc-800 hover:border-emerald-700 transition-all shadow-lg hover:shadow-emerald-900/30"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center text-white font-bold text-2xl shadow-md">
+                <div key={user.nome} className="bg-zinc-900/70 p-5 rounded-xl border border-zinc-800 hover:border-emerald-700 transition-all">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white font-bold shadow-md">
                         {idx + 1}
                       </div>
                       <div>
-                        <p className="font-semibold text-xl">{user.nome}</p>
-                        <p className="text-zinc-400 text-sm">{user.totalAtribuidas} atribuídas</p>
+                        <p className="font-medium">{user.nome}</p>
+                        <p className="text-xs text-zinc-500">{user.totalAtribuidas} atrib.</p>
                       </div>
                     </div>
-                    <div className="text-3xl font-bold text-emerald-400">
-                      {user.concluidas}
-                    </div>
+                    <div className="text-2xl font-bold text-emerald-400">{user.concluidas}</div>
                   </div>
                 </div>
               ))}
@@ -907,27 +944,29 @@ originalCanvas.forEach((canvas, index) => {
                 <table className="min-w-full divide-y divide-zinc-800 text-sm">
                   <thead className="bg-zinc-900/90 sticky top-0">
                     <tr>
-                      <th className="px-6 py-5 text-left font-medium text-zinc-300">ID</th>
+                      <th className="px-6 py-5 text-left font-medium text-zinc-300 w-24">ID</th>
                       <th className="px-6 py-5 text-left font-medium text-zinc-300">Título</th>
-                      <th className="px-6 py-5 text-left font-medium text-zinc-300">Responsável</th>
-                      <th className="px-6 py-5 text-left font-medium text-zinc-300">Status</th>
-                      <th className="px-6 py-5 text-left font-medium text-zinc-300">Prioridade</th>
-                      <th className="px-6 py-5 text-left font-medium text-zinc-300">Criado</th>
-                      <th className="px-6 py-5 text-left font-medium text-zinc-300">Prazo</th>
+                      <th className="px-6 py-5 text-left font-medium text-zinc-300 w-40">Criado por</th>
+                      <th className="px-6 py-5 text-left font-medium text-zinc-300 w-40">Responsável</th>
+                      <th className="px-6 py-5 text-left font-medium text-zinc-300 w-32">Status</th>
+                      <th className="px-6 py-5 text-left font-medium text-zinc-300 w-32">Prioridade</th>
+                      <th className="px-6 py-5 text-left font-medium text-zinc-300 w-36">Criado</th>
+                      <th className="px-6 py-5 text-left font-medium text-zinc-300 w-36">Prazo</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800">
                     {demandasFiltradas.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-zinc-500 italic text-lg">
-                          Nenhuma demanda encontrada com os filtros aplicados
+                        <td colSpan={8} className="px-6 py-12 text-center text-zinc-500 italic text-lg">
+                          Nenhuma demanda encontrada
                         </td>
                       </tr>
                     ) : (
                       demandasFiltradas.map(d => (
                         <tr key={d.id} className="hover:bg-zinc-800/60 transition-colors">
-                          <td className="px-6 py-5 whitespace-nowrap font-medium">{d.id}</td>
+                          <td className="px-6 py-5 whitespace-nowrap font-medium text-zinc-400">{d.id?.slice(0,8) || '—'}</td>
                           <td className="px-6 py-5">{d.titulo || '—'}</td>
+                          <td className="px-6 py-5">{d.createdBy || '—'}</td>
                           <td className="px-6 py-5">{d.assignee || 'Sem responsável'}</td>
                           <td className="px-6 py-5">
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -949,10 +988,10 @@ originalCanvas.forEach((canvas, index) => {
                               {d.prioridade || 'Sem prioridade'}
                             </span>
                           </td>
-                          <td className="px-6 py-5 whitespace-nowrap">
+                          <td className="px-6 py-5 whitespace-nowrap text-zinc-400">
                             {d.createdAt ? format(new Date(d.createdAt), 'dd/MM/yyyy HH:mm') : '—'}
                           </td>
-                          <td className="px-6 py-5 whitespace-nowrap">
+                          <td className="px-6 py-5 whitespace-nowrap text-zinc-400">
                             {d.dueDate ? (
                               (() => {
                                 const prazo = parseDueDate(d.dueDate);
