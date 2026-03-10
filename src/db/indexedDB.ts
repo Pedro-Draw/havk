@@ -9,14 +9,14 @@ interface DBStore {
 }
 
 const DB_NAME = 'HavkDB';
-const DB_VERSION = 1;
+const DB_VERSION = 6;
 
 const STORES: DBStore[] = [
   {
     name: 'user',
     keyPath: 'id',
     autoIncrement: false,
-    indexes: [{ name: 'email', keyPath: 'email', unique: true }],
+    indexes: [{ name: 'email', keyPath: 'email'}],
   },
   {
     name: 'membros',
@@ -125,7 +125,8 @@ export const addItem = async <T>(storeName: string, item: T): Promise<string> =>
   return new Promise((resolve, reject) => {
     const tx = database.transaction(storeName, 'readwrite');
     const store = tx.objectStore(storeName);
-    const request = store.add(item);
+
+    const request = store.put(item as any); // cria ou atualiza
 
     request.onsuccess = () => resolve(request.result as string);
     request.onerror = () => reject(request.error);
@@ -245,10 +246,11 @@ export const clearStore = async (storeName: string): Promise<void> => {
 };
 
 export const initDevAccount = async () => {
-  const existingUser = await getItem('user', 'dev-user');
-  if (!existingUser) {
+  const users = await getAll('user');
+
+  if (users.length === 0) {
     const devUser = {
-      id: 'dev-user',
+      id: 'current-user',
       name: 'Usuário DEV',
       email: 'dev@havk.local',
       avatar: null,
@@ -257,6 +259,7 @@ export const initDevAccount = async () => {
       createdAt: new Date().toISOString(),
       isDev: true,
     };
+
     await addItem('user', devUser);
     console.log('Conta DEV criada automaticamente');
   }

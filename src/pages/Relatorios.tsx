@@ -45,12 +45,20 @@ import {
   RadialLinearScale,
 } from 'chart.js';
 import { Bar, Line, Doughnut, Radar } from 'react-chartjs-2';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  Legend as RechartsLegend,
+} from 'recharts';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppStore } from '../store/useAppStore';
 
-// Registrar apenas o necessário
+// Registrar componentes do Chart.js
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -75,7 +83,7 @@ interface Estatisticas {
   mediaTempoConclusaoDias: number;
   conclusoesPorMes: Array<{ mes: string; quantidade: number }>;
   distribuicaoStatus: Array<{ name: string; value: number }>;
-  topUsuarios: Array<{ nome: string; concluidas: number; totalAtribuidas: number }>;
+  topUsuarios: Array<{ nome: string; concluidas: number; totalAtribuidas: number; mediaDias: number }>;
   periodoInicio: string;
   periodoFim: string;
   sprintInicio?: string;
@@ -83,45 +91,89 @@ interface Estatisticas {
   produtividadePorDev: Array<{ nome: string; concluidas: number; total: number; mediaDias: number }>;
 }
 
+// ────────────────────────────────────────────────
+// PALETA DE CORES AJUSTADA – mais distinta, vibrante e agradável
+// ────────────────────────────────────────────────
 const CORES_STATUS = {
-  aberta: '#3b82f6',
-  'em-progresso': '#f59e0b',
-  concluida: '#10b981',
-  bloqueada: '#ef4444',
-  atrasada: '#f97316',
-  default: '#6b7280',
+  aberta:      '#60a5fa',
+  'em-progresso': '#10b981',
+  concluida:   '#22c55e',
+  bloqueada:   '#8b5cf6',
+  atrasada:    '#ef4444',
+  cancelada:   '#6b7280',
+  default:     '#9ca3af',
 };
 
 const CORES_PRIORIDADE = {
-  baixa: '#10b981',
-  media: '#f59e0b',
-  alta: '#ef4444',
-  urgente: '#b91c1c',
+  baixa:     '#10b981',
+  media:     '#f59e0b',
+  alta:      '#f97316',
+  urgente:   '#dc2626',
+  critica:   '#b91c1c',
+  default:   '#9ca3af',
 };
 
+const PALETA_DESTAQUE = [
+  '#3b82f6',   '#10b981',   '#f59e0b',   '#ec4899',   '#8b5cf6',
+  '#14b8a6',   '#f97316',   '#ef4444',   '#6366f1',   '#f472b6',
+];
+
+const PALETA_DESTAQUE_SOFISTICADA = [
+  '#6366f1',   '#10b981',   '#f59e0b',   '#ec4899',   '#06b6d4',
+  '#8b5cf6',   '#f97316',   '#64748b',
+];
+
+// Função de parse corrigida para evitar -1 dia (força horário local São Paulo)
 const parseDueDate = (dueDate: string | undefined | null): Date | null => {
   if (!dueDate) return null;
   const str = String(dueDate).trim();
 
+  // Tenta parse direto (ISO ou formatos reconhecidos)
   let dt = new Date(str);
   if (!isNaN(dt.getTime())) return dt;
 
-  const parsedBR = parse(str, 'dd/MM/yyyy', new Date());
-  if (!isNaN(parsedBR.getTime())) return parsedBR;
+  // Formato BR sem hora: dd/MM/yyyy
+  const matchBR = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (matchBR) {
+    const [_, day, month, year] = matchBR;
+    // Construtor local (ano, mês-1, dia, 0h local)
+    return new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0);
+  }
 
-  const parsedBRFull = parse(str, 'dd/MM/yyyy HH:mm', new Date());
-  if (!isNaN(parsedBRFull.getTime())) return parsedBRFull;
+  // Formato BR com hora: dd/MM/yyyy HH:mm
+  const matchBRFull = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/);
+  if (matchBRFull) {
+    const [_, day, month, year, hour, minute] = matchBRFull;
+    // Força horário local São Paulo
+    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), 0);
+  }
 
+  // Formato ISO yyyy-MM-dd
   const parsedISO = parse(str, 'yyyy-MM-dd', new Date());
   if (!isNaN(parsedISO.getTime())) return parsedISO;
+
+  // Último fallback
+  const fallback = new Date(str);
+  if (!isNaN(fallback.getTime())) return fallback;
 
   return null;
 };
 
+const getTitulo = (d: any) => d.titulo ?? d.title ?? d.nome ?? d.description ?? '—';
+const getResponsavel = (d: any) => d.assignee ?? d.responsavel ?? d.assignedTo ?? d.responsável ?? d.assigned ?? 'Sem responsável';
+const getPrazoRaw = (d: any) => d.dueDate ?? d.prazo ?? d.deadline ?? d.due_date ?? null;
+const getPrioridade = (d: any) =>
+  d.prioridade ??
+  d.priority ??
+  d.nivelPrioridade ??
+  d.level ??
+  d.importancia ??
+  d.prioridadeNivel ??
+  'Sem prioridade';
+
 const useRelatoriosData = (periodo: PeriodoFiltro) => {
   const { demandas: demandasRaw = [], isLoading } = useAppStore();
   const demandas = demandasRaw ?? [];
-
   const [stats, setStats] = useState<Estatisticas>({
     totalDemandas: 0,
     demandasConcluidas: 0,
@@ -136,25 +188,21 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
     periodoFim: '',
     produtividadePorDev: [],
   });
-
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
-
     try {
       const agora = new Date();
       let dataInicio = new Date(0);
       let sprintInicio: string | undefined;
       let sprintFim: string | undefined;
-
       let demandasFiltradas = demandas;
 
       if (periodo === 'sprint') {
         const sprintAtual = demandas
           .filter(d => d.sprint)
           .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
-
         if (sprintAtual?.sprintInicio && sprintAtual?.sprintFim) {
           dataInicio = new Date(sprintAtual.sprintInicio);
           sprintInicio = format(dataInicio, 'dd/MM/yyyy', { locale: ptBR });
@@ -167,7 +215,6 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
         if (periodo === '30d') dataInicio = subDays(agora, 30);
         else if (periodo === '90d') dataInicio = subDays(agora, 90);
         else if (periodo === 'este-ano') dataInicio = startOfYear(agora);
-
         demandasFiltradas = demandas.filter((d) =>
           d?.createdAt && isWithinInterval(new Date(d.createdAt), { start: dataInicio, end: agora })
         );
@@ -185,10 +232,10 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
 
       const concluidas = demandasFiltradas.filter((d) => d?.status === 'concluida');
       const bloqueadas = demandasFiltradas.filter((d) => d?.status === 'bloqueada').length;
-
       const atrasadas = demandasFiltradas.filter((d) => {
-        if (!d?.dueDate || d?.status === 'concluida') return false;
-        const prazo = parseDueDate(d.dueDate);
+        const prazoRaw = getPrazoRaw(d);
+        if (!prazoRaw || d?.status === 'concluida') return false;
+        const prazo = parseDueDate(prazoRaw);
         return prazo !== null && prazo < agora;
       }).length;
 
@@ -228,13 +275,13 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
         .sort((a, b) => b.value - a.value);
 
       const porUsuarioRaw = concluidas.reduce<Record<string, number>>((acc, d) => {
-        const resp = d?.assignee || 'Sem responsável';
+        const resp = getResponsavel(d);
         acc[resp] = (acc[resp] || 0) + 1;
         return acc;
       }, {});
 
       const totalPorUsuario = demandasFiltradas.reduce<Record<string, number>>((acc, d) => {
-        const resp = d?.assignee || 'Sem responsável';
+        const resp = getResponsavel(d);
         acc[resp] = (acc[resp] || 0) + 1;
         return acc;
       }, {});
@@ -251,7 +298,7 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
       const produtividadePorDev = Object.entries(totalPorUsuario)
         .map(([nome, total]) => {
           const concluidasDev = porUsuarioRaw[nome] || 0;
-          const concluidasDevList = concluidas.filter(d => d?.assignee === nome);
+          const concluidasDevList = concluidas.filter(d => getResponsavel(d) === nome);
           const mediaDev = concluidasDevList.length > 0
             ? concluidasDevList.reduce((sum, d) => {
                 if (d?.createdAt && d?.updatedAt) {
@@ -260,7 +307,6 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
                 return sum;
               }, 0) / concluidasDevList.length
             : 0;
-
           return { nome, concluidas: concluidasDev, total, mediaDias: mediaDev };
         })
         .sort((a, b) => b.concluidas - a.concluidas);
@@ -281,7 +327,6 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
         sprintFim,
         produtividadePorDev,
       });
-
       setError(null);
     } catch (err) {
       console.error('Erro ao processar relatórios:', err);
@@ -290,16 +335,13 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
   }, [demandas, periodo, isLoading]);
 
   let demandasFiltradasBase = demandas;
-
   if (periodo !== 'tudo') {
     const agora = new Date();
     let dataInicio: Date;
-
     if (periodo === '30d') dataInicio = subDays(agora, 30);
     else if (periodo === '90d') dataInicio = subDays(agora, 90);
     else if (periodo === 'este-ano') dataInicio = startOfYear(agora);
     else dataInicio = new Date(0);
-
     demandasFiltradasBase = demandas.filter((d) =>
       d?.createdAt && isWithinInterval(new Date(d.createdAt), { start: dataInicio, end: agora })
     );
@@ -336,6 +378,7 @@ export default function Relatorios() {
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [filtroResponsavel, setFiltroResponsavel] = useState('todos');
   const [filtroPrioridade, setFiltroPrioridade] = useState('todos');
+
   const reportRef = useRef<HTMLDivElement>(null);
   const barChartRef = useRef<any>(null);
   const lineChartRef = useRef<any>(null);
@@ -346,46 +389,45 @@ export default function Relatorios() {
 
   const demandasFiltradas = useMemo(() => {
     let lista = demandasFiltradasBase;
-
     if (filtroTexto) {
       const texto = filtroTexto.toLowerCase();
       lista = lista.filter(d =>
-        (d.titulo || '').toLowerCase().includes(texto) ||
-        (d.assignee || '').toLowerCase().includes(texto) ||
+        (getTitulo(d) || '').toLowerCase().includes(texto) ||
+        (getResponsavel(d) || '').toLowerCase().includes(texto) ||
         (d.status || '').toLowerCase().includes(texto) ||
-        (d.prioridade || '').toLowerCase().includes(texto) ||
+        (getPrioridade(d) || '').toLowerCase().includes(texto) ||
         (d.createdBy || '').toLowerCase().includes(texto)
       );
     }
-
     if (filtroStatus !== 'todos') lista = lista.filter(d => d.status === filtroStatus);
-    if (filtroResponsavel !== 'todos') lista = lista.filter(d => d.assignee === filtroResponsavel);
-    if (filtroPrioridade !== 'todos') lista = lista.filter(d => d.prioridade === filtroPrioridade);
-
+    if (filtroResponsavel !== 'todos') lista = lista.filter(d => getResponsavel(d) === filtroResponsavel);
+    if (filtroPrioridade !== 'todos') lista = lista.filter(d => getPrioridade(d) === filtroPrioridade);
     return lista;
   }, [demandasFiltradasBase, filtroTexto, filtroStatus, filtroResponsavel, filtroPrioridade]);
 
   const responsaveisUnicos = useMemo(() => {
-    const set = new Set(demandasFiltradasBase.map(d => d.assignee || 'Sem responsável'));
+    const set = new Set(demandasFiltradasBase.map(d => getResponsavel(d)));
     return ['todos', ...Array.from(set)];
   }, [demandasFiltradasBase]);
 
   const prioridadesUnicas = useMemo(() => {
-    const set = new Set(demandasFiltradasBase.map(d => d.prioridade || 'Sem prioridade'));
-    return ['todos', ...Array.from(set)];
+    const set = new Set(demandasFiltradasBase.map(d => getPrioridade(d)));
+    return ['todos', ...Array.from(set).sort()];
   }, [demandasFiltradasBase]);
 
-  // ────────────────────────────────────────────────
-  // Opções SEPARADAS para cada tipo de gráfico
-  // ────────────────────────────────────────────────
+  const statusData = [
+    { name: 'Aberta', value: stats.distribuicaoStatus.find(s => s.name === 'aberta')?.value || 0, color: CORES_STATUS.aberta },
+    { name: 'Em Progresso', value: stats.distribuicaoStatus.find(s => s.name === 'em-progresso')?.value || 0, color: CORES_STATUS['em-progresso'] },
+    { name: 'Concluída', value: stats.demandasConcluidas || 0, color: CORES_STATUS.concluida },
+    { name: 'Bloqueada', value: stats.demandasBloqueadas || 0, color: CORES_STATUS.bloqueada },
+    { name: 'Atrasada', value: stats.demandasAtrasadas || 0, color: CORES_STATUS.atrasada },
+  ].filter(item => item.value > 0);
 
   const baseOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        labels: { color: '#e2e8f0', font: { size: 13 } }
-      },
+      legend: { labels: { color: '#e2e8f0', font: { size: 13 } } },
       tooltip: { backgroundColor: 'rgba(30,41,59,0.95)' },
     },
   };
@@ -398,9 +440,7 @@ export default function Relatorios() {
     },
   };
 
-  const doughnutOptions = {
-    ...baseOptions,
-  };
+  const doughnutOptions = { ...baseOptions };
 
   const radarOptions = {
     ...baseOptions,
@@ -410,18 +450,13 @@ export default function Relatorios() {
         angleLines: { color: '#4b5563' },
         grid: { color: '#4b5563' },
         pointLabels: { font: { size: 13 }, color: '#d1d5db' },
-        ticks: {
-          color: '#9ca3af',
-          backdropColor: 'transparent',
-          stepSize: 5,
-        },
+        ticks: { color: '#9ca3af', backdropColor: 'transparent', stepSize: 5 },
       },
     },
   };
 
   const exportarExcel = () => {
     const wb = XLSX.utils.book_new();
-
     const resumoData = [
       ['Relatório de Demandas - Havk SaaS'],
       [`Gerado em: ${format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}`],
@@ -457,13 +492,19 @@ export default function Relatorios() {
       ['ID', 'Título', 'Criado por', 'Responsável', 'Status', 'Prioridade', 'Criado em', 'Prazo'],
       ...demandasFiltradas.map(d => [
         d.id?.slice(0, 8) || '',
-        d.titulo || '',
+        getTitulo(d),
         d.createdBy || 'Desconhecido',
-        d.assignee || 'Sem responsável',
+        getResponsavel(d),
         d.status || 'Pendente',
-        d.prioridade || 'Sem prioridade',
+        getPrioridade(d),
         d.createdAt ? format(new Date(d.createdAt), 'dd/MM/yyyy HH:mm') : '',
-        d.dueDate ? (parseDueDate(d.dueDate) ? format(parseDueDate(d.dueDate)!, 'dd/MM/yyyy HH:mm') : d.dueDate) : 'Sem prazo',
+        (() => {
+          const prazoRaw = getPrazoRaw(d);
+          if (!prazoRaw) return 'Sem prazo';
+          const parsed = parseDueDate(prazoRaw);
+          if (!parsed || isNaN(parsed.getTime())) return String(prazoRaw).slice(0, 16) || '—';
+          return format(parsed, 'dd/MM/yyyy HH:mm');
+        })(),
       ]),
     ];
     const wsDetalhes = XLSX.utils.aoa_to_sheet(detalhesData);
@@ -472,13 +513,11 @@ export default function Relatorios() {
 
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     saveAs(new Blob([excelBuffer]), `relatorio-havk-${format(new Date(), 'yyyy-MM-dd_HHmm')}.xlsx`);
-
     toast.success('Excel exportado com sucesso!');
   };
 
   const exportarPDF = async () => {
-    const toastId = toast.loading('Gerando PDF compacto e profissional...');
-
+    const toastId = toast.loading('Gerando PDF otimizado...');
     try {
       let logoData = '';
       try {
@@ -488,167 +527,207 @@ export default function Relatorios() {
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-
-      // Margens menores para caber mais conteúdo
-      const margin = 12;
-      let y = margin + 8;
+      const margin = 10;
+      let y = margin + 5;
 
       const addHeader = () => {
         pdf.setFillColor(15, 23, 42);
-        pdf.rect(0, 0, pageWidth, 10, 'F');
-        if (logoData) pdf.addImage(logoData, 'PNG', margin, 2, 6, 6);
-        pdf.setFontSize(9);
-        pdf.setTextColor(220, 220, 255);
-        pdf.text('Havk Intelligence Systems', margin + 8, 7);
+        pdf.rect(0, 0, pageWidth, 8, 'F');
+        if (logoData) pdf.addImage(logoData, 'PNG', margin, 1.5, 5, 5);
+        pdf.setFontSize(8.5);
+        pdf.setTextColor(200, 200, 240);
+        pdf.text('Havk Intelligence Systems', margin + 7, 5.8);
       };
 
       const addFooter = (page: number, total: number) => {
-        pdf.setFontSize(8);
+        pdf.setFontSize(7.5);
         pdf.setTextColor(140, 140, 160);
-        pdf.text(`Página ${page} de ${total} • ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, margin, pageHeight - 5);
+        pdf.text(
+          `Página ${page} de ${total} • ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
+          margin,
+          pageHeight - 4
+        );
       };
 
-      // Capa enxuta
+      // Capa
       addHeader();
-      if (logoData) pdf.addImage(logoData, 'PNG', pageWidth/2 - 14, 32, 28, 28);
-      pdf.setFontSize(20);
+      if (logoData) pdf.addImage(logoData, 'PNG', pageWidth / 2 - 12, 28, 24, 24);
+      pdf.setFontSize(18);
       pdf.setTextColor(30, 40, 80);
-      pdf.text('Relatório de Demandas', pageWidth/2, 75, { align: 'center' });
-      pdf.setFontSize(11);
-      pdf.setTextColor(100, 116, 139);
-      pdf.text(`${stats.periodoInicio} – ${stats.periodoFim}`, pageWidth/2, 88, { align: 'center' });
-
-      // Conteúdo principal – tudo mais apertado
-      pdf.addPage();
-      addHeader();
-      y = margin + 6;
-
-      pdf.setFontSize(15);
-      pdf.setTextColor(30, 40, 80);
-      pdf.text('Resumo', margin, y); y += 8;
-
+      pdf.text('Relatório de Demandas', pageWidth / 2, 65, { align: 'center' });
       pdf.setFontSize(10);
-      pdf.setTextColor(0);
-      const resumoLinhas = [
-        `Total Demandas: ${stats.totalDemandas}`,
-        `Concluídas: ${stats.demandasConcluidas} (${stats.taxaConclusao}%)`,
-        `Bloqueadas: ${stats.demandasBloqueadas}`,
-        `Atrasadas: ${stats.demandasAtrasadas}`,
-        `Média Tempo: ${stats.mediaTempoConclusaoDias.toFixed(1)} dias`,
-      ];
-      resumoLinhas.forEach(linha => { pdf.text(linha, margin + 4, y); y += 5.5; });
+      pdf.setTextColor(100, 116, 139);
+      pdf.text(`${stats.periodoInicio} – ${stats.periodoFim}`, pageWidth / 2, 75, { align: 'center' });
 
-      y += 4;
-      pdf.setFontSize(13);
-      pdf.text('Status', margin, y); y += 7;
+      pdf.addPage();
+
+      // Conteúdo principal
+      addHeader();
+      y = margin + 4;
+      pdf.setFontSize(14);
+      pdf.setTextColor(30, 40, 80);
+      pdf.text('Resumo Geral', margin, y);
+      y += 7;
+
       pdf.setFontSize(9.5);
-      stats.distribuicaoStatus.forEach(s => {
-        pdf.text(`• ${s.name}: ${s.value}`, margin + 6, y); y += 5;
+      pdf.setTextColor(40, 50, 70);
+      const resumoLinhas = [
+        `Total de demandas ............. ${stats.totalDemandas}`,
+        `Concluídas .................... ${stats.demandasConcluidas} (${stats.taxaConclusao}%)`,
+        `Bloqueadas .................... ${stats.demandasBloqueadas}`,
+        `Atrasadas ..................... ${stats.demandasAtrasadas}`,
+        `Média de tempo de conclusão ... ${stats.mediaTempoConclusaoDias.toFixed(1)} dias`,
+      ];
+      resumoLinhas.forEach((linha) => {
+        pdf.text(linha, margin + 3, y);
+        y += 5;
+      });
+
+      y += 3;
+      pdf.setFontSize(12);
+      pdf.text('Distribuição por Status', margin, y);
+      y += 6;
+      pdf.setFontSize(9);
+      stats.distribuicaoStatus.forEach((s) => {
+        pdf.text(`• ${s.name.padEnd(18)} ${s.value}`, margin + 5, y);
+        y += 4.5;
       });
 
       if (periodo === 'sprint' && stats.sprintInicio) {
         y += 4;
-        pdf.setFontSize(13);
-        pdf.text('Sprint Atual', margin, y); y += 7;
-        pdf.setFontSize(9.5);
-        pdf.text(`Início: ${stats.sprintInicio}`, margin + 6, y); y += 5;
-        pdf.text(`Fim: ${stats.sprintFim}`, margin + 6, y); y += 5;
+        pdf.setFontSize(12);
+        pdf.text('Sprint Atual', margin, y);
+        y += 6;
+        pdf.setFontSize(9);
+        pdf.text(`Início: ${stats.sprintInicio}`, margin + 5, y); y += 4.5;
+        pdf.text(`Fim: ${stats.sprintFim}`, margin + 5, y); y += 4.5;
       }
 
-      // Gráficos menores (altura ~80–85mm ≈ dashboard)
+      // Gráficos compactos
       pdf.addPage();
       addHeader();
-      y = margin + 6;
+      y = margin + 4;
+      pdf.setFontSize(14);
+      pdf.text('Visualizações', margin, y);
+      y += 8;
 
-      pdf.setFontSize(15);
-      pdf.text('Gráficos', margin, y); y += 9;
+      const chartWidth = pageWidth - margin * 2;
+      const chartHeightIdeal = 60;
+      const maxYBeforeNewPage = pageHeight - chartHeightIdeal - 30;
 
-      const chartW = pageWidth - margin * 2;
-      const chartH = 80; // tamanho similar ao dashboard (~28rem ≈ 448px → 80mm)
-
-      const addCompactChart = (title: string, ref: any) => {
-        if (y > pageHeight - chartH - 25) {
+      const addCompactChart = (title: string, ref: any, aspectRatio = 1.6) => {
+        if (y > maxYBeforeNewPage) {
           pdf.addPage();
           addHeader();
-          y = margin + 6;
+          y = margin + 4;
         }
-        pdf.setFontSize(12);
-        pdf.text(title, margin, y); y += 7;
+        pdf.setFontSize(11);
+        pdf.text(title, margin, y);
+        y += 6;
         const img = ref?.current?.toBase64Image('image/png', 1);
         if (img) {
-          pdf.addImage(img, 'PNG', margin, y, chartW, chartH);
-          y += chartH + 10;
+          const targetHeight = Math.min(chartHeightIdeal, chartWidth / aspectRatio);
+          pdf.addImage(img, 'PNG', margin, y, chartWidth, targetHeight);
+          y += targetHeight + 8;
         }
       };
 
-      addCompactChart('Evolução Mensal', barChartRef);
-      addCompactChart('Distribuição Status', doughnutChartRef);
-      addCompactChart('Produtividade Devs', radarChartRef);
-      addCompactChart('Tendência Conclusões', lineChartRef);
+      addCompactChart('Evolução Mensal (concluídas + atrasos)', barChartRef, 1.65);
+      addCompactChart('Distribuição por Status', doughnutChartRef, 1.0);
+      addCompactChart('Produtividade por Desenvolvedor', radarChartRef, 1.1);
+      addCompactChart('Tendência de Conclusões', lineChartRef, 1.65);
 
-      // Top + Produtividade + Detalhes (tabelas compactas)
-      if (y > pageHeight - 140) {
+      // Tabelas
+      if (y > pageHeight - 110) {
         pdf.addPage();
         addHeader();
-        y = margin + 6;
+        y = margin + 4;
       }
 
-      pdf.setFontSize(14);
-      pdf.text('Top Performers', margin, y); y += 8;
+      pdf.setFontSize(13);
+      pdf.text('Top Performers', margin, y);
+      y += 7;
+
       autoTable(pdf, {
         startY: y,
-        head: [['#', 'Nome', 'Concluidas', 'Atribuidas']],
-        body: stats.topUsuarios.map((u, i) => [i+1, u.nome, u.concluidas, u.totalAtribuidas]),
+        head: [['#', 'Nome', 'Conc.', 'Atrib.']],
+        body: stats.topUsuarios.map((u, i) => [i + 1, u.nome, u.concluidas, u.totalAtribuidas]),
         theme: 'striped',
         headStyles: { fillColor: [30, 58, 138], textColor: 255, fontSize: 9 },
-        styles: { fontSize: 8.5, cellPadding: 3.2 },
+        styles: { fontSize: 8, cellPadding: 2.8, overflow: 'ellipsize' },
         margin: { left: margin, right: margin },
+        columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 70 } },
       });
-      y = (pdf as any).lastAutoTable.finalY + 10;
 
-      pdf.setFontSize(14);
-      pdf.text('Produtividade', margin, y); y += 8;
+      y = (pdf as any).lastAutoTable.finalY + 8;
+
+      pdf.setFontSize(13);
+      pdf.text('Produtividade por Dev', margin, y);
+      y += 7;
+
       autoTable(pdf, {
         startY: y,
         head: [['Nome', 'Conc.', 'Atrib.', 'Média dias']],
-        body: stats.produtividadePorDev.map(d => [d.nome, d.concluidas, d.total, d.mediaDias.toFixed(1)]),
+        body: stats.produtividadePorDev.map((d) => [
+          d.nome,
+          d.concluidas,
+          d.total,
+          d.mediaDias.toFixed(1),
+        ]),
         theme: 'striped',
         headStyles: { fillColor: [30, 58, 138], textColor: 255, fontSize: 9 },
-        styles: { fontSize: 8.5, cellPadding: 3.2 },
+        styles: { fontSize: 8, cellPadding: 2.8 },
         margin: { left: margin, right: margin },
+        columnStyles: { 0: { cellWidth: 65 } },
       });
-      y = (pdf as any).lastAutoTable.finalY + 10;
 
-      if (demandasFiltradas.length > 0) {
-        if (y > pageHeight - 140) {
+      y = (pdf as any).lastAutoTable.finalY + 8;
+
+      if (demandasFiltradas.length <= 120) {
+        if (y > pageHeight - 100) {
           pdf.addPage();
           addHeader();
-          y = margin + 6;
+          y = margin + 4;
         }
-        pdf.setFontSize(14);
-        pdf.text('Demandas', margin, y); y += 8;
+
+        pdf.setFontSize(13);
+        pdf.text('Demandas Filtradas', margin, y);
+        y += 7;
 
         autoTable(pdf, {
           startY: y,
           head: [['ID', 'Título', 'Resp.', 'Status', 'Prior.', 'Prazo']],
-          body: demandasFiltradas.map(d => [
-            d.id?.slice(0,8) || '',
-            (d.titulo || '').slice(0,48) + ((d.titulo||'').length > 48 ? '...' : ''),
-            d.assignee || '—',
+          body: demandasFiltradas.map((d) => [
+            d.id?.slice(0, 8) || '',
+            getTitulo(d).slice(0, 45) + (getTitulo(d).length > 45 ? '…' : ''),
+            getResponsavel(d).split(' ')[0] || '—',
             d.status || '—',
-            d.prioridade || '—',
-            d.dueDate ? (parseDueDate(d.dueDate) ? format(parseDueDate(d.dueDate)!, 'dd/MM/yy') : d.dueDate) : '—',
+            getPrioridade(d).slice(0, 1).toUpperCase() || '—',
+            (() => {
+              const prazoRaw = getPrazoRaw(d);
+              if (!prazoRaw) return '—';
+              const parsed = parseDueDate(prazoRaw);
+              if (!parsed || isNaN(parsed.getTime())) return String(prazoRaw).slice(0, 10) || '—';
+              return format(parsed, 'dd/MM/yy');
+            })(),
           ]),
           theme: 'grid',
-          headStyles: { fillColor: [30, 58, 138], textColor: 255, fontSize: 9 },
-          styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
-          columnStyles: { 0: { cellWidth: 18 }, 1: { cellWidth: 60 }, 2: { cellWidth: 30 } },
+          headStyles: { fillColor: [30, 58, 138], textColor: 255, fontSize: 8.5 },
+          styles: { fontSize: 7.8, cellPadding: 2.5, overflow: 'linebreak' },
+          columnStyles: {
+            0: { cellWidth: 16 },
+            1: { cellWidth: 65 },
+            2: { cellWidth: 28 },
+            3: { cellWidth: 22 },
+            4: { cellWidth: 14 },
+            5: { cellWidth: 22 },
+          },
           margin: { left: margin, right: margin },
           pageBreak: 'auto',
+          rowPageBreak: 'avoid',
         });
       }
 
-      // Finalizar todas as páginas
       const totalPages = pdf.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
@@ -656,13 +735,13 @@ export default function Relatorios() {
         addFooter(i, totalPages);
       }
 
-      pdf.save(`relatorio-havk-compact-${format(new Date(), 'yyyy-MM-dd_HHmm')}.pdf`);
+      pdf.save(`relatorio-havk-${format(new Date(), 'yyyy-MM-dd_HHmm')}.pdf`);
       toast.dismiss(toastId);
-      toast.success('PDF compacto gerado com sucesso!');
+      toast.success('PDF gerado com sucesso!');
     } catch (err) {
       console.error(err);
       toast.dismiss(toastId);
-      toast.error('Erro ao gerar PDF compacto');
+      toast.error('Falha ao gerar PDF');
     }
   };
 
@@ -677,8 +756,20 @@ export default function Relatorios() {
   const barMultiData = {
     labels: stats.conclusoesPorMes.map(m => m.mes),
     datasets: [
-      { label: 'Concluídas', data: stats.conclusoesPorMes.map(m => m.quantidade), backgroundColor: '#10b981' },
-      { label: 'Atrasadas', data: stats.conclusoesPorMes.map(() => stats.demandasAtrasadas / (stats.conclusoesPorMes.length || 1)), backgroundColor: '#ef4444' },
+      {
+        label: 'Concluídas',
+        data: stats.conclusoesPorMes.map(m => m.quantidade),
+        backgroundColor: CORES_STATUS.concluida,
+        borderColor: CORES_STATUS.concluida,
+        borderWidth: 1,
+      },
+      {
+        label: 'Atrasadas (média estimada)',
+        data: stats.conclusoesPorMes.map(() => stats.demandasAtrasadas / (stats.conclusoesPorMes.length || 1)),
+        backgroundColor: CORES_STATUS.atrasada,
+        borderColor: CORES_STATUS.atrasada,
+        borderWidth: 1,
+      },
     ],
   };
 
@@ -687,19 +778,36 @@ export default function Relatorios() {
     datasets: [{
       label: 'Evolução de Conclusões',
       data: stats.conclusoesPorMes.map(m => m.quantidade),
-      borderColor: '#3b82f6',
+      borderColor: CORES_STATUS.aberta,
+      backgroundColor: 'rgba(96, 165, 250, 0.18)',
       tension: 0.4,
-      fill: false,
+      pointBackgroundColor: CORES_STATUS.aberta,
+      pointBorderColor: '#111827',
+      pointBorderWidth: 2,
+      pointRadius: 4,
+      pointHoverRadius: 7,
     }],
   };
 
   const doughnutData = {
-    labels: stats.distribuicaoStatus.map(s => s.name),
+    labels: stats.distribuicaoStatus.map(s => {
+      if (s.name === 'aberta') return 'Aberta';
+      if (s.name === 'em-progresso') return 'Em Progresso';
+      if (s.name === 'concluida') return 'Concluída';
+      if (s.name === 'bloqueada') return 'Bloqueada';
+      return s.name.charAt(0).toUpperCase() + s.name.slice(1);
+    }),
     datasets: [{
       data: stats.distribuicaoStatus.map(s => s.value),
-      backgroundColor: Object.values(CORES_STATUS),
+      backgroundColor: [
+        CORES_STATUS.aberta,
+        CORES_STATUS['em-progresso'],
+        CORES_STATUS.concluida,
+        CORES_STATUS.bloqueada,
+      ].slice(0, stats.distribuicaoStatus.length),
+      borderColor: '#111827',
       borderWidth: 2,
-      borderColor: '#1e293b',
+      hoverOffset: 16,
     }],
   };
 
@@ -709,16 +817,22 @@ export default function Relatorios() {
       {
         label: 'Concluídas',
         data: stats.produtividadePorDev.map(d => d.concluidas),
-        backgroundColor: 'rgba(16, 185, 129, 0.25)',
-        borderColor: '#10b981',
-        pointBackgroundColor: '#10b981',
+        backgroundColor: 'rgba(52, 211, 153, 0.25)',
+        borderColor: CORES_STATUS.concluida,
+        pointBackgroundColor: CORES_STATUS.concluida,
+        pointBorderColor: '#111827',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: CORES_STATUS.concluida,
       },
       {
         label: 'Atribuídas',
         data: stats.produtividadePorDev.map(d => d.total),
-        backgroundColor: 'rgba(59, 130, 246, 0.25)',
-        borderColor: '#3b82f6',
-        pointBackgroundColor: '#3b82f6',
+        backgroundColor: 'rgba(96, 165, 250, 0.25)',
+        borderColor: CORES_STATUS.aberta,
+        pointBackgroundColor: CORES_STATUS.aberta,
+        pointBorderColor: '#111827',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: CORES_STATUS.aberta,
       },
     ],
   };
@@ -753,6 +867,7 @@ export default function Relatorios() {
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 text-zinc-100">
       <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
         <div ref={reportRef} className="max-w-[1600px] mx-auto pb-20 space-y-10">
+
           {/* Cabeçalho */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-6">
@@ -769,7 +884,6 @@ export default function Relatorios() {
                 </p>
               </div>
             </div>
-
             <div className="flex flex-wrap gap-4">
               <Select
                 value={periodo}
@@ -867,56 +981,327 @@ export default function Relatorios() {
             </Card>
           )}
 
-          {/* Gráficos – altura reduzida para caber melhor */}
+          {/* Gráficos */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Card title="Evolução e Atrasos" description="Concluídas vs Atrasadas" className="bg-zinc-900/80 border-zinc-800">
+            <Card
+              title="Evolução e Atrasos"
+              description="Concluídas vs Atrasadas"
+              className="bg-zinc-900/80 border-zinc-800"
+            >
               <div className="h-80 pt-6">
-                <Bar ref={barChartRef} data={barMultiData} options={cartesianOptions} />
+                <Bar
+                  ref={barChartRef}
+                  data={{
+                    ...barMultiData,
+                    datasets: barMultiData.datasets.map((dataset) => ({
+                      ...dataset,
+                      borderRadius: 8,
+                      borderSkipped: false,
+                      barThickness: 28,
+                      hoverBorderWidth: 2,
+                    })),
+                  }}
+                  options={{
+                    ...cartesianOptions,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                      mode: 'index',
+                      intersect: false,
+                    },
+                    animation: {
+                      duration: 1200,
+                      easing: 'easeOutQuart',
+                    },
+                    plugins: {
+                      ...cartesianOptions?.plugins,
+                      legend: {
+                        position: 'top',
+                        labels: {
+                          color: '#d4d4d8',
+                          font: {
+                            size: 14,
+                            weight: '600',
+                          },
+                          padding: 20,
+                          boxWidth: 18,
+                          boxHeight: 18,
+                          usePointStyle: true,
+                          pointStyle: 'circle',
+                        },
+                      },
+                      tooltip: {
+                        backgroundColor: '#18181b',
+                        borderColor: '#3f3f46',
+                        borderWidth: 1,
+                        padding: 14,
+                        cornerRadius: 10,
+                        titleColor: '#f4f4f5',
+                        titleFont: {
+                          weight: '700',
+                          size: 14,
+                        },
+                        bodyColor: '#d4d4d8',
+                        bodyFont: {
+                          size: 13,
+                        },
+                        displayColors: true,
+                      },
+                    },
+                    scales: {
+                      x: {
+                        grid: {
+                          display: false,
+                        },
+                        ticks: {
+                          color: '#a1a1aa',
+                          font: {
+                            size: 13,
+                            weight: '500',
+                          },
+                        },
+                      },
+                      y: {
+                        beginAtZero: true,
+                        grid: {
+                          color: 'rgba(255,255,255,0.06)',
+                          drawBorder: false,
+                        },
+                        ticks: {
+                          color: '#a1a1aa',
+                          padding: 8,
+                          font: {
+                            size: 13,
+                          },
+                        },
+                      },
+                    },
+                  }}
+                />
               </div>
             </Card>
 
-            <Card title="Distribuição Status" description="Situação atual" className="bg-zinc-900/80 border-zinc-800">
-              <div className="h-80 pt-6">
-                <Doughnut ref={doughnutChartRef} data={doughnutData} options={doughnutOptions} />
+            <Card
+              title="Distribuição por Status"
+              description="Situação atual"
+              className="bg-zinc-900/80 border-zinc-800"
+            >
+              <div className="h-[28rem] p-6">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={80}
+                      outerRadius={130}
+                      paddingAngle={4}
+                      dataKey="value"
+                      label={({ name, percent }) =>
+                        `${name} ${(percent * 100).toFixed(0)}%`
+                      }
+                      labelLine={false}
+                      animationDuration={1200}
+                      animationBegin={300}
+                    >
+                      {statusData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.color}
+                          stroke={entry.color}
+                          strokeWidth={3}
+                        />
+                      ))}
+                    </Pie>
+
+                    <RechartsTooltip
+                      contentStyle={{
+                        backgroundColor: '#18181b',
+                        border: '1px solid #3f3f46',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                        boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                      }}
+                      labelStyle={{ color: '#e5e7eb', fontWeight: 600 }}
+                      itemStyle={{ color: '#d1d5db' }}
+                    />
+
+                    <RechartsLegend
+                      verticalAlign="bottom"
+                      height={50}
+                      formatter={(value) => (
+                        <span className="text-zinc-300 text-base font-medium">
+                          {value}
+                        </span>
+                      )}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </Card>
 
             <Card title="Produtividade por Dev" description="Concluídas vs Atribuídas" className="lg:col-span-2 bg-zinc-900/80 border-zinc-800">
               <div className="h-[380px] pt-6 px-4">
-                <Radar ref={radarChartRef} data={radarData} options={radarOptions} />
+                <Radar
+                  ref={radarChartRef}
+                  data={radarData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: "nearest", intersect: false },
+                    animation: { duration: 1200, easing: "easeOutQuart" },
+                    plugins: {
+                      legend: {
+                        position: "top",
+                        align: "center",
+                        labels: { color: "#e4e4e7", font: { size: 14, weight: "600" }, padding: 20, usePointStyle: true, pointStyle: "circle", boxWidth: 10, boxHeight: 10 }
+                      },
+                      tooltip: {
+                        backgroundColor: "#18181b",
+                        borderColor: "#3f3f46",
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 10,
+                        titleColor: "#f4f4f5",
+                        bodyColor: "#d4d4d8",
+                        titleFont: { weight: "700" }
+                      }
+                    },
+                    scales: {
+                      r: {
+                        angleLines: { color: "rgba(255,255,255,0.12)" },
+                        grid: { color: "rgba(255,255,255,0.08)" },
+                        pointLabels: { color: "#d4d4d8", font: { size: 14, weight: "500" } },
+                        ticks: { display: false, backdropColor: "transparent" }
+                      }
+                    },
+                    elements: {
+                      line: { borderWidth: 3 },
+                      point: { radius: 4, hoverRadius: 6, borderWidth: 2 }
+                    }
+                  }}
+                />
               </div>
             </Card>
 
             <Card title="Evolução Temporal" description="Tendência de conclusões" className="lg:col-span-2 bg-zinc-900/80 border-zinc-800">
               <div className="h-80 pt-6 px-4">
-                <Line ref={lineChartRef} data={lineData} options={cartesianOptions} />
+                <Line
+                  ref={lineChartRef}
+                  data={lineData}
+                  options={{
+                    ...cartesianOptions,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: "index", intersect: false },
+                    animation: { duration: 1200, easing: "easeOutQuart" },
+
+                    plugins: {
+                      ...cartesianOptions?.plugins,
+                      legend: {
+                        position: "top",
+                        labels: {
+                          color: "#d4d4d8",
+                          font: { size: 14, weight: "600" },
+                          padding: 18,
+                          usePointStyle: true,
+                          pointStyle: "circle"
+                        }
+                      },
+                      tooltip: {
+                        backgroundColor: "#18181b",
+                        borderColor: "#3f3f46",
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 10,
+                        titleColor: "#f4f4f5",
+                        bodyColor: "#d4d4d8",
+                        titleFont: { weight: "700" }
+                      }
+                    },
+
+                    elements: {
+                      line: {
+                        borderWidth: 3,
+                        tension: 0.4
+                      },
+                      point: {
+                        radius: 4,
+                        hoverRadius: 7,
+                        borderWidth: 2
+                      }
+                    },
+
+                    scales: {
+                      x: {
+                        grid: { display: false },
+                        ticks: { color: "#a1a1aa", font: { size: 13, weight: "500" } }
+                      },
+                      y: {
+                        beginAtZero: true,
+                        grid: { color: "rgba(255,255,255,0.06)" },
+                        ticks: { color: "#a1a1aa", padding: 8 }
+                      }
+                    }
+                  }}
+                />
               </div>
             </Card>
           </div>
 
           {/* Top Performers */}
-          <Card title="Top Performers" description="Melhores desempenhos" className="bg-gradient-to-br from-emerald-950/40 to-zinc-950 border-emerald-900/50">
+          <Card
+            title="Top Performers"
+            description="Melhores desempenhos"
+            className="bg-gradient-to-br from-emerald-950/40 to-zinc-950 border-emerald-900/50"
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 p-6">
-              {stats.topUsuarios.map((user, idx) => (
-                <div key={user.nome} className="bg-zinc-900/70 p-5 rounded-xl border border-zinc-800 hover:border-emerald-700 transition-all">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white font-bold shadow-md">
-                        {idx + 1}
+              {stats.topUsuarios.map((user, idx) => {
+                const performance =
+                  user.totalAtribuidas > 0
+                    ? Math.round((user.concluidas / user.totalAtribuidas) * 100)
+                    : 0;
+
+                return (
+                  <div
+                    key={user.nome}
+                    className="group bg-zinc-900/70 backdrop-blur-sm p-5 rounded-xl border border-zinc-800 hover:border-emerald-600 hover:shadow-lg hover:shadow-emerald-900/30 transition-all duration-300"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white font-bold shadow-md">
+                          {idx + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-zinc-100">{user.nome}</p>
+                          <p className="text-xs text-zinc-500">
+                            {user.totalAtribuidas} atribuídas
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{user.nome}</p>
-                        <p className="text-xs text-zinc-500">{user.totalAtribuidas} atrib.</p>
+                      <div className="text-2xl font-bold text-emerald-400">
+                        {user.concluidas}
                       </div>
                     </div>
-                    <div className="text-2xl font-bold text-emerald-400">{user.concluidas}</div>
+                    <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden mb-2">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-700"
+                        style={{ width: `${performance}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-zinc-500">
+                      <span>Performance</span>
+                      <span className="text-emerald-400 font-semibold">
+                        {performance}%
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
 
-          {/* Tabela */}
+          {/* Tabela de detalhes */}
           <Card title="Detalhes das Demandas" description="Lista filtrável e completa" className="bg-zinc-900/80 border-zinc-800">
             <div className="p-6">
               <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -929,15 +1314,30 @@ export default function Relatorios() {
                     className="pl-12 bg-zinc-800 border-zinc-700 text-zinc-100 placeholder-zinc-500"
                   />
                 </div>
-                <Select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} options={[
-                  { value: 'todos', label: 'Todos status' },
-                  { value: 'aberta', label: 'Aberta' },
-                  { value: 'em-progresso', label: 'Em progresso' },
-                  { value: 'concluida', label: 'Concluída' },
-                  { value: 'bloqueada', label: 'Bloqueada' },
-                ]} className="w-48" />
-                <Select value={filtroResponsavel} onChange={e => setFiltroResponsavel(e.target.value)} options={responsaveisUnicos.map(r => ({ value: r, label: r }))} className="w-56" />
-                <Select value={filtroPrioridade} onChange={e => setFiltroPrioridade(e.target.value)} options={prioridadesUnicas.map(p => ({ value: p, label: p }))} className="w-48" />
+                <Select
+                  value={filtroStatus}
+                  onChange={e => setFiltroStatus(e.target.value)}
+                  options={[
+                    { value: 'todos', label: 'Todos status' },
+                    { value: 'aberta', label: 'Aberta' },
+                    { value: 'em-progresso', label: 'Em progresso' },
+                    { value: 'concluida', label: 'Concluída' },
+                    { value: 'bloqueada', label: 'Bloqueada' },
+                  ]}
+                  className="w-48"
+                />
+                <Select
+                  value={filtroResponsavel}
+                  onChange={e => setFiltroResponsavel(e.target.value)}
+                  options={responsaveisUnicos.map(r => ({ value: r, label: r }))}
+                  className="w-56"
+                />
+                <Select
+                  value={filtroPrioridade}
+                  onChange={e => setFiltroPrioridade(e.target.value)}
+                  options={prioridadesUnicas.map(p => ({ value: p, label: p }))}
+                  className="w-48"
+                />
               </div>
 
               <div className="overflow-x-auto">
@@ -964,10 +1364,18 @@ export default function Relatorios() {
                     ) : (
                       demandasFiltradas.map(d => (
                         <tr key={d.id} className="hover:bg-zinc-800/60 transition-colors">
-                          <td className="px-6 py-5 whitespace-nowrap font-medium text-zinc-400">{d.id?.slice(0,8) || '—'}</td>
-                          <td className="px-6 py-5">{d.titulo || '—'}</td>
-                          <td className="px-6 py-5">{d.createdBy || '—'}</td>
-                          <td className="px-6 py-5">{d.assignee || 'Sem responsável'}</td>
+                          <td className="px-6 py-5 whitespace-nowrap font-medium text-zinc-400">
+                            {d.id?.slice(0,8) || '—'}
+                          </td>
+                          <td className="px-6 py-5">
+                            {getTitulo(d)}
+                          </td>
+                          <td className="px-6 py-5">
+                            {d.createdBy || '—'}
+                          </td>
+                          <td className="px-6 py-5">
+                            {getResponsavel(d)}
+                          </td>
                           <td className="px-6 py-5">
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                               d.status === 'concluida' ? 'bg-emerald-900/50 text-emerald-300' :
@@ -975,29 +1383,37 @@ export default function Relatorios() {
                               d.status === 'em-progresso' ? 'bg-amber-900/50 text-amber-300' :
                               'bg-zinc-700/50 text-zinc-300'
                             }`}>
-                              {d.status || 'Pendente'}
+                              {d.status ? d.status.charAt(0).toUpperCase() + d.status.slice(1) : 'Pendente'}
                             </span>
                           </td>
                           <td className="px-6 py-5">
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              d.prioridade === 'alta' ? 'bg-red-900/50 text-red-300' :
-                              d.prioridade === 'media' ? 'bg-amber-900/50 text-amber-300' :
-                              d.prioridade === 'baixa' ? 'bg-emerald-900/50 text-emerald-300' :
+                              String(getPrioridade(d)).toLowerCase().includes('alta') || 
+                              String(getPrioridade(d)).toLowerCase().includes('urgente') 
+                                ? 'bg-red-900/50 text-red-300' :
+                              String(getPrioridade(d)).toLowerCase().includes('média') || 
+                              String(getPrioridade(d)).toLowerCase().includes('media') 
+                                ? 'bg-amber-900/50 text-amber-300' :
+                              String(getPrioridade(d)).toLowerCase().includes('baixa') 
+                                ? 'bg-emerald-900/50 text-emerald-300' :
                               'bg-zinc-700/50 text-zinc-300'
                             }`}>
-                              {d.prioridade || 'Sem prioridade'}
+                              {getPrioridade(d)}
                             </span>
                           </td>
                           <td className="px-6 py-5 whitespace-nowrap text-zinc-400">
                             {d.createdAt ? format(new Date(d.createdAt), 'dd/MM/yyyy HH:mm') : '—'}
                           </td>
                           <td className="px-6 py-5 whitespace-nowrap text-zinc-400">
-                            {d.dueDate ? (
-                              (() => {
-                                const prazo = parseDueDate(d.dueDate);
-                                return prazo ? format(prazo, 'dd/MM/yyyy HH:mm') : d.dueDate;
-                              })()
-                            ) : 'Sem prazo'}
+                            {(() => {
+                              const prazoRaw = getPrazoRaw(d);
+                              if (!prazoRaw) return 'Sem prazo';
+                              const parsed = parseDueDate(prazoRaw);
+                              if (!parsed || isNaN(parsed.getTime())) {
+                                return String(prazoRaw).slice(0, 16) || '—';
+                              }
+                              return format(parsed, 'dd/MM/yyyy HH:mm');
+                            })()}
                           </td>
                         </tr>
                       ))
@@ -1007,6 +1423,7 @@ export default function Relatorios() {
               </div>
             </div>
           </Card>
+
         </div>
       </div>
     </div>

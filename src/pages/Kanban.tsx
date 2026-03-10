@@ -48,7 +48,7 @@ interface KanbanTask {
   description?: string;
   status: string; // coluna kanban
   priority: 'baixa' | 'media' | 'alta' | 'urgente';
-  prazo?: string;
+  prazo?: string;           // agora string "YYYY-MM-DD" no frontend
   responsavel?: string;
   createdBy?: string;
   createdAt: string;
@@ -133,6 +133,37 @@ function KanbanColumn({
   );
 }
 
+/**
+ * Formata a data ISO (vinda do banco) para string "YYYY-MM-DD" correta no fuso local
+ * Evita o problema de aparecer 1 dia antes
+ */
+function formatDateForInput(isoString?: string): string | undefined {
+  if (!isoString) return undefined;
+
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return undefined;
+
+    const year  = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day   = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  } catch {
+    console.warn('Data inválida ao formatar para input:', isoString);
+    return undefined;
+  }
+}
+
+/* Converte "YYYY-MM-DD" do input → ISO string salva no banco (meia-noite local) */
+function localDateStringToISOString(dateStr: string): string {
+  // Cria data no fuso local, meia-noite
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const localDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+  
+  return localDate.toISOString();
+}
+
 /* Kanban principal */
 export default function Kanban() {
   const { demandas, addDemanda, updateDemanda, deleteDemanda, isLoading } = useAppStore();
@@ -167,38 +198,38 @@ export default function Kanban() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-const deleteTask = async () => {
-  if (!currentTask) return;
+  const deleteTask = async () => {
+    if (!currentTask) return;
 
-  const confirmDelete = window.confirm(
-    `Tem certeza que deseja excluir a demanda "${currentTask.title}"?`
-  );
+    const confirmDelete = window.confirm(
+      `Tem certeza que deseja excluir a demanda "${currentTask.title}"?`
+    );
 
-  if (!confirmDelete) return;
+    if (!confirmDelete) return;
 
-  try {
-    await deleteDemanda(currentTask.id);
+    try {
+      await deleteDemanda(currentTask.id);
 
-    setColumns((prev) => {
-      const newCols: Record<string, KanbanTask[]> = {};
+      setColumns((prev) => {
+        const newCols: Record<string, KanbanTask[]> = {};
 
-      Object.entries(prev).forEach(([colId, tasks]) => {
-        newCols[colId] = tasks.filter((t) => t.id !== currentTask.id);
+        Object.entries(prev).forEach(([colId, tasks]) => {
+          newCols[colId] = tasks.filter((t) => t.id !== currentTask.id);
+        });
+
+        return newCols;
       });
 
-      return newCols;
-    });
+      toast.success('Demanda excluída com sucesso');
+      setShowDetailModal(false);
+      setCurrentTask(null);
+    } catch (err) {
+      toast.error('Erro ao excluir demanda');
+      console.error(err);
+    }
+  };
 
-    toast.success('Demanda excluída com sucesso');
-    setShowDetailModal(false);
-    setCurrentTask(null);
-  } catch (err) {
-    toast.error('Erro ao excluir demanda');
-    console.error(err);
-  }
-};
-
-  // Sincroniza demandas do store para colunas (com proteção contra duplicatas)
+  // Sincroniza demandas do store para colunas
   useEffect(() => {
     if (isLoading || !demandas?.length) return;
 
@@ -217,13 +248,14 @@ const deleteTask = async () => {
       seenIds.add(dem.id);
 
       const col = statusToColumn[dem.status] || 'backlog';
+
       grouped[col].push({
         id: dem.id,
-        title: dem.title?.replace(/^Havk AI translated:\s*/i, '') || dem.title,
+        title: dem.title?.replace(/^Havk AI translated:\s*/i, '') || dem.title || '',
         description: dem.description,
         status: col,
         priority: dem.priority,
-        prazo: dem.prazo,
+        prazo: formatDateForInput(dem.prazo),           // ← aqui a correção principal
         responsavel: dem.responsavel,
         createdBy: dem.createdBy,
         createdAt: dem.createdAt,
@@ -258,14 +290,12 @@ const deleteTask = async () => {
     let sourceColumnId = findContainer(activeId);
     let targetColumnId = findContainer(overId);
 
-    // Se o over for diretamente uma coluna (ex: coluna vazia)
     if (!targetColumnId && Object.keys(columns).includes(overId)) {
       targetColumnId = overId;
     }
 
     if (!sourceColumnId || !targetColumnId) return;
 
-    // Evita processamento desnecessário
     if (sourceColumnId === targetColumnId) {
       const sourceItems = [...columns[sourceColumnId]];
       const targetIndex = sourceItems.findIndex((item) => item.id === overId);
@@ -278,40 +308,36 @@ const deleteTask = async () => {
       return;
     }
 
-    // Movendo para outra coluna
-const movingTask = columns[sourceColumnId].find((item) => item.id === activeId);
-if (!movingTask) return;
+    const movingTask = columns[sourceColumnId].find((item) => item.id === activeId);
+    if (!movingTask) return;
 
-const newStatus = columnToStatus[targetColumnId] as any;
+    const newStatus = columnToStatus[targetColumnId] as any;
 
-try {
-  await updateDemanda(activeId, {
-    status: newStatus,
-    updatedAt: new Date().toISOString(),
-  });
+    try {
+      await updateDemanda(activeId, {
+        status: newStatus,
+        updatedAt: new Date().toISOString(),
+      });
 
-  setColumns((prev) => {
-    const newColumns: Record<string, KanbanTask[]> = {};
+      setColumns((prev) => {
+        const newColumns: Record<string, KanbanTask[]> = {};
 
-    // Remove a tarefa de TODAS as colunas (garante que nunca duplica)
-    Object.entries(prev).forEach(([colId, tasks]) => {
-      newColumns[colId] = tasks.filter((t) => t.id !== activeId);
-    });
+        Object.entries(prev).forEach(([colId, tasks]) => {
+          newColumns[colId] = tasks.filter((t) => t.id !== activeId);
+        });
 
-    // Adiciona apenas na coluna destino
-    newColumns[targetColumnId].push({
-      ...movingTask,
-      status: targetColumnId,
-    });
+        newColumns[targetColumnId].push({
+          ...movingTask,
+          status: targetColumnId,
+        });
 
-    return newColumns;
-  });
+        return newColumns;
+      });
 
-  toast.success(`Movido para ${targetColumnId}`);
+      toast.success(`Movido para ${targetColumnId}`);
     } catch (err) {
       toast.error('Erro ao mover tarefa');
       console.error(err);
-      // Reverte visualmente se der erro
       setColumns((prev) => ({ ...prev }));
     }
   };
@@ -323,12 +349,16 @@ try {
     }
 
     try {
+      const prazoISO = newTaskData.prazo
+        ? localDateStringToISOString(newTaskData.prazo)
+        : undefined;
+
       await addDemanda({
         title: newTaskData.title.trim(),
         description: newTaskData.description?.trim() || '',
         priority: newTaskData.priority || 'media',
         status: 'aberta',
-        prazo: newTaskData.prazo || undefined,
+        prazo: prazoISO,
         responsavel: newTaskData.responsavel || undefined,
         tipo: newTaskData.tipo || 'feature',
         dificuldade: newTaskData.dificuldade || 'media',
@@ -351,11 +381,15 @@ try {
     if (!currentTask) return;
 
     try {
+      const prazoISO = currentTask.prazo
+        ? localDateStringToISOString(currentTask.prazo)
+        : undefined;
+
       await updateDemanda(currentTask.id, {
         title: currentTask.title.trim(),
         description: currentTask.description?.trim() || '',
         priority: currentTask.priority,
-        prazo: currentTask.prazo || undefined,
+        prazo: prazoISO,
         responsavel: currentTask.responsavel || undefined,
         tipo: currentTask.tipo,
         dificuldade: currentTask.dificuldade,
@@ -391,7 +425,7 @@ try {
 
           <DndContext
             sensors={sensors}
-            collisionDetection={rectIntersection} // ← principal melhoria: rectIntersection detecta melhor ao passar por cima
+            collisionDetection={rectIntersection}
             onDragEnd={handleDragEnd}
           >
             <div className="flex gap-6 overflow-x-auto pb-8 snap-x snap-mandatory">
@@ -455,7 +489,7 @@ try {
                     <label className="block text-sm text-zinc-400 mb-2">Tipo</label>
                     <select
                       value={newTaskData.tipo ?? 'feature'}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, tipo: e.target.value })}
+                      onChange={(e) => setNewTaskData({ ...newTaskData, tipo: e.target.value as any })}
                       className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
                     >
                       <option value="bug">Bug / Erro</option>
@@ -470,7 +504,7 @@ try {
                     <label className="block text-sm text-zinc-400 mb-2">Dificuldade</label>
                     <select
                       value={newTaskData.dificuldade ?? 'media'}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, dificuldade: e.target.value })}
+                      onChange={(e) => setNewTaskData({ ...newTaskData, dificuldade: e.target.value as any })}
                       className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
                     >
                       <option value="muito-facil">Muito Fácil</option>
@@ -539,143 +573,135 @@ try {
           {/* Modal Detalhe / Edição */}
           {showDetailModal && currentTask && (
             <Modal
-  title={currentTask.title || 'Detalhes da Demanda'}
-  onClose={() => {
-    setShowDetailModal(false);
-    setCurrentTask(null);
-  }}
->
-  <div className="space-y-5">
+              title={currentTask.title || 'Detalhes da Demanda'}
+              onClose={() => {
+                setShowDetailModal(false);
+                setCurrentTask(null);
+              }}
+            >
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-2">Título</label>
+                  <input
+                    type="text"
+                    value={currentTask.title}
+                    onChange={(e) =>
+                      setCurrentTask((p) => (p ? { ...p, title: e.target.value } : null))
+                    }
+                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
 
-    <div>
-      <label className="block text-sm text-zinc-400 mb-2">Título</label>
-      <input
-        type="text"
-        value={currentTask.title}
-        onChange={(e) =>
-          setCurrentTask((p) => (p ? { ...p, title: e.target.value } : null))
-        }
-        className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-      />
-    </div>
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-2">Descrição</label>
+                  <textarea
+                    value={currentTask.description ?? ''}
+                    onChange={(e) =>
+                      setCurrentTask((p) =>
+                        p ? { ...p, description: e.target.value } : null
+                      )
+                    }
+                    className="w-full h-32 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white resize-none focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
 
-    <div>
-      <label className="block text-sm text-zinc-400 mb-2">Descrição</label>
-      <textarea
-        value={currentTask.description ?? ''}
-        onChange={(e) =>
-          setCurrentTask((p) =>
-            p ? { ...p, description: e.target.value } : null
-          )
-        }
-        className="w-full h-32 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white resize-none focus:outline-none focus:border-indigo-500"
-      />
-    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-2">Prioridade</label>
+                    <select
+                      value={currentTask.priority}
+                      onChange={(e) =>
+                        setCurrentTask((p) =>
+                          p ? { ...p, priority: e.target.value as any } : null
+                        )
+                      }
+                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="baixa">Baixa</option>
+                      <option value="media">Média</option>
+                      <option value="alta">Alta</option>
+                      <option value="urgente">Urgente</option>
+                    </select>
+                  </div>
 
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-      <div>
-        <label className="block text-sm text-zinc-400 mb-2">Prioridade</label>
-        <select
-          value={currentTask.priority}
-          onChange={(e) =>
-            setCurrentTask((p) =>
-              p ? { ...p, priority: e.target.value as any } : null
-            )
-          }
-          className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-        >
-          <option value="baixa">Baixa</option>
-          <option value="media">Média</option>
-          <option value="alta">Alta</option>
-          <option value="urgente">Urgente</option>
-        </select>
-      </div>
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-2">Prazo</label>
+                    <input
+                      type="date"
+                      value={currentTask.prazo ?? ''}
+                      onChange={(e) =>
+                        setCurrentTask((p) =>
+                          p ? { ...p, prazo: e.target.value } : null
+                        )
+                      }
+                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
 
-      <div>
-        <label className="block text-sm text-zinc-400 mb-2">Prazo</label>
-        <input
-          type="date"
-          value={currentTask.prazo ?? ''}
-          onChange={(e) =>
-            setCurrentTask((p) =>
-              p ? { ...p, prazo: e.target.value } : null
-            )
-          }
-          className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-        />
-      </div>
-    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-2">Responsável</label>
+                    <input
+                      type="text"
+                      value={currentTask.responsavel ?? ''}
+                      onChange={(e) =>
+                        setCurrentTask((p) =>
+                          p ? { ...p, responsavel: e.target.value } : null
+                        )
+                      }
+                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
 
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-      <div>
-        <label className="block text-sm text-zinc-400 mb-2">Responsável</label>
-        <input
-          type="text"
-          value={currentTask.responsavel ?? ''}
-          onChange={(e) =>
-            setCurrentTask((p) =>
-              p ? { ...p, responsavel: e.target.value } : null
-            )
-          }
-          className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-        />
-      </div>
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-2">Tipo</label>
+                    <select
+                      value={currentTask.tipo ?? 'feature'}
+                      onChange={(e) =>
+                        setCurrentTask((p) =>
+                          p ? { ...p, tipo: e.target.value as any } : null
+                        )
+                      }
+                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="bug">Bug</option>
+                      <option value="feature">Feature</option>
+                      <option value="melhoria">Melhoria</option>
+                      <option value="inovacao">Inovação</option>
+                      <option value="outro">Outro</option>
+                    </select>
+                  </div>
+                </div>
 
-      <div>
-        <label className="block text-sm text-zinc-400 mb-2">Tipo</label>
-        <select
-          value={currentTask.tipo ?? 'feature'}
-          onChange={(e) =>
-            setCurrentTask((p) =>
-              p ? { ...p, tipo: e.target.value } : null
-            )
-          }
-          className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-        >
-          <option value="bug">Bug</option>
-          <option value="feature">Feature</option>
-          <option value="melhoria">Melhoria</option>
-          <option value="inovacao">Inovação</option>
-          <option value="outro">Outro</option>
-        </select>
-      </div>
-    </div>
+                <div className="flex items-center justify-between pt-6 border-t border-zinc-800">
+                  <Button
+                    variant="danger"
+                    onClick={deleteTask}
+                    className="flex items-center gap-2"
+                  >
+                    <Trash2 size={16} />
+                    Excluir
+                  </Button>
 
-    {/* BARRA DE AÇÕES */}
-    <div className="flex items-center justify-between pt-6 border-t border-zinc-800">
+                  <div className="flex gap-3">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setShowDetailModal(false);
+                        setCurrentTask(null);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
 
-      <Button
-        variant="danger"
-        onClick={deleteTask}
-        className="flex items-center gap-2"
-      >
-        <Trash2 size={16} />
-        Excluir
-      </Button>
-
-      <div className="flex gap-3">
-        <Button
-          variant="secondary"
-          onClick={() => {
-            setShowDetailModal(false);
-            setCurrentTask(null);
-          }}
-        >
-          Cancelar
-        </Button>
-
-        <Button
-          variant="primary"
-          onClick={saveTaskDetail}
-        >
-          Salvar Alterações
-        </Button>
-      </div>
-
-    </div>
-
-  </div>
-</Modal>
+                    <Button variant="primary" onClick={saveTaskDetail}>
+                      Salvar Alterações
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Modal>
           )}
         </div>
       </div>

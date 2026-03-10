@@ -13,6 +13,16 @@ interface User {
   name: string;
   email: string;
   avatar?: string | null;
+
+  // Campos novos adicionados na tela de configurações (para persistir corretamente)
+  username?: string;
+  bio?: string;
+  role?: string;
+  website?: string;
+  instagram?: string;
+  linkedin?: string;
+  github?: string;
+
   language: 'pt-BR' | 'en';
   theme: 'light' | 'dark' | 'system' | 'gray';
   isDev?: boolean;
@@ -110,6 +120,7 @@ const mockAITranslate = (text: string, targetLang: 'pt-BR' | 'en'): string => {
 interface AppState {
   user: User | null;
   isAuthenticated: boolean;
+  isAuthLoading: boolean;
   isLoading: boolean;
 
   theme: 'light' | 'dark' | 'system' | 'gray';
@@ -170,7 +181,12 @@ interface AppState {
   deleteObjetivo: (id: string) => Promise<void>;
 
   // Notificações
-  addNotification: (data: Omit<Notification, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  // Notificações
+addNotification: (data: Omit<Notification, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+updateNotification: (id: string, data: Partial<Notification>) => Promise<void>;
+deleteNotification: (id: string) => Promise<void>;
+markAllNotificationsRead: () => Promise<void>;
+clearNotifications: () => Promise<void>;
 
   // Membros
   addMembro: (data: Omit<Membro, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
@@ -195,6 +211,7 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
+      isAuthLoading: true,
       isLoading: false,
 
       theme: 'system',
@@ -228,33 +245,39 @@ export const useAppStore = create<AppState>()(
 
       /* AUTH & CONFIG */
       setUser: async (user) => {
-        set({ user, isAuthenticated: !!user });
+  set({ user, isAuthenticated: !!user });
 
-        if (user) {
-          // Salva usuário no IndexedDB (para persistência extra)
-          await addItem('user', user);
-          // Carrega todos os dados do usuário logado
-          set({ isLoading: true });
-          await get().loadAll();
-          set({ isLoading: false });
-        }
-      },
+  if (!user) return;
+
+  try {
+    await updateItem('user', user); // atualiza
+  } catch {
+    // se não existir ainda
+    await addItem('user', user);
+  }
+
+  set({ isLoading: true });
+  await get().loadAll();
+  set({ isLoading: false });
+},
 
       login: async (email, password) => {
-        // TODO: trocar por API real quando tiver backend
-        if (email.includes('dev')) {
-          const devUser = await getItem<User>('user', 'dev-user');
-          if (devUser) {
-            await get().setUser(devUser);
-            toast.success('Login realizado com sucesso');
-            return true;
-          }
-        }
+  // TODO: trocar por API real quando tiver backend
 
-        // Aqui você pode adicionar login real com Firebase ou outra API
-        toast.error('Credenciais inválidas');
-        return false;
-      },
+  const users = await getAll<User>('user');
+
+  const user = users.find((u) => u.email === email);
+
+  if (user) {
+    await get().setUser(user);
+    toast.success('Login realizado com sucesso');
+    return true;
+  }
+
+  // Aqui você pode adicionar login real com Firebase ou outra API
+  toast.error('Credenciais inválidas');
+  return false;
+},
 
       logout: async () => {
         set({
@@ -539,18 +562,102 @@ export const useAppStore = create<AppState>()(
       },
 
       /* NOTIFICAÇÕES */
-      addNotification: async (data) => {
-        const id = crypto.randomUUID();
-        const nova: Notification = {
-          ...data,
-          id,
-          createdAt: new Date().toISOString(),
+
+addNotification: async (data) => {
+  const id = crypto.randomUUID();
+
+  const nova: Notification = {
+    ...data,
+    id,
+    createdAt: new Date().toISOString(),
+  };
+
+  await addItem('notifications', nova);
+
+  set((state) => ({
+    notifications: [...state.notifications, nova],
+  }));
+
+  return id;
+},
+
+updateNotification: async (id, data) => {
+  const current = get().notifications.find((n) => n.id === id);
+  if (!current) return;
+
+  const updated: Notification = {
+    ...current,
+    ...data,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await updateItem('notifications', updated);
+
+  set((state) => ({
+    notifications: state.notifications.map((n) =>
+      n.id === id ? updated : n
+    ),
+  }));
+},
+
+deleteNotification: async (id) => {
+  try {
+    await deleteItem('notifications', id);
+
+    set((state) => ({
+      notifications: state.notifications.filter((n) => n.id !== id),
+    }));
+
+    toast.success('Notificação removida');
+  } catch (err) {
+    toast.error('Erro ao excluir notificação');
+  }
+},
+
+markAllNotificationsRead: async () => {
+  const list = get().notifications;
+
+  try {
+    for (const notif of list) {
+      if (!notif.read) {
+        const updated = {
+          ...notif,
+          read: true,
+          updatedAt: new Date().toISOString(),
         };
 
-        await addItem('notifications', nova);
-        set((state) => ({ notifications: [...state.notifications, nova] }));
-        return id;
-      },
+        await updateItem('notifications', updated);
+      }
+    }
+
+    set((state) => ({
+      notifications: state.notifications.map((n) => ({
+        ...n,
+        read: true,
+      })),
+    }));
+
+    toast.success('Todas notificações marcadas como lidas');
+  } catch (err) {
+    toast.error('Erro ao atualizar notificações');
+  }
+},
+
+clearNotifications: async () => {
+  try {
+    const list = get().notifications;
+
+    for (const notif of list) {
+      await deleteItem('notifications', notif.id);
+    }
+
+    set({ notifications: [] });
+
+    toast.success('Todas notificações removidas');
+  } catch (err) {
+    toast.error('Erro ao limpar notificações');
+  }
+},
 
       /* MEMBROS */
       addMembro: async (data) => {
@@ -734,4 +841,36 @@ if (typeof window !== 'undefined') {
   useAppStore.subscribe((state) => {
     applyTheme(state.theme);
   });
+}
+
+/* =====================================================
+   🔄 RESTORE USER SESSION ON START
+===================================================== */
+
+if (typeof window !== 'undefined') {
+  const restoreSession = async () => {
+    try {
+      const users = await getAll<User>('user');
+      const user = users?.[0] || null;
+
+      if (user) {
+        useAppStore.setState({
+          user,
+          isAuthenticated: true
+        });
+
+        // IMPORTANTE: carrega todos os dados salvos
+        await useAppStore.getState().loadAll();
+      }
+
+    } catch (err) {
+      console.error('Erro ao restaurar sessão:', err);
+    } finally {
+      useAppStore.setState({
+        isAuthLoading: false
+      });
+    }
+  };
+
+  restoreSession();
 }

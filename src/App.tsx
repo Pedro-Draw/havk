@@ -134,11 +134,28 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const [ready, setReady] = useState(false);
+  const loadAll = useAppStore((state) => state.loadAll);
+  const user = useAppStore((state) => state.user);
+
+  useEffect(() => {
+    const init = async () => {
+      if (user) {
+        await loadAll();
+      }
+      setReady(true);
+    };
+
+    init();
+  }, [user, loadAll]);
+
+  if (!ready) {
+    return null; // ou splash
+  }
+
   return (
     <Router>
       <AppRoutes />
     </Router>
   );
 }
-
-export { AppWrapper };

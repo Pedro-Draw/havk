@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Zap,
   Award,
-  Heart,
 } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { FaGithub } from 'react-icons/fa';
@@ -19,6 +18,7 @@ import { motion, useMotionValue, useSpring } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 export default function Login() {
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,9 +27,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
 
-  const { signIn, signInWithGoogle, signInWithGithub, signInAsDev } =
-    useAuth();
-
+  const { signIn, signInWithGoogle, signInWithGithub, signInAsDev } = useAuth();
   const { t } = useTranslation();
 
   const emailRef = useRef<HTMLInputElement>(null);
@@ -60,13 +58,14 @@ export default function Login() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
+
     e.preventDefault();
     setError('');
 
     if (!isFormValid) {
       setError(
         t('credenciaisInvalidas') ||
-          'Por favor, preencha os campos corretamente.'
+        'Por favor, preencha os campos corretamente.'
       );
       triggerShake();
       return;
@@ -75,18 +74,31 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const success = await signIn(email.trim(), password);
-      if (!success) {
+
+      const result = await signIn(email.trim(), password);
+
+      if (!result) {
         setError(
           t('credenciaisInvalidas') ||
-            'Email ou senha incorretos.'
+          'Email ou senha incorretos.'
         );
         triggerShake();
+        return;
       }
+
+      toast.success('Login realizado com sucesso!');
+
     } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro ao realizar o login.');
+
+      const message =
+        err?.message ||
+        'Ocorreu um erro ao realizar o login.';
+
+      setError(message);
       triggerShake();
-      toast.error('Ocorreu um erro ao realizar o login.');
+
+      toast.error(message);
+
     } finally {
       setLoading(false);
     }
@@ -95,27 +107,49 @@ export default function Login() {
   const handleProviderLogin = async (
     provider: 'google' | 'github' | 'dev'
   ) => {
+
     setLoading(true);
     setError('');
 
     try {
-      if (provider === 'google') await signInWithGoogle();
-      if (provider === 'github') await signInWithGithub();
-      if (provider === 'dev') await signInAsDev();
+
+      if (provider === 'google') {
+        await signInWithGoogle();
+        toast.success('Login com Google realizado');
+      }
+
+      if (provider === 'github') {
+        await signInWithGithub();
+        toast.success('Login com GitHub realizado');
+      }
+
+      if (provider === 'dev') {
+        await signInAsDev();
+        toast.success('Login DEV ativado');
+      }
+
     } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro na autenticação.');
+
+      const message =
+        err?.message ||
+        'Ocorreu um erro na autenticação.';
+
+      setError(message);
       triggerShake();
-      toast.error('Ocorreu um erro na autenticação.');
+      toast.error(message);
+
     } finally {
       setLoading(false);
     }
   };
 
   return (
+
     <div
       onMouseMove={handleMouseMove}
       className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 overflow-hidden"
     >
+
       {/* Glow Background */}
       <motion.div
         className="absolute inset-0 pointer-events-none opacity-30"
@@ -133,16 +167,21 @@ export default function Login() {
         transition={{ duration: 0.4 }}
         className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-8 shadow-2xl z-10"
       >
+
         <div className="text-center mb-8">
+
           <h1 className="text-4xl font-extrabold text-white tracking-tight">
             Havk
           </h1>
+
           <p className="text-zinc-400 mt-2">
             {t('welcomeBack') || 'Bem-vindo de volta'}
           </p>
+
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+
           <Input
             ref={emailRef}
             label={t('email') || 'Email'}
@@ -154,7 +193,9 @@ export default function Login() {
             fullWidth
             autoComplete="email"
             onKeyDown={(e) => {
-              if (e.key === 'Enter') passwordRef.current?.focus();
+              if (e.key === 'Enter') {
+                passwordRef.current?.focus();
+              }
             }}
           />
 
@@ -181,14 +222,18 @@ export default function Login() {
           />
 
           <div className="flex items-center justify-between text-sm">
+
             <label className="flex items-center gap-2 text-zinc-400">
+
               <input
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
                 className="w-4 h-4 rounded border-zinc-700 bg-zinc-800"
               />
+
               Lembrar meus dados
+
             </label>
 
             <Link
@@ -197,12 +242,15 @@ export default function Login() {
             >
               {t('esqueceuSenha') || 'Esqueceu sua senha?'}
             </Link>
+
           </div>
 
           {error && (
+
             <p className="text-red-400 text-sm text-center bg-red-950/40 border border-red-900/50 rounded-lg p-3">
               {error}
             </p>
+
           )}
 
           <Button
@@ -216,17 +264,23 @@ export default function Login() {
           >
             {loading ? 'Entrando...' : t('entrar') || 'Entrar'}
           </Button>
+
         </form>
 
         <div className="flex items-center my-8">
+
           <div className="flex-grow border-t border-zinc-800"></div>
+
           <span className="mx-3 text-zinc-500 text-sm">
             {t('ouContinuarCom') || 'Ou continue com'}
           </span>
+
           <div className="flex-grow border-t border-zinc-800"></div>
+
         </div>
 
         <div className="space-y-3">
+
           <Button
             type="button"
             variant="secondary"
@@ -251,7 +305,8 @@ export default function Login() {
             {t('entrarComGithub') || 'Entrar com GitHub'}
           </Button>
 
-          <Button
+{/* comentado temporariamente, não remova esse comentario/botao entrar comodev e nem sua lógica */}
+          {/* <Button
             type="button"
             variant="secondary"
             size="lg"
@@ -260,10 +315,12 @@ export default function Login() {
             onClick={() => handleProviderLogin('dev')}
           >
             {t('entrarComoDev') || 'Entrar como desenvolvedor'}
-          </Button>
+          </Button> */}
+
         </div>
 
         <div className="mt-10 text-center text-sm">
+
           <p className="text-zinc-500">
             {t('naoTemConta') || 'Ainda não possui uma conta?'}{' '}
             <Link
@@ -273,11 +330,13 @@ export default function Login() {
               {t('cadastrar') || 'Criar conta'}
             </Link>
           </p>
+
         </div>
+
       </motion.div>
 
-      {/* Trust Badges */}
       <div className="flex flex-wrap justify-center gap-8 text-sm mt-16 z-10">
+
         <div className="flex items-center gap-2 text-zinc-400">
           <ShieldCheck className="w-4 h-4 text-green-500" />
           Segurança empresarial
