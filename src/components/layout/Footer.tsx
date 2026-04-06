@@ -40,7 +40,7 @@ export default function Footer() {
   const springY = useSpring(mouseY, springConfig);
 
   useEffect(() => {
-    const move = (e) => {
+    const move = (e: MouseEvent) => {
       mouseX.set(e.clientX);
       mouseY.set(e.clientY);
     };

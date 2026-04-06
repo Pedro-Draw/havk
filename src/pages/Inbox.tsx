@@ -21,7 +21,7 @@ import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
 import clsx from 'clsx';
 
-type NotificationType = 'success' | 'warning' | 'error' | 'info' | 'system';
+type NotificationType = 'success' | 'warning' | 'error';
 
 interface AppNotification {
   id: string;
@@ -31,6 +31,8 @@ interface AppNotification {
   message: string;
   createdAt: string;
   read: boolean;
+  // Tipos extras apenas para exibição local
+  displayType?: 'info' | 'system';
 }
 
 type FilterType =
@@ -46,7 +48,7 @@ type FilterType =
   | 'sistema';
 
 export default function Inbox() {
-  const { t } = useTranslation();
+  useTranslation(); // reservado para futuras traduções
   const navigate = useNavigate();
   const {
     demandas,
@@ -179,13 +181,13 @@ export default function Inbox() {
         list = list.filter((n) => !!n.demandaId && n.type !== 'success');
         break;
       case 'dashboard':
-        list = list.filter((n) => n.type === 'info' && n.message.toLowerCase().includes('dashboard'));
+        list = list.filter((n) => n.message.toLowerCase().includes('dashboard'));
         break;
       case 'configuracoes':
-        list = list.filter((n) => n.type === 'info' && n.message.toLowerCase().includes('configura'));
+        list = list.filter((n) => n.message.toLowerCase().includes('configura'));
         break;
       case 'sistema':
-        list = list.filter((n) => n.type === 'system' || (!n.demandaId && n.type === 'info'));
+        list = list.filter((n) => !n.demandaId);
         break;
       default:
         // 'all'
@@ -311,7 +313,7 @@ export default function Inbox() {
 
               <div className="flex items-center gap-3 sm:gap-4 mt-3 sm:mt-0">
                 <Button
-                  variant={selectMode ? 'solid' : 'outline'}
+                  variant={selectMode ? 'secondary' : 'outline'}
                   size="md"
                   onClick={() => {
                     setSelectMode(!selectMode);
@@ -410,8 +412,7 @@ export default function Inbox() {
                         {notif.type === 'success' && <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7" />}
                         {notif.type === 'warning' && <AlertCircle className="w-6 h-6 sm:w-7 sm:h-7" />}
                         {notif.type === 'error'   && <AlertCircle className="w-6 h-6 sm:w-7 sm:h-7" />}
-                        {notif.type === 'info'    && <Bell className="w-6 h-6 sm:w-7 sm:h-7" />}
-                        {notif.type === 'system'  && <Settings className="w-6 h-6 sm:w-7 sm:h-7" />}
+                        {!['success','warning','error'].includes(notif.type) && <Bell className="w-6 h-6 sm:w-7 sm:h-7" />}
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -501,7 +502,7 @@ export default function Inbox() {
 
           <div className="flex flex-wrap sm:flex-nowrap gap-3 sm:gap-4">
             <Button
-              variant="solid"
+              variant="secondary"
               size="sm"
               onClick={markSelectedAsRead}
               className="bg-emerald-600 hover:bg-emerald-500 border-none flex-1 sm:flex-none min-w-[110px] sm:min-w-[140px] text-xs sm:text-sm"
@@ -511,7 +512,7 @@ export default function Inbox() {
             </Button>
 
             <Button
-              variant="solid"
+              variant="secondary"
               size="sm"
               onClick={markSelectedAsUnread}
               className="bg-amber-600 hover:bg-amber-500 border-none flex-1 sm:flex-none min-w-[110px] sm:min-w-[140px] text-xs sm:text-sm"

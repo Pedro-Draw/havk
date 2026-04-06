@@ -17,6 +17,9 @@ import { FaGithub } from 'react-icons/fa';
 import { motion, useMotionValue, useSpring } from 'framer-motion';
 import toast from 'react-hot-toast';
 
+// ✅ Apenas o import foi adicionado aqui
+import SplashScreen from '../../components/SplashScreen';
+
 export default function Login() {
 
   const [email, setEmail] = useState('');
@@ -144,219 +147,218 @@ export default function Login() {
   };
 
   return (
+    <>
+      <SplashScreen />
 
-    <div
-      onMouseMove={handleMouseMove}
-      className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 overflow-hidden"
-    >
-
-      {/* Glow Background */}
-      <motion.div
-        className="absolute inset-0 pointer-events-none opacity-30"
-        style={{
-          x: springX,
-          y: springY,
-          background:
-            'radial-gradient(circle at center, rgba(120,120,255,0.25), transparent 70%)',
-        }}
-      />
-
-      {/* Card */}
-      <motion.div
-        animate={shake ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-8 shadow-2xl z-10"
+      <div
+        onMouseMove={handleMouseMove}
+        className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 overflow-hidden"
       >
 
-        <div className="text-center mb-8">
+        {/* Glow Background */}
+        <motion.div
+          className="absolute inset-0 pointer-events-none opacity-30"
+          style={{
+            x: springX,
+            y: springY,
+            background:
+              'radial-gradient(circle at center, rgba(120,120,255,0.25), transparent 70%)',
+          }}
+        />
 
-          <h1 className="text-4xl font-extrabold text-white tracking-tight">
-            Havk
-          </h1>
+        {/* Card */}
+        <motion.div
+          animate={shake ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
+          transition={{ duration: 0.4 }}
+          className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-8 shadow-2xl z-10"
+        >
 
-          <p className="text-zinc-400 mt-2">
-            {t('welcomeBack') || 'Bem-vindo de volta'}
-          </p>
+          <div className="text-center mb-8">
 
-        </div>
+            <h1 className="text-4xl font-extrabold text-white tracking-tight">
+              Havk
+            </h1>
 
-        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-
-          <Input
-            ref={emailRef}
-            label={t('email') || 'Email'}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="nome@exemplo.com"
-            required
-            fullWidth
-            autoComplete="email"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                passwordRef.current?.focus();
-              }
-            }}
-          />
-
-          <Input
-            ref={passwordRef}
-            label={t('senha') || 'Senha'}
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Digite sua senha"
-            required
-            fullWidth
-            autoComplete="current-password"
-            trailingIcon={
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                aria-label="Mostrar ou ocultar senha"
-                className="text-zinc-400 hover:text-white transition-colors"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            }
-          />
-
-          <div className="flex items-center justify-between text-sm">
-
-            <label className="flex items-center gap-2 text-zinc-400">
-
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="w-4 h-4 rounded border-zinc-700 bg-zinc-800"
-              />
-
-              Lembrar meus dados
-
-            </label>
-
-            <Link
-              to="/forgot-password"
-              className="text-indigo-400 hover:text-indigo-300"
-            >
-              {t('esqueceuSenha') || 'Esqueceu sua senha?'}
-            </Link>
+            <p className="text-zinc-400 mt-2">
+              {t('welcomeBack') || 'Bem-vindo de volta'}
+            </p>
 
           </div>
 
-          {error && (
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
 
-            <p className="text-red-400 text-sm text-center bg-red-950/40 border border-red-900/50 rounded-lg p-3">
-              {error}
+            <Input
+              ref={emailRef}
+              label={t('email') || 'Email'}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="nome@exemplo.com"
+              required
+              fullWidth
+              autoComplete="email"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  passwordRef.current?.focus();
+                }
+              }}
+            />
+
+            <Input
+              ref={passwordRef}
+              label={t('senha') || 'Senha'}
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Digite sua senha"
+              required
+              fullWidth
+              autoComplete="current-password"
+              trailingIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label="Mostrar ou ocultar senha"
+                  className="text-zinc-400 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              }
+            />
+
+            <div className="flex items-center justify-between text-sm">
+
+              <label className="flex items-center gap-2 text-zinc-400">
+
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-700 bg-zinc-800"
+                />
+
+                Lembrar meus dados
+
+              </label>
+
+              <Link
+                to="/forgot-password"
+                className="text-indigo-400 hover:text-indigo-300"
+              >
+                {t('esqueceuSenha') || 'Esqueceu sua senha?'}
+              </Link>
+
+            </div>
+
+            {error && (
+
+              <p className="text-red-400 text-sm text-center bg-red-950/40 border border-red-900/50 rounded-lg p-3">
+                {error}
+              </p>
+
+            )}
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={loading}
+              disabled={!isFormValid || loading}
+              icon={<LogIn className="w-5 h-5" />}
+            >
+              {loading ? 'Entrando...' : t('entrar') || 'Entrar'}
+            </Button>
+
+          </form>
+
+          <div className="flex items-center my-8">
+
+            <div className="flex-grow border-t border-zinc-800"></div>
+
+            <span className="mx-3 text-zinc-500 text-sm">
+              {t('ouContinuarCom') || 'Ou continue com'}
+            </span>
+
+            <div className="flex-grow border-t border-zinc-800"></div>
+
+          </div>
+
+          <div className="space-y-3">
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              fullWidth
+              disabled={loading}
+              onClick={() => handleProviderLogin('google')}
+              icon={<FcGoogle className="w-5 h-5" />}
+            >
+              {t('entrarComGoogle') || 'Entrar com Google'}
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              fullWidth
+              disabled={loading}
+              onClick={() => handleProviderLogin('github')}
+              icon={<FaGithub className="w-5 h-5" />}
+            >
+              {t('entrarComGithub') || 'Entrar com GitHub'}
+            </Button>
+
+            {/* comentado temporariamente, não remova esse comentario/botao entrar comodev e nem sua lógica */}
+            {/* <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              fullWidth
+              disabled={loading}
+              onClick={() => handleProviderLogin('dev')}
+            >
+              {t('entrarComoDev') || 'Entrar como desenvolvedor'}
+            </Button> */}
+
+          </div>
+
+          <div className="mt-10 text-center text-sm">
+
+            <p className="text-zinc-500">
+              {t('naoTemConta') || 'Ainda não possui uma conta?'}{' '}
+              <Link
+                to="/signup"
+                className="text-indigo-400 hover:text-indigo-300 font-medium"
+              >
+                {t('cadastrar') || 'Criar conta'}
+              </Link>
             </p>
 
-          )}
+          </div>
 
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            fullWidth
-            loading={loading}
-            disabled={!isFormValid || loading}
-            icon={<LogIn className="w-5 h-5" />}
-          >
-            {loading ? 'Entrando...' : t('entrar') || 'Entrar'}
-          </Button>
+        </motion.div>
 
-        </form>
+        <div className="flex flex-wrap justify-center gap-8 text-sm mt-16 z-10">
 
-        <div className="flex items-center my-8">
+          <div className="flex items-center gap-2 text-zinc-400">
+            <ShieldCheck className="w-4 h-4 text-green-500" />
+            Segurança empresarial
+          </div>
 
-          <div className="flex-grow border-t border-zinc-800"></div>
+          <div className="flex items-center gap-2 text-zinc-400">
+            <Zap className="w-4 h-4 text-yellow-400" />
+            Alto desempenho
+          </div>
 
-          <span className="mx-3 text-zinc-500 text-sm">
-            {t('ouContinuarCom') || 'Ou continue com'}
-          </span>
-
-          <div className="flex-grow border-t border-zinc-800"></div>
+          <div className="flex items-center gap-2 text-zinc-400">
+            <Award className="w-4 h-4 text-purple-400" />
+            Plataforma SaaS premium
+          </div>
 
         </div>
-
-        <div className="space-y-3">
-
-          <Button
-            type="button"
-            variant="secondary"
-            size="lg"
-            fullWidth
-            disabled={loading}
-            onClick={() => handleProviderLogin('google')}
-            icon={<FcGoogle className="w-5 h-5" />}
-          >
-            {t('entrarComGoogle') || 'Entrar com Google'}
-          </Button>
-
-          <Button
-            type="button"
-            variant="secondary"
-            size="lg"
-            fullWidth
-            disabled={loading}
-            onClick={() => handleProviderLogin('github')}
-            icon={<FaGithub className="w-5 h-5" />}
-          >
-            {t('entrarComGithub') || 'Entrar com GitHub'}
-          </Button>
-
-{/* comentado temporariamente, não remova esse comentario/botao entrar comodev e nem sua lógica */}
-          {/* <Button
-            type="button"
-            variant="secondary"
-            size="lg"
-            fullWidth
-            disabled={loading}
-            onClick={() => handleProviderLogin('dev')}
-          >
-            {t('entrarComoDev') || 'Entrar como desenvolvedor'}
-          </Button> */}
-
-        </div>
-
-        <div className="mt-10 text-center text-sm">
-
-          <p className="text-zinc-500">
-            {t('naoTemConta') || 'Ainda não possui uma conta?'}{' '}
-            <Link
-              to="/signup"
-              className="text-indigo-400 hover:text-indigo-300 font-medium"
-            >
-              {t('cadastrar') || 'Criar conta'}
-            </Link>
-          </p>
-
-        </div>
-
-      </motion.div>
-
-      <div className="flex flex-wrap justify-center gap-8 text-sm mt-16 z-10">
-
-        <div className="flex items-center gap-2 text-zinc-400">
-          <ShieldCheck className="w-4 h-4 text-green-500" />
-          Segurança empresarial
-        </div>
-
-        <div className="flex items-center gap-2 text-zinc-400">
-          <Zap className="w-4 h-4 text-yellow-400" />
-          Alto desempenho
-        </div>
-
-        <div className="flex items-center gap-2 text-zinc-400">
-          <Award className="w-4 h-4 text-purple-400" />
-          Plataforma SaaS premium
-        </div>
-
-        {/* <div className="flex items-center gap-2 text-zinc-400">
-          <Heart className="w-4 h-4 text-red-400" />
-          Construído com paixão
-        </div> */}
       </div>
-    </div>
+    </>
   );
 }

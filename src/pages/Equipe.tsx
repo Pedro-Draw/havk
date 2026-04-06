@@ -11,7 +11,6 @@ import {
   Download,
   Mail,
   CheckCircle,
-  AlertTriangle,
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -19,7 +18,7 @@ import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
 
 export default function Equipe() {
-  const { t } = useTranslation();
+  const { translateUserContent: _tc } = useTranslation(); // eslint-disable-line
 
   const {
     membros,
@@ -71,7 +70,7 @@ export default function Equipe() {
           email: newMember.email.trim(),
           role: newMember.role,
           avatar: newMember.avatar,
-          status: newMember.status,
+          status: newMember.status as 'ativo' | 'inativo',
         });
         toast.success('Membro atualizado com sucesso');
       } else {
@@ -81,7 +80,7 @@ export default function Equipe() {
           email: newMember.email.trim(),
           role: newMember.role,
           avatar: newMember.avatar,
-          status: newMember.status,
+          status: newMember.status as 'ativo' | 'inativo',
         });
         toast.success('Membro adicionado com sucesso');
       }
@@ -296,7 +295,7 @@ export default function Equipe() {
                 {!search && (
                   <Button
                     variant="primary"
-                    size="xl"
+                    size="lg"
                     onClick={() => setIsModalOpen(true)}
                   >
                     Adicionar Primeiro Membro
@@ -503,14 +502,14 @@ export default function Equipe() {
                   <div className="flex justify-end gap-5 pt-8 border-t border-zinc-800">
                     <Button
                       variant="outline"
-                      size="xl"
+                      size="lg"
                       onClick={closeModal}
                     >
                       Cancelar
                     </Button>
                     <Button
                       variant="primary"
-                      size="xl"
+                      size="lg"
                       onClick={handleSaveMember}
                       icon={<CheckCircle className="w-6 h-6" />}
                     >

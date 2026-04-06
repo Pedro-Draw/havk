@@ -1,5 +1,5 @@
 // pages/Notas.tsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import { NotebookPen, Plus, Save, X } from 'lucide-react';
 import Button from '../components/ui/Button';

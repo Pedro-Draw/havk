@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 import {
   DndContext,
-  closestCorners,
   rectIntersection,
   KeyboardSensor,
   PointerSensor,
@@ -360,11 +359,10 @@ export default function Kanban() {
         status: 'aberta',
         prazo: prazoISO,
         responsavel: newTaskData.responsavel || undefined,
-        tipo: newTaskData.tipo || 'feature',
-        dificuldade: newTaskData.dificuldade || 'media',
+        tipo: (newTaskData.tipo || 'feature') as any,
+        dificuldade: (newTaskData.dificuldade || 'media') as any,
         esforcoEstimado: newTaskData.esforcoEstimado || 0,
         createdBy: 'Pedrin',
-        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
 
@@ -391,8 +389,8 @@ export default function Kanban() {
         priority: currentTask.priority,
         prazo: prazoISO,
         responsavel: currentTask.responsavel || undefined,
-        tipo: currentTask.tipo,
-        dificuldade: currentTask.dificuldade,
+        tipo: currentTask.tipo as any,
+        dificuldade: currentTask.dificuldade as any,
         esforcoEstimado: currentTask.esforcoEstimado || 0,
         updatedAt: new Date().toISOString(),
       });
@@ -676,7 +674,7 @@ export default function Kanban() {
 
                 <div className="flex items-center justify-between pt-6 border-t border-zinc-800">
                   <Button
-                    variant="danger"
+                    variant="destructive"
                     onClick={deleteTask}
                     className="flex items-center gap-2"
                   >

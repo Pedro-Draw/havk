@@ -181,7 +181,7 @@ export default function TimeTracker() {
               <div className="flex flex-wrap justify-center gap-5">
                 <Button
                   variant={isRunning ? 'secondary' : 'primary'}
-                  size="xl"
+                  size="lg"
                   icon={isRunning ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
                   onClick={handleStartPause}
                   disabled={!taskName.trim()}
@@ -192,7 +192,7 @@ export default function TimeTracker() {
 
                 <Button
                   variant="outline"
-                  size="xl"
+                  size="lg"
                   icon={<Square className="w-6 h-6" />}
                   onClick={handleStop}
                   disabled={time === 0 || !isRunning}
@@ -203,7 +203,7 @@ export default function TimeTracker() {
 
                 <Button
                   variant="ghost"
-                  size="xl"
+                  size="lg"
                   icon={<RotateCcw className="w-6 h-6" />}
                   onClick={handleReset}
                   disabled={time === 0}
@@ -217,7 +217,7 @@ export default function TimeTracker() {
 
           {/* ESTATÍSTICAS */}
           {timeEntries.length > 0 && (
-            <Card title={t('statistics')} icon={<BarChart3 className="w-6 h-6" />} className="border-zinc-800 shadow-2xl">
+            <Card title={t('statistics')} className="border-zinc-800 shadow-2xl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
                 <div className="space-y-6">
                   <div className="text-center">

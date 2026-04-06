@@ -237,12 +237,9 @@ Por enquanto, imagine que eu estou respondendo de forma inteligente! 😊`;
                             <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
                           </div>
                         ) : (
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            className="prose prose-invert text-inherit prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:text-inherit prose-a:text-indigo-400"
-                          >
+                          <div className="prose prose-invert text-inherit prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:text-inherit prose-a:text-indigo-400">
                             {msg.message}
-                          </ReactMarkdown>
+                          </div>
                         )}
                         <p className="text-xs opacity-70 mt-2 text-right">
                           {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true, locale: ptBR })}

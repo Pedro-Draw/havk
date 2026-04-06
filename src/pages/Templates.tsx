@@ -1,5 +1,5 @@
 // pages/Templates.tsx
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import {
   CopyPlus,
@@ -10,9 +10,7 @@ import {
   Pencil,
   Trash2,
   Copy,
-  X,
-  Loader2,
-  Save, // ← ADICIONAR AQUI
+  Save,
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -34,7 +32,7 @@ export default function Templates() {
   const [categoryFilter, setCategoryFilter] = useState('Todos');
   const [sortBy, setSortBy] = useState('recent');
   const [showModal, setShowModal] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [editingTemplate, setEditingTemplate] = useState<any>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   // Categorias únicas + "Todos"
@@ -100,7 +98,7 @@ export default function Templates() {
     }
   };
 
-  const duplicateTemplate = async (template) => {
+  const duplicateTemplate = async (template: any) => {
     try {
       await addTemplate({
         name: `${template.name} (cópia)`,
@@ -115,7 +113,7 @@ export default function Templates() {
     }
   };
 
-  const useTemplate = (template) => {
+  const useTemplate = (template: any) => {
     if (!template.content) {
       toast.error('Este template não tem conteúdo para copiar.');
       return;
@@ -129,7 +127,7 @@ export default function Templates() {
     setShowModal(true);
   };
 
-  const openEditModal = (template) => {
+  const openEditModal = (template: any) => {
     setEditingTemplate(template);
     setShowModal(true);
   };
@@ -273,7 +271,7 @@ export default function Templates() {
               </p>
               <Button
                 variant="primary"
-                size="xl"
+                size="lg"
                 icon={<Plus className="w-6 h-6" />}
                 onClick={openCreateModal}
               >
@@ -369,7 +367,7 @@ export default function Templates() {
             <TemplateModal
               template={editingTemplate}
               onClose={() => setShowModal(false)}
-              onSave={async (newOrUpdated) => {
+              onSave={async (newOrUpdated: any) => {
                 try {
                   if (editingTemplate) {
                     await updateTemplate(editingTemplate.id, {
@@ -408,16 +406,15 @@ export default function Templates() {
    MODAL DE CRIAÇÃO/EDIÇÃO
 ───────────────────────────────────────────────── */
 
-function TemplateModal({ template, onClose, onSave }) {
-  const { t } = useTranslation();
+function TemplateModal({ template, onClose, onSave }: { template: any; onClose: () => void; onSave: (data: any) => void }) {
   const [name, setName] = useState(template?.name || '');
   const [category, setCategory] = useState(template?.category || '');
   const [description, setDescription] = useState(template?.description || '');
   const [content, setContent] = useState(template?.content || '');
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validateForm = () => {
-    const newErrors = {};
+    const newErrors: Record<string, string> = {};
     if (!name.trim()) newErrors.name = 'O nome é obrigatório';
     if (!category.trim()) newErrors.category = 'A categoria é obrigatória';
     if (!description.trim()) newErrors.description = 'A descrição é obrigatória';
@@ -538,14 +535,14 @@ function TemplateModal({ template, onClose, onSave }) {
         <div className="px-8 py-6 border-t border-zinc-800 bg-zinc-900/80 flex justify-end gap-4">
           <Button
             variant="outline"
-            size="xl"
+              size="lg"
             onClick={onClose}
           >
             Cancelar
           </Button>
           <Button
             variant="primary"
-            size="xl"
+            size="lg"
             onClick={handleSave}
             icon={<Save className="w-6 h-6" />}
           >

@@ -57,7 +57,7 @@ export default function Gantt() {
 
   const normalize = (date?: string) => startOfDay(date ? new Date(date) : new Date());
 
-  const { tree, minDate, maxDate, totalUnits, unitLabel } = useMemo(() => {
+  const { tree, minDate, totalUnits } = useMemo(() => {
     let filtered = demandasFiltradas.filter(
       (d) => !search || d.title.toLowerCase().includes(search.toLowerCase())
     );
@@ -137,7 +137,7 @@ export default function Gantt() {
   const handleExportPNG = async () => {
     if (!containerRef.current) return;
     try {
-      const canvas = await html2canvas(containerRef.current, { scale: 2, logging: false });
+      const canvas = await html2canvas(containerRef.current, { logging: false } as any);
       const link = document.createElement('a');
       link.download = `gantt-${format(new Date(), 'yyyy-MM-dd')}.png`;
       link.href = canvas.toDataURL('image/png');

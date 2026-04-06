@@ -6,6 +6,7 @@ import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { Mail, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -15,6 +16,7 @@ export default function ForgotPassword() {
   const [submitted, setSubmitted] = useState(false);
 
   const { t } = useTranslation();
+  const { sendPasswordReset } = useAuth();
   const emailRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -35,15 +37,15 @@ export default function ForgotPassword() {
     }
 
     try {
-      // Simulação de envio (futuro: chamar API real)
-      await new Promise((r) => setTimeout(r, 1400));
+      const success = await sendPasswordReset(email.trim().toLowerCase());
 
-      setSubmitted(true);
-      setMessage(
-        t('linkRecuperacaoEnviado') ||
-          'Se o e-mail existir em nosso sistema, enviaremos um link de recuperação.'
-      );
-      toast.success(t('emailEnviado') || 'E-mail enviado com sucesso!');
+      if (success) {
+        setSubmitted(true);
+        setMessage(
+          t('linkRecuperacaoEnviado') ||
+            'Se o e-mail existir em nosso sistema, enviaremos um link de recuperação.'
+        );
+      }
     } catch (err) {
       setError(t('erroEnviarEmail') || 'Não foi possível enviar o e-mail. Tente novamente.');
       toast.error(t('erroEnviarEmail') || 'Erro ao enviar e-mail');

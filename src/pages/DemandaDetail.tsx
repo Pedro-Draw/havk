@@ -20,16 +20,13 @@ import {
   User,
   Calendar,
   Search,
-  AlertOctagon,
-  Zap,
-  BarChart2,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
 
-type DemandaTipo = 'bug' | 'feature' | 'melhoria' | 'inovacao' | 'outro';
+export type DemandaTipo = 'bug' | 'feature' | 'melhoria' | 'inovacao' | 'outro';
 type Dificuldade = 'muito-facil' | 'facil' | 'media' | 'dificil' | 'muito-dificil';
 
 interface Anexo {
@@ -163,7 +160,6 @@ export default function DemandaDetail() {
         demandaId: idParam,
         senderId: 'current-user',
         channel: 'demanda',
-        createdAt: new Date().toISOString(),
       });
       setNewMessage('');
     } catch (err) {
@@ -218,7 +214,6 @@ export default function DemandaDetail() {
         await addNota({
           content: nota.trim(),
           demandaId: idParam,
-          createdAt: new Date().toISOString(),
         });
       }
       setNotaOriginal(nota);
@@ -485,7 +480,7 @@ export default function DemandaDetail() {
                 <p className="text-zinc-400 mb-8 max-w-md mx-auto">
                   Ajuste os filtros ou crie uma nova demanda.
                 </p>
-                <Button variant="primary" size="xl" onClick={() => setShowCreateModal(true)}>
+                <Button variant="primary" size="lg" onClick={() => setShowCreateModal(true)}>
                   Criar agora
                 </Button>
               </Card>
@@ -708,7 +703,7 @@ export default function DemandaDetail() {
         <p className="text-xl text-center max-w-lg mb-10">
           Demanda não encontrada ou ID inválido.
         </p>
-        <Button variant="primary" size="xl" asChild>
+        <Button variant="primary" size="lg">
           <Link to="/demandas">Voltar para Demandas</Link>
         </Button>
       </div>
@@ -747,8 +742,7 @@ export default function DemandaDetail() {
             <div className="flex items-start gap-5">
               <Button
                 variant="ghost"
-                size="icon"
-                asChild
+                size="sm"
                 className="mt-1 hover:bg-zinc-800 rounded-xl"
                 onClick={() => protectedNavigate('/demandas')}
               >
@@ -1042,7 +1036,7 @@ export default function DemandaDetail() {
 
                   <Button
                     variant="primary"
-                    size="icon"
+                    size="sm"
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim()}
                   >

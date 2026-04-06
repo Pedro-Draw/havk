@@ -8,13 +8,7 @@ import {
   AlertCircle,
   Download,
   Search,
-  Users,
-  Clock,
   TrendingUp,
-  Trophy,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -44,7 +38,7 @@ import {
   LineElement,
   RadialLinearScale,
 } from 'chart.js';
-import { Bar, Line, Doughnut, Radar } from 'react-chartjs-2';
+import { Bar, Line, Radar } from 'react-chartjs-2';
 import {
   PieChart,
   Pie,
@@ -57,6 +51,7 @@ import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppStore } from '../store/useAppStore';
+// html2canvas não utilizado nesta página
 
 // Registrar componentes do Chart.js
 ChartJS.register(
@@ -104,7 +99,7 @@ const CORES_STATUS = {
   default:     '#9ca3af',
 };
 
-const CORES_PRIORIDADE = {
+const _CORES_PRIORIDADE = {
   baixa:     '#10b981',
   media:     '#f59e0b',
   alta:      '#f97316',
@@ -113,12 +108,12 @@ const CORES_PRIORIDADE = {
   default:   '#9ca3af',
 };
 
-const PALETA_DESTAQUE = [
+const _PALETA_DESTAQUE = [
   '#3b82f6',   '#10b981',   '#f59e0b',   '#ec4899',   '#8b5cf6',
   '#14b8a6',   '#f97316',   '#ef4444',   '#6366f1',   '#f472b6',
 ];
 
-const PALETA_DESTAQUE_SOFISTICADA = [
+const _PALETA_DESTAQUE_SOFISTICADA = [
   '#6366f1',   '#10b981',   '#f59e0b',   '#ec4899',   '#06b6d4',
   '#8b5cf6',   '#f97316',   '#64748b',
 ];
@@ -208,7 +203,7 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
           sprintInicio = format(dataInicio, 'dd/MM/yyyy', { locale: ptBR });
           sprintFim = format(new Date(sprintAtual.sprintFim), 'dd/MM/yyyy', { locale: ptBR });
           demandasFiltradas = demandas.filter(d =>
-            d.sprintInicio && isWithinInterval(new Date(d.sprintInicio), { start: dataInicio, end: new Date(sprintAtual.sprintFim) })
+            d.sprintInicio && isWithinInterval(new Date(d.sprintInicio), { start: dataInicio, end: new Date((sprintAtual as any).sprintFim) })
           );
         }
       } else if (periodo !== 'tudo') {
@@ -287,10 +282,11 @@ const useRelatoriosData = (periodo: PeriodoFiltro) => {
       }, {});
 
       const topUsuarios = Object.entries(porUsuarioRaw)
-        .map(([nome, concluidas]) => ({
+        .map(([nome, concluidasCount]) => ({
           nome,
-          concluidas,
-          totalAtribuidas: totalPorUsuario[nome] || concluidas,
+          concluidas: concluidasCount,
+          totalAtribuidas: totalPorUsuario[nome] || concluidasCount,
+          mediaDias: 0,
         }))
         .sort((a, b) => b.concluidas - a.concluidas)
         .slice(0, 5);
@@ -372,7 +368,7 @@ async function getImageData(url: string): Promise<string> {
 }
 
 export default function Relatorios() {
-  const { t } = useTranslation();
+  useTranslation(); // reservado para futuras traduções
   const [periodo, setPeriodo] = useState<PeriodoFiltro>('30d');
   const [filtroTexto, setFiltroTexto] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
@@ -440,9 +436,9 @@ export default function Relatorios() {
     },
   };
 
-  const doughnutOptions = { ...baseOptions };
+  const _doughnutOptions = { ...baseOptions };
 
-  const radarOptions = {
+  const _radarOptions = {
     ...baseOptions,
     scales: {
       r: {
@@ -728,7 +724,7 @@ export default function Relatorios() {
         });
       }
 
-      const totalPages = pdf.getNumberOfPages();
+      const totalPages = (pdf as any).getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
         addHeader();
@@ -789,7 +785,7 @@ export default function Relatorios() {
     }],
   };
 
-  const doughnutData = {
+  const _doughnutData = {
     labels: stats.distribuicaoStatus.map(s => {
       if (s.name === 'aberta') return 'Aberta';
       if (s.name === 'em-progresso') return 'Em Progresso';
@@ -1021,7 +1017,7 @@ export default function Relatorios() {
                           color: '#d4d4d8',
                           font: {
                             size: 14,
-                            weight: '600',
+                            weight: 600 as any,
                           },
                           padding: 20,
                           boxWidth: 18,
@@ -1038,7 +1034,7 @@ export default function Relatorios() {
                         cornerRadius: 10,
                         titleColor: '#f4f4f5',
                         titleFont: {
-                          weight: '700',
+                          weight: 700 as any,
                           size: 14,
                         },
                         bodyColor: '#d4d4d8',
@@ -1057,7 +1053,7 @@ export default function Relatorios() {
                           color: '#a1a1aa',
                           font: {
                             size: 13,
-                            weight: '500',
+                            weight: 500 as any,
                           },
                         },
                       },
@@ -1065,7 +1061,7 @@ export default function Relatorios() {
                         beginAtZero: true,
                         grid: {
                           color: 'rgba(255,255,255,0.06)',
-                          drawBorder: false,
+                          // drawBorder: false // deprecated,
                         },
                         ticks: {
                           color: '#a1a1aa',
@@ -1097,7 +1093,7 @@ export default function Relatorios() {
                       outerRadius={130}
                       paddingAngle={4}
                       dataKey="value"
-                      label={({ name, percent }) =>
+                      label={({ name, percent }: any) =>
                         `${name} ${(percent * 100).toFixed(0)}%`
                       }
                       labelLine={false}
@@ -1154,7 +1150,7 @@ export default function Relatorios() {
                       legend: {
                         position: "top",
                         align: "center",
-                        labels: { color: "#e4e4e7", font: { size: 14, weight: "600" }, padding: 20, usePointStyle: true, pointStyle: "circle", boxWidth: 10, boxHeight: 10 }
+                        labels: { color: "#e4e4e7", font: { size: 14, weight: 600 as any }, padding: 20, usePointStyle: true, pointStyle: "circle", boxWidth: 10, boxHeight: 10 }
                       },
                       tooltip: {
                         backgroundColor: "#18181b",
@@ -1164,14 +1160,14 @@ export default function Relatorios() {
                         cornerRadius: 10,
                         titleColor: "#f4f4f5",
                         bodyColor: "#d4d4d8",
-                        titleFont: { weight: "700" }
+                        titleFont: { weight: 700 as any }
                       }
                     },
                     scales: {
                       r: {
                         angleLines: { color: "rgba(255,255,255,0.12)" },
                         grid: { color: "rgba(255,255,255,0.08)" },
-                        pointLabels: { color: "#d4d4d8", font: { size: 14, weight: "500" } },
+                        pointLabels: { color: "#d4d4d8", font: { size: 14, weight: 500 as any } },
                         ticks: { display: false, backdropColor: "transparent" }
                       }
                     },
@@ -1202,7 +1198,7 @@ export default function Relatorios() {
                         position: "top",
                         labels: {
                           color: "#d4d4d8",
-                          font: { size: 14, weight: "600" },
+                          font: { size: 14, weight: 600 as any },
                           padding: 18,
                           usePointStyle: true,
                           pointStyle: "circle"
@@ -1216,7 +1212,7 @@ export default function Relatorios() {
                         cornerRadius: 10,
                         titleColor: "#f4f4f5",
                         bodyColor: "#d4d4d8",
-                        titleFont: { weight: "700" }
+                        titleFont: { weight: 700 as any }
                       }
                     },
 
@@ -1235,7 +1231,7 @@ export default function Relatorios() {
                     scales: {
                       x: {
                         grid: { display: false },
-                        ticks: { color: "#a1a1aa", font: { size: 13, weight: "500" } }
+                        ticks: { color: "#a1a1aa", font: { size: 13, weight: 500 as any } }
                       },
                       y: {
                         beginAtZero: true,

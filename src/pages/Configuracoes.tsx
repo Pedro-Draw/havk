@@ -13,6 +13,8 @@ import Card from '../components/ui/Card';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
+import { auth } from '../lib/firebase';
+import { signOut as firebaseSignOut } from 'firebase/auth';
 
 export default function Configuracoes() {
   const { t, i18n } = useTranslation();
@@ -118,8 +120,8 @@ export default function Configuracoes() {
     setPreviewAvatar(base64);
 
     await setUser({
-  id: user.id,
   ...user,
+  id: user.id,
   avatar: base64,
 });
 
@@ -147,8 +149,8 @@ export default function Configuracoes() {
     setIsSavingProfile(true);
     try {
       const updatedUser = {
-  id: user.id, // 🔴 GARANTE QUE É O MESMO REGISTRO
   ...user,
+  id: user.id,
   name: formData.name.trim(),
   email: formData.email.trim(),
   username: formData.username?.trim(),
@@ -171,8 +173,8 @@ export default function Configuracoes() {
     setIsSavingLinks(true);
     try {
       const updatedUser = {
-  id: user.id, // 🔴 obrigatório
   ...user,
+  id: user.id,
   website: formData.website?.trim(),
   instagram: formData.instagram?.trim().replace(/^@/, ''),
   linkedin: formData.linkedin?.trim(),
@@ -264,10 +266,15 @@ export default function Configuracoes() {
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => {
-              logout();
-              window.location.href = '/login';
+            onClick={async () => {
               toast.dismiss(toastId.id);
+              try {
+                await firebaseSignOut(auth);
+              } catch (e) {
+                // ignora erro do firebase, faz logout local de qualquer forma
+              }
+              await logout();
+              window.location.href = '/login';
             }}
           >
             Sim, sair
@@ -343,7 +350,7 @@ export default function Configuracoes() {
                   {sidebarItems.map(item => (
                     <button
                       key={item.id}
-                      onClick={() => setActiveSection(item.id)}
+                      onClick={() => setActiveSection(item.id as any)}
                       className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl transition-all duration-200 ${
                         activeSection === item.id
                           ? 'bg-gradient-to-r from-indigo-600/30 to-purple-600/20 border-l-4 border-indigo-500 text-white shadow-md'
@@ -495,7 +502,7 @@ export default function Configuracoes() {
                     <div className="flex justify-end pt-6">
                       <Button
                         variant="primary"
-                        size="xl"
+                        size="lg"
                         onClick={handleSaveProfile}
                         loading={isSavingProfile}
                         disabled={isSavingProfile}
@@ -603,7 +610,7 @@ export default function Configuracoes() {
                     <div className="flex justify-end pt-6">
                       <Button
                         variant="primary"
-                        size="xl"
+                        size="lg"
                         onClick={handleSaveSocialLinks}
                         loading={isSavingLinks}
                         disabled={isSavingLinks}
@@ -628,7 +635,7 @@ export default function Configuracoes() {
                       <motion.button
                         key={option.value}
                         whileHover={{ scale: 1.05 }}
-                        onClick={() => setTheme(option.value)}
+                        onClick={() => setTheme(option.value as any)}
                         className={`relative p-8 rounded-2xl border-2 flex flex-col items-center gap-5 transition-all ${
                           theme === option.value
                             ? 'border-indigo-500 bg-zinc-800/60 shadow-indigo-500/30'
@@ -659,7 +666,7 @@ export default function Configuracoes() {
                       <motion.button
                         key={lang.code}
                         whileHover={{ scale: 1.03 }}
-                        onClick={() => handleChangeLanguage(lang.code)}
+                        onClick={() => handleChangeLanguage(lang.code as any)}
                         className={`w-full p-7 rounded-2xl border-2 flex items-center gap-6 transition-all ${
                           language === lang.code
                             ? 'border-indigo-500 bg-indigo-950/20 shadow-md'
@@ -703,7 +710,7 @@ export default function Configuracoes() {
                           <input
                             type="checkbox"
                             checked={notificationPreferences?.[item.key as keyof typeof notificationPreferences] ?? true}
-                            onChange={() => setNotificationPref(item.key, !notificationPreferences?.[item.key as keyof typeof notificationPreferences])}
+                            onChange={() => setNotificationPref(item.key as any, !notificationPreferences?.[item.key as keyof typeof notificationPreferences])}
                             className="sr-only peer"
                           />
                           <div className="w-14 h-7 bg-zinc-700 rounded-full peer peer-checked:bg-indigo-600 after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-7"></div>
@@ -730,8 +737,11 @@ export default function Configuracoes() {
                           type={showPasswords.current ? 'text' : 'password'}
                           value={formData.currentPassword}
                           onChange={handleChange}
-                          icon={showPasswords.current ? <EyeOff /> : <Eye />}
-                          onIconClick={() => togglePasswordVisibility('current')}
+                          trailingIcon={
+                            <button type="button" onClick={() => togglePasswordVisibility('current')} className="text-zinc-400 hover:text-zinc-200">
+                              {showPasswords.current ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                          }
                         />
                         <div className="relative">
                           <Input
@@ -740,8 +750,11 @@ export default function Configuracoes() {
                             type={showPasswords.new ? 'text' : 'password'}
                             value={formData.newPassword}
                             onChange={handleChange}
-                            icon={showPasswords.new ? <EyeOff /> : <Eye />}
-                            onIconClick={() => togglePasswordVisibility('new')}
+                            trailingIcon={
+                              <button type="button" onClick={() => togglePasswordVisibility('new')} className="text-zinc-400 hover:text-zinc-200">
+                                {showPasswords.new ? <EyeOff size={18} /> : <Eye size={18} />}
+                              </button>
+                            }
                           />
                           {formData.newPassword && (
                             <div className="mt-2 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
@@ -762,8 +775,11 @@ export default function Configuracoes() {
                           type={showPasswords.confirm ? 'text' : 'password'}
                           value={formData.confirmPassword}
                           onChange={handleChange}
-                          icon={showPasswords.confirm ? <EyeOff /> : <Eye />}
-                          onIconClick={() => togglePasswordVisibility('confirm')}
+                          trailingIcon={
+                            <button type="button" onClick={() => togglePasswordVisibility('confirm')} className="text-zinc-400 hover:text-zinc-200">
+                              {showPasswords.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                          }
                         />
                       </div>
                       <div className="mt-10 flex justify-end">

@@ -9,8 +9,7 @@ import {
   TrendingUp,
   ArrowUpRight,
   CheckCircle,
-  Users,
-  User, // ADICIONAR
+  User,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -105,7 +104,7 @@ export default function Dashboard() {
     const aberta = demandas.filter(d => d.status === 'aberta').length;
     const emProgresso = demandas.filter(d => d.status === 'em-progresso').length;
     const concluida = demandas.filter(d => d.status === 'concluida').length;
-    const pendente = demandas.filter(d => d.status === 'pendente').length;
+    const pendente = 0; // status 'pendente' não existe no tipo Demanda
     const bloqueada = demandas.filter(d => d.status === 'bloqueada').length;
     const atrasadas = demandas.filter(
       d => d.prazo && new Date(d.prazo) < now && d.status !== 'concluida'
@@ -306,7 +305,7 @@ export default function Dashboard() {
                       outerRadius={130}
                       paddingAngle={4}
                       dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                       labelLine={false}
                       animationDuration={1200}
                       animationBegin={300}

@@ -40,9 +40,8 @@ export default function NotFound() {
 
             <Button
               variant="primary"
-              size="xl"
+              size="lg"
               icon={<Home className="w-6 h-6" />}
-              asChild
               className="px-10 py-5 text-lg font-medium shadow-lg hover:shadow-indigo-500/30 transition-all"
             >
               <Link to="/">

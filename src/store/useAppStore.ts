@@ -1,7 +1,7 @@
 // store/useAppStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { getAll, getItem, addItem, updateItem, deleteItem } from '../db/indexedDB';
+import { getAll, addItem, updateItem, deleteItem } from '../db/indexedDB';
 import toast from 'react-hot-toast';
 
 /* =====================================================
@@ -45,6 +45,26 @@ interface Demanda extends BaseEntity {
   assignee?: string;
   prazo?: string;
   prazoInicio?: string;
+  // Campos adicionais usados no DemandaDetail e Kanban
+  responsavel?: string;
+  tipo?: 'bug' | 'feature' | 'melhoria' | 'inovacao' | 'outro';
+  dificuldade?: 'muito-facil' | 'facil' | 'media' | 'dificil' | 'muito-dificil';
+  esforcoEstimado?: number;
+  createdBy?: string;
+  parentId?: string;
+  progresso?: number;
+  sprint?: string;
+  sprintInicio?: string;
+  sprintFim?: string;
+  anexos?: Array<{
+    id: string;
+    demandaId: string;
+    name: string;
+    type: string;
+    data: string;
+    size: number;
+    uploadedAt: string;
+  }>;
 }
 
 interface Nota extends BaseEntity {
@@ -71,6 +91,12 @@ interface Objetivo extends BaseEntity {
   title: string;
   completed: boolean;
   deadline?: string;
+  // Campos adicionais usados no Objetivos.tsx
+  description?: string;
+  progress?: number;
+  status?: 'completed' | 'in_progress' | 'not_started' | 'overdue' | 'archived';
+  tags?: string[];
+  owner?: { id: string; name: string };
 }
 
 interface Notification extends BaseEntity {
@@ -200,6 +226,7 @@ clearNotifications: () => Promise<void>;
 
   // Time Entries
   addTimeEntry: (data: Omit<TimeEntry, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  deleteTimeEntry: (id: string) => Promise<void>;
 
   // Tradução
   translateContent: (text: string, targetLang: 'pt-BR' | 'en') => string;
@@ -261,7 +288,7 @@ export const useAppStore = create<AppState>()(
   set({ isLoading: false });
 },
 
-      login: async (email, password) => {
+      login: async (email, _password) => {
   // TODO: trocar por API real quando tiver backend
 
   const users = await getAll<User>('user');
@@ -763,6 +790,10 @@ clearNotifications: async () => {
         await addItem('timeEntries', novo);
         set((state) => ({ timeEntries: [...state.timeEntries, novo] }));
         return id;
+      },
+      deleteTimeEntry: async (id) => {
+        await deleteItem('timeEntries', id);
+        set((state) => ({ timeEntries: state.timeEntries.filter((e) => e.id !== id) }));
       },
 
       /* TRADUÇÃO */

@@ -12,8 +12,7 @@ export default function Topbar() {
 
   const user = useAppStore((state) => state.user);
   const notifications = useAppStore((state) => state.notifications || []);
-  const addNotification = useAppStore((state) => state.addNotification);
-  const markNotificationRead = useAppStore((state) => state.markNotificationRead); // ou updateNotification se for o caso
+  const updateNotification = useAppStore((state) => state.updateNotification);
 
   const { t } = useTranslation();
 
@@ -34,25 +33,6 @@ export default function Topbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Simulação (você pode remover se já tiver geração real no Inbox)
-  useEffect(() => {
-    if (!addNotification) return;
-
-    const interval = setInterval(() => {
-      const id = Math.random().toString(36).slice(2, 11);
-      addNotification({
-        id,
-        message: `Nova notificação ${id}`,
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        read: false,
-        type: 'info',
-        title: 'Atualização',
-      });
-    }, 30000); // aumentei para 30s para não ficar muito agressivo
-
-    return () => clearInterval(interval);
-  }, [addNotification]);
-
   const toggleMobileMenu = () => {
     setShowMobileMenu((prev) => !prev);
     window.dispatchEvent(new Event('toggle-mobile-menu'));
@@ -63,6 +43,12 @@ export default function Topbar() {
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const handleMarkRead = (id: string) => {
+    if (updateNotification) {
+      updateNotification(id, { read: true });
+    }
+  };
 
   return (
     <header
@@ -191,8 +177,8 @@ export default function Topbar() {
                       <div
                         key={n.id}
                         onClick={() => {
-                          if (!n.read && markNotificationRead) {
-                            markNotificationRead(n.id);
+                          if (!n.read) {
+                            handleMarkRead(n.id);
                           }
                           setShowNotifications(false);
                         }}
@@ -211,7 +197,9 @@ export default function Topbar() {
                           {n.message}
                         </p>
                         <span className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 block">
-                          {n.time || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          {n.createdAt
+                            ? new Date(n.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                            : new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                     ))

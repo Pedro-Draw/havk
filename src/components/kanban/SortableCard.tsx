@@ -20,10 +20,11 @@ export default function SortableCard({ id, item }: SortableCardProps) {
 
   const style = {
     transform: CSS.Transform.toString({
-      ...transform,
+      x: transform?.x || 0,
+      y: transform?.y || 0,
       scaleX: isDragging ? 1.02 : 1,
       scaleY: isDragging ? 1.02 : 1,
-    }),
+    } as any),
     transition,
     opacity: isDragging ? 0.85 : 1,
   };
@@ -36,7 +37,7 @@ export default function SortableCard({ id, item }: SortableCardProps) {
     media: 'bg-yellow-700/40 text-yellow-400',
     alta: 'bg-orange-700/40 text-orange-400',
     urgente: 'bg-red-700/40 text-red-400', // corrigi 'critica' para 'urgente' (compatível com seu enum)
-  }[item.priority?.toLowerCase()] || 'bg-zinc-700 text-zinc-300';
+  }[(item.priority?.toLowerCase() as any)] || 'bg-zinc-700 text-zinc-300';
 
   return (
     <div

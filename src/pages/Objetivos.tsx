@@ -58,8 +58,8 @@ interface User {
 }
 
 export default function ObjetivosPage() {
-  const { t, currentLanguage } = useTranslation();
-  const locale = currentLanguage === 'pt' ? ptBR : enUS;
+  const { t, language } = useTranslation();
+  const locale = language === 'pt-BR' ? ptBR : enUS;
 
   const {
     objetivos: rawObjetivos = [],
@@ -67,19 +67,16 @@ export default function ObjetivosPage() {
     updateObjetivo,
     deleteObjetivo,
     isLoading,
-    users: storeUsers = [],
   } = useAppStore();
 
-  // Mock temporário — remova quando o store realmente retornar a lista de usuários
-  const users: User[] = storeUsers.length > 0
-    ? storeUsers
-    : [
-        { id: '1', name: 'Você (Pedro)' },
-        { id: '2', name: 'João Silva' },
-        { id: '3', name: 'Maria Oliveira' },
-        { id: '4', name: 'Equipe de Suporte' },
-        { id: '5', name: 'Ana Costa' },
-      ];
+  // Lista de usuários para atribuição de objetivos
+  const users: User[] = [
+    { id: '1', name: 'Você (Pedro)' },
+    { id: '2', name: 'João Silva' },
+    { id: '3', name: 'Maria Oliveira' },
+    { id: '4', name: 'Equipe de Suporte' },
+    { id: '5', name: 'Ana Costa' },
+  ];
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -95,14 +92,14 @@ export default function ObjetivosPage() {
 
   const objetivosProcessados = useMemo(() => {
     return rawObjetivos.map((obj) => {
-      const deadlineDate = parseISO(obj.deadline);
+      const deadlineDate = parseISO(obj.deadline || new Date().toISOString().split('T')[0]);
       let status: Objetivo['status'] = 'in_progress';
 
-      if (obj.progress >= 100) {
+      if ((obj.progress ?? 0) >= 100) {
         status = 'completed';
-      } else if (isPast(deadlineDate) && obj.progress < 100) {
+      } else if (isPast(deadlineDate) && (obj.progress ?? 0) < 100) {
         status = 'overdue';
-      } else if (obj.progress === 0) {
+      } else if ((obj.progress ?? 0) === 0) {
         status = 'not_started';
       } else if (obj.status === 'archived') {
         status = 'archived';
@@ -119,7 +116,7 @@ export default function ObjetivosPage() {
     const overdue = objetivosProcessados.filter((o) => o.status === 'overdue').length;
     const notStarted = objetivosProcessados.filter((o) => o.status === 'not_started').length;
     const archived = objetivosProcessados.filter((o) => o.status === 'archived').length;
-    const averageProgress = total > 0 ? objetivosProcessados.reduce((acc, o) => acc + o.progress, 0) / total : 0;
+    const averageProgress = total > 0 ? objetivosProcessados.reduce((acc, o) => acc + (o.progress ?? 0), 0) / total : 0;
 
     return { total, completed, inProgress, overdue, notStarted, archived, averageProgress };
   }, [objetivosProcessados]);
@@ -145,9 +142,9 @@ export default function ObjetivosPage() {
     result.sort((a, b) => {
       let compare = 0;
       if (sortBy === 'deadline') {
-        compare = parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime();
+        compare = parseISO(a.deadline || "2099-01-01").getTime() - parseISO(b.deadline || "2099-01-01").getTime();
       } else if (sortBy === 'progress') {
-        compare = a.progress - b.progress;
+        compare = (a.progress ?? 0) - (b.progress ?? 0);
       } else if (sortBy === 'title') {
         compare = a.title.localeCompare(b.title);
       }
@@ -283,7 +280,7 @@ export default function ObjetivosPage() {
         };
 
         console.log('Objeto que será enviado para addObjetivo:', newObj);
-        await addObjetivo(newObj);
+        await addObjetivo(newObj as any);
         console.log('addObjetivo executado com sucesso');
 
         toast.success('Objetivo criado com sucesso!');
@@ -595,40 +592,31 @@ export default function ObjetivosPage() {
                                 <MoreVertical className="h-5 w-5" />
                               </button>
                             }
-                            items={[
-                              {
-                                label: t('editar'),
-                                icon: Edit,
-                                onClick: () => openEditModal(obj),
-                              },
-                              {
-                                label: t('arquivar'),
-                                icon: Archive,
-                                onClick: () => handleArchive(obj),
-                                disabled: obj.status === 'archived',
-                              },
-                              {
-                                label: t('excluir'),
-                                icon: Trash2,
-                                variant: 'destructive',
-                                onClick: () => openDeleteModal(obj),
-                              },
-                            ]}
-                          />
+                          >
+                            <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800" onClick={() => openEditModal(obj as any)}>
+                              <Edit className="h-4 w-4" />{t('editar')}
+                            </button>
+                            <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-40" disabled={obj.status === 'archived'} onClick={() => handleArchive(obj as any)}>
+                              <Archive className="h-4 w-4" />{t('arquivar')}
+                            </button>
+                            <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-zinc-800" onClick={() => openDeleteModal(obj as any)}>
+                              <Trash2 className="h-4 w-4" />{t('excluir')}
+                            </button>
+                          </DropdownMenu>
                         </div>
 
                         <div className="flex-1 space-y-5 px-6 pb-6">
                           <div className="space-y-2">
                             <div className="flex items-center justify-between text-sm">
                               <span className="font-medium text-zinc-300">{t('progresso')}</span>
-                              <Tooltip content={`${obj.progress}% ${t('concluido')}`}>
+                              <Tooltip text={`${(obj.progress ?? 0)}% ${t('concluido')}`}>
                                 <span className="text-base font-bold text-zinc-100">
-                                  {obj.progress}%
+                                  {(obj.progress ?? 0)}%
                                 </span>
                               </Tooltip>
                             </div>
                             <ProgressBar
-                              value={obj.progress}
+                              value={obj.progress ?? 0}
                               className={statusConfig.progressColor}
                             />
                           </div>
@@ -637,7 +625,7 @@ export default function ObjetivosPage() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 text-zinc-400">
                                 <Calendar className="h-4 w-4" />
-                                <span>{formatarData(obj.deadline)}</span>
+                                <span>{formatarData(obj.deadline || "")}</span>
                               </div>
                               {obj.owner ? (
                                 <div className="flex items-center gap-2 text-zinc-400">
@@ -683,7 +671,7 @@ export default function ObjetivosPage() {
                               size="sm"
                               fullWidth
                               disabled={obj.status === 'completed' || obj.status === 'archived'}
-                              onClick={() => handleProgressUpdate(obj, 10)}
+                              onClick={() => handleProgressUpdate(obj as any, 10)}
                             >
                               +10%
                             </Button>
@@ -692,7 +680,7 @@ export default function ObjetivosPage() {
                               size="sm"
                               fullWidth
                               disabled={obj.status === 'completed' || obj.status === 'archived'}
-                              onClick={() => handleProgressUpdate(obj, -10)}
+                              onClick={() => handleProgressUpdate(obj as any, -10)}
                             >
                               -10%
                             </Button>
@@ -872,9 +860,9 @@ export default function ObjetivosPage() {
           <p className="text-zinc-300">
             {t('temCertezaQueDesejaExcluir') || 'Tem certeza que deseja excluir'}{' '}
             <span className="font-medium">{selectedObjetivo?.title}</span>?
-            {selectedObjetivo?.progress > 0 && (
+            {(selectedObjetivo?.progress ?? 0) > 0 && (
               <span className="block mt-2 text-sm text-amber-400">
-                Progresso atual: {selectedObjetivo.progress}%
+                Progresso atual: {selectedObjetivo?.progress ?? 0}%
               </span>
             )}
           </p>
