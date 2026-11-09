@@ -4,7 +4,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { getAll, addItem, updateItem, deleteItem } from '../db/indexedDB';
 import toast from 'react-hot-toast';
 import { moveColumnOnBoard, placeOnBoard, reconcileDemanda } from '../lib/kanban';
-import { ensureEmpresas, purgeEmpresa, rememberEmpresa, type Empresa } from '../lib/workspace';
+import { GERAL_EMPRESA_ID, empresaIdForNew, ensureEmpresas, purgeEmpresa, rememberEmpresa, sortEmpresas, visibleInWorkspace, type Empresa } from '../lib/workspace';
 
 let demandaWrite: Promise<unknown> = Promise.resolve();
 
@@ -254,6 +254,8 @@ clearNotifications: () => Promise<void>;
   updateEmpresa: (id: string, data: Partial<Empresa>) => Promise<void>;
   deleteEmpresa: (id: string) => Promise<void>;
   setActiveEmpresa: (id: string) => Promise<void>;
+  toggleEmpresaPin: (id: string) => Promise<void>;
+  reorderEmpresas: (ids: string[]) => Promise<void>;
 
   // Templates
   addTemplate: (data: Omit<Template, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
@@ -475,21 +477,18 @@ export const useAppStore = create<AppState>()(
             getAll<TimeEntry>('timeEntries'),
           ]);
 
-          const mine = <T extends { empresaId?: string }>(list: T[] | undefined) =>
-            (list || []).filter((item) => item.empresaId === activeId);
-
           set({
-            empresas,
+            empresas: sortEmpresas(empresas),
             activeEmpresaId: activeId,
-            demandas: mine(demandas),
-            notas: mine(notas),
-            chatMensagens: mine(chatMensagens),
-            projetos: mine(projetos),
-            objetivos: mine(objetivos),
-            notifications: mine(notifications),
-            membros: mine(membros),
-            templates: mine(templates),
-            timeEntries: mine(timeEntries),
+            demandas: visibleInWorkspace(demandas, activeId),
+            notas: visibleInWorkspace(notas, activeId),
+            chatMensagens: visibleInWorkspace(chatMensagens, activeId),
+            projetos: visibleInWorkspace(projetos, activeId),
+            objetivos: visibleInWorkspace(objetivos, activeId),
+            notifications: visibleInWorkspace(notifications, activeId),
+            membros: visibleInWorkspace(membros, activeId),
+            templates: visibleInWorkspace(templates, activeId),
+            timeEntries: visibleInWorkspace(timeEntries, activeId),
           });
         } catch (err) {
           console.error('Erro ao carregar dados do IndexedDB:', err);
@@ -507,7 +506,7 @@ export const useAppStore = create<AppState>()(
           ...data,
           ...reconciled,
           id,
-          empresaId: get().activeEmpresaId || undefined,
+          empresaId: empresaIdForNew(get().activeEmpresaId),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -595,7 +594,7 @@ export const useAppStore = create<AppState>()(
         const nova: Nota = {
           ...data,
           id,
-          empresaId: get().activeEmpresaId || undefined,
+          empresaId: empresaIdForNew(get().activeEmpresaId),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -637,7 +636,7 @@ export const useAppStore = create<AppState>()(
         const nova: ChatMensagem = {
           ...data,
           id,
-          empresaId: get().activeEmpresaId || undefined,
+          empresaId: empresaIdForNew(get().activeEmpresaId),
           createdAt: new Date().toISOString(),
         };
 
@@ -662,7 +661,7 @@ export const useAppStore = create<AppState>()(
         const novo: Projeto = {
           ...data,
           id,
-          empresaId: get().activeEmpresaId || undefined,
+          empresaId: empresaIdForNew(get().activeEmpresaId),
           createdAt: new Date().toISOString(),
         };
 
@@ -702,7 +701,7 @@ export const useAppStore = create<AppState>()(
         const novo: Objetivo = {
           ...data,
           id,
-          empresaId: get().activeEmpresaId || undefined,
+          empresaId: empresaIdForNew(get().activeEmpresaId),
           createdAt: new Date().toISOString(),
         };
 
@@ -743,7 +742,7 @@ addNotification: async (data) => {
   const nova: Notification = {
     ...data,
     id,
-    empresaId: get().activeEmpresaId || undefined,
+    empresaId: empresaIdForNew(get().activeEmpresaId),
     createdAt: new Date().toISOString(),
   };
 
@@ -840,7 +839,7 @@ clearNotifications: async () => {
         const novo: Membro = {
           ...data,
           id,
-          empresaId: get().activeEmpresaId || undefined,
+          empresaId: empresaIdForNew(get().activeEmpresaId),
           createdAt: new Date().toISOString(),
         };
 
@@ -889,7 +888,7 @@ clearNotifications: async () => {
         const novo: Template = {
           ...data,
           id,
-          empresaId: get().activeEmpresaId || undefined,
+          empresaId: empresaIdForNew(get().activeEmpresaId),
           createdAt: new Date().toISOString(),
         };
 
@@ -934,7 +933,7 @@ clearNotifications: async () => {
         const novo: TimeEntry = {
           ...data,
           id,
-          empresaId: get().activeEmpresaId || undefined,
+          empresaId: empresaIdForNew(get().activeEmpresaId),
           createdAt: new Date().toISOString(),
         };
 
@@ -950,7 +949,8 @@ clearNotifications: async () => {
       addEmpresa: async (data) => {
         const id = crypto.randomUUID();
         const now = new Date().toISOString();
-        const empresa: Empresa = { ...data, id, createdAt: now, updatedAt: now };
+        const order = get().empresas.reduce((max, empresa) => Math.max(max, empresa.order ?? 0), -1) + 1;
+        const empresa: Empresa = { ...data, id, pinned: false, order, createdAt: now, updatedAt: now };
         await addItem('empresas', empresa);
         await rememberEmpresa(id);
         await get().loadAll();
@@ -985,11 +985,47 @@ clearNotifications: async () => {
       },
 
       setActiveEmpresa: async (id) => {
+        if (id === get().activeEmpresaId) return;
+        if (id === GERAL_EMPRESA_ID) {
+          await rememberEmpresa(id);
+          await get().loadAll();
+          toast.success('Geral reúne todas as empresas. O que você criar aqui aparece em todas.');
+          return;
+        }
         const empresa = get().empresas.find((item) => item.id === id);
-        if (!empresa || id === get().activeEmpresaId) return;
+        if (!empresa) return;
         await rememberEmpresa(id);
         await get().loadAll();
         toast.success(`Agora você está em ${empresa.name}`);
+      },
+
+      toggleEmpresaPin: async (id) => {
+        const current = get().empresas.find((empresa) => empresa.id === id);
+        if (!current) return;
+        const updated: Empresa = {
+          ...current,
+          pinned: !current.pinned,
+          order: 0,
+          updatedAt: new Date().toISOString(),
+        };
+        await updateItem('empresas', updated);
+        set((state) => ({
+          empresas: sortEmpresas(state.empresas.map((empresa) => (empresa.id === id ? updated : empresa))),
+        }));
+        toast.success(updated.pinned ? `${current.name} fixada no topo` : `${current.name} desafixada`);
+      },
+
+      reorderEmpresas: async (ids) => {
+        const byId = new Map(get().empresas.map((empresa) => [empresa.id, empresa]));
+        const next: Empresa[] = [];
+        ids.forEach((id, index) => {
+          const current = byId.get(id);
+          if (!current) return;
+          next.push({ ...current, order: index, updatedAt: new Date().toISOString() });
+        });
+        await Promise.all(next.map((empresa) => updateItem('empresas', empresa)));
+        const untouched = get().empresas.filter((empresa) => !ids.includes(empresa.id));
+        set({ empresas: sortEmpresas([...untouched, ...next]) });
       },
 
       /* TRADUÇÃO */

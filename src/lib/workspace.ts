@@ -1,17 +1,49 @@
 import { addItem, deleteItem, getAll, getItem, updateItem } from '../db/indexedDB';
 
+export const GERAL_EMPRESA_ID = 'geral';
+
 export interface Empresa {
   id: string;
   name: string;
   description?: string;
   segment?: string;
+  size?: string;
+  kind?: string;
+  state?: string;
   email?: string;
   phone?: string;
   website?: string;
   city?: string;
   logo?: string | null;
+  pinned?: boolean;
+  order?: number;
   createdAt: string;
   updatedAt?: string;
+}
+
+export function sortEmpresas(list: Empresa[]) {
+  return [...list].sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
+    const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
+    return (a.createdAt || '').localeCompare(b.createdAt || '');
+  });
+}
+
+export function isSharedRecord(empresaId?: string | null) {
+  return !empresaId || empresaId === GERAL_EMPRESA_ID;
+}
+
+export function visibleInWorkspace<T extends { empresaId?: string | null }>(list: T[] | undefined, activeId: string) {
+  const items = list || [];
+  if (activeId === GERAL_EMPRESA_ID) return items;
+  return items.filter((item) => item.empresaId === activeId || isSharedRecord(item.empresaId));
+}
+
+export function empresaIdForNew(activeId: string | null) {
+  if (!activeId || activeId === GERAL_EMPRESA_ID) return GERAL_EMPRESA_ID;
+  return activeId;
 }
 
 const SCOPED_STORES = [
@@ -37,7 +69,7 @@ export async function ensureEmpresas(): Promise<{ empresas: Empresa[]; activeId:
       id: crypto.randomUUID(),
       name: 'Minha empresa',
       description: 'Espaço inicial. O que já existia continua aqui, separado das próximas empresas.',
-      segment: 'Geral',
+      segment: '',
       createdAt: now,
       updatedAt: now,
     };
@@ -56,9 +88,21 @@ export async function ensureEmpresas(): Promise<{ empresas: Empresa[]; activeId:
     empresas = [empresa];
   }
 
+  const now = new Date().toISOString();
+  for (const empresa of empresas) {
+    if (empresa.segment === 'Geral') {
+      empresa.segment = '';
+      empresa.updatedAt = now;
+      await updateItem('empresas', empresa);
+    }
+  }
+
   const pref = await getItem<Pref>('preferencias', 'activeEmpresaId');
-  const activeId = empresas.some((empresa) => empresa.id === pref?.value) ? pref!.value : empresas[0].id;
-  return { empresas, activeId };
+  const saved = pref?.value;
+  const activeId = saved === GERAL_EMPRESA_ID || empresas.some((empresa) => empresa.id === saved)
+    ? saved!
+    : empresas[0].id;
+  return { empresas: sortEmpresas(empresas), activeId };
 }
 
 export async function rememberEmpresa(id: string) {

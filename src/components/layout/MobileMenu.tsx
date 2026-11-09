@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { PanelLeftClose, Plus, Search, Star } from 'lucide-react';
+import { Layers, PanelLeftClose, Plus, Search, Star } from 'lucide-react';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useAppStore } from '../../store/useAppStore';
 import { MOBILE_MENU_EVENT, setMobileMenuOpen } from '../../lib/mobileNav';
 import { useVisibleNav } from '../../hooks/useVisibleNav';
 import { openCommandPalette } from '../../lib/navigation';
 import { isFavorite, toggleFavorite } from '../../lib/places';
+import { GERAL_EMPRESA_ID } from '../../lib/workspace';
 
 export default function MobileMenu() {
   const [open, setOpen] = useState(false);
@@ -29,7 +30,8 @@ export default function MobileMenu() {
     [groups, t]
   );
 
-  const activeEmpresa = empresas.find((empresa) => empresa.id === activeEmpresaId) || empresas[0];
+  const geral = activeEmpresaId === GERAL_EMPRESA_ID;
+  const activeEmpresa = empresas.find((empresa) => empresa.id === activeEmpresaId) || null;
 
   useEffect(() => {
     const onState = (event: Event) => setOpen(Boolean((event as CustomEvent<boolean>).detail));
@@ -86,27 +88,36 @@ export default function MobileMenu() {
         </div>
 
         <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-4">
-          {activeEmpresa && (
+          <button
+            type="button"
+            className="company-switch mx-1 mt-3 w-[calc(100%-0.5rem)] max-w-none"
+            onClick={() => {
+              close();
+              navigate('/empresas');
+            }}
+          >
+            {geral || !activeEmpresa ? (
+              <span className="company-mark"><Layers size={16} /></span>
+            ) : activeEmpresa.logo ? (
+              <img src={activeEmpresa.logo} alt="" className="company-mark" />
+            ) : (
+              <span className="company-mark">{activeEmpresa.name.slice(0, 1).toUpperCase()}</span>
+            )}
+            <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">{geral || !activeEmpresa ? 'Geral' : activeEmpresa.name}</span>
+          </button>
+
+          <div className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
             <button
               type="button"
-              className="company-switch mx-1 mt-3 w-[calc(100%-0.5rem)] max-w-none"
+              className={`company-mark shrink-0 ${geral ? 'ring-2 ring-violet-400' : ''}`}
+              aria-label="Geral"
               onClick={() => {
-                close();
-                navigate('/empresas');
+                if (!geral) void setActiveEmpresa(GERAL_EMPRESA_ID);
               }}
             >
-              {activeEmpresa.logo ? (
-                <img src={activeEmpresa.logo} alt="" className="company-mark" />
-              ) : (
-                <span className="company-mark">{activeEmpresa.name.slice(0, 1).toUpperCase()}</span>
-              )}
-              <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">{activeEmpresa.name}</span>
+              <Layers size={16} />
             </button>
-          )}
-
-          {empresas.length > 1 && (
-            <div className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
-              {empresas.map((empresa) => (
+            {empresas.map((empresa) => (
                 <button
                   key={empresa.id}
                   type="button"
@@ -119,8 +130,7 @@ export default function MobileMenu() {
                   {empresa.logo ? <img src={empresa.logo} alt="" className="h-full w-full object-cover" /> : empresa.name.slice(0, 1).toUpperCase()}
                 </button>
               ))}
-            </div>
-          )}
+          </div>
 
           <button
             type="button"

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronsUpDown, Layers, Pin } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
+import { GERAL_EMPRESA_ID } from '../../lib/workspace';
 
 export default function CompanySwitch() {
   const navigate = useNavigate();
@@ -10,7 +11,8 @@ export default function CompanySwitch() {
   const setActiveEmpresa = useAppStore((state) => state.setActiveEmpresa);
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
-  const active = empresas.find((empresa) => empresa.id === activeEmpresaId) || empresas[0];
+  const geral = activeEmpresaId === GERAL_EMPRESA_ID;
+  const active = empresas.find((empresa) => empresa.id === activeEmpresaId) || null;
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
@@ -20,17 +22,38 @@ export default function CompanySwitch() {
     return () => document.removeEventListener('mousedown', close);
   }, []);
 
-  if (!active) return null;
+  if (!geral && !active && empresas.length === 0) return null;
+
+  const mark = geral || !active
+    ? <span className="company-mark"><Layers size={16} /></span>
+    : active.logo
+      ? <img src={active.logo} alt="" className="company-mark" />
+      : <span className="company-mark">{active.name.slice(0, 1).toUpperCase()}</span>;
 
   return (
     <div ref={boxRef} className="relative">
       <button type="button" className="company-switch" onClick={() => setOpen((value) => !value)} aria-haspopup="listbox" aria-expanded={open}>
-        {active.logo ? <img src={active.logo} alt="" className="company-mark" /> : <span className="company-mark">{active.name.slice(0, 1).toUpperCase()}</span>}
-        <span className="hidden max-w-32 truncate text-sm font-medium sm:block">{active.name}</span>
+        {mark}
+        <span className="hidden max-w-32 truncate text-sm font-medium sm:block">{geral || !active ? 'Geral' : active.name}</span>
         <ChevronsUpDown className="h-3.5 w-3.5 text-[var(--text-muted)]" />
       </button>
       {open && (
         <div className="glass-popover absolute left-0 z-50 mt-2 w-64 rounded-2xl p-2" role="listbox">
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-[var(--hover)]"
+            onClick={() => {
+              setOpen(false);
+              if (!geral) void setActiveEmpresa(GERAL_EMPRESA_ID);
+            }}
+          >
+            <span className="company-mark"><Layers size={16} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">Geral</span>
+              <span className="block truncate text-xs text-[var(--text-muted)]">Todas as empresas</span>
+            </span>
+            {geral && <Check className="h-4 w-4 text-emerald-400" />}
+          </button>
           {empresas.map((empresa) => (
             <button
               key={empresa.id}
@@ -38,15 +61,15 @@ export default function CompanySwitch() {
               className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-[var(--hover)]"
               onClick={() => {
                 setOpen(false);
-                if (empresa.id !== active.id) void setActiveEmpresa(empresa.id);
+                if (empresa.id !== active?.id) void setActiveEmpresa(empresa.id);
               }}
             >
               {empresa.logo ? <img src={empresa.logo} alt="" className="company-mark" /> : <span className="company-mark">{empresa.name.slice(0, 1).toUpperCase()}</span>}
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{empresa.name}</span>
+                <span className="flex items-center gap-1 truncate text-sm font-medium">{empresa.name}{empresa.pinned && <Pin size={12} className="text-violet-500" />}</span>
                 <span className="block truncate text-xs text-[var(--text-muted)]">{empresa.segment || 'Empresa'}</span>
               </span>
-              {empresa.id === active.id && <Check className="h-4 w-4 text-emerald-400" />}
+              {empresa.id === active?.id && <Check className="h-4 w-4 text-emerald-400" />}
             </button>
           ))}
           <button
