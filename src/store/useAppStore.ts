@@ -3,6 +3,19 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { getAll, addItem, updateItem, deleteItem } from '../db/indexedDB';
 import toast from 'react-hot-toast';
+import { moveColumnOnBoard, placeOnBoard, reconcileDemanda } from '../lib/kanban';
+import { ensureEmpresas, purgeEmpresa, rememberEmpresa, type Empresa } from '../lib/workspace';
+
+let demandaWrite: Promise<unknown> = Promise.resolve();
+
+function enqueueDemanda<T>(job: () => Promise<T>): Promise<T> {
+  const run = demandaWrite.then(job, job);
+  demandaWrite = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
 
 /* =====================================================
    🔐 TYPES
@@ -33,6 +46,7 @@ interface BaseEntity {
   id: string;
   createdAt: string;
   updatedAt?: string;
+  empresaId?: string;
   translations?: Record<string, any>;
 }
 
@@ -53,6 +67,8 @@ interface Demanda extends BaseEntity {
   createdBy?: string;
   parentId?: string;
   progresso?: number;
+  boardColumn?: string;
+  boardOrder?: number;
   sprint?: string;
   sprintInicio?: string;
   sprintFim?: string;
@@ -76,8 +92,11 @@ interface Nota extends BaseEntity {
 interface ChatMensagem extends BaseEntity {
   message: string;
   senderId?: string;
+  senderName?: string;
   demandaId?: string;
   channel?: 'global' | string;
+  replyToId?: string;
+  reactions?: string[];
 }
 
 interface Projeto extends BaseEntity {
@@ -113,6 +132,11 @@ interface Membro extends BaseEntity {
   role: string;
   avatar?: string | null;
   status: 'ativo' | 'inativo';
+  phone?: string;
+  department?: string;
+  notes?: string;
+  admin?: boolean;
+  permissions?: string[];
 }
 
 interface Template extends BaseEntity {
@@ -161,6 +185,8 @@ interface AppState {
   membros: Membro[];
   templates: Template[];
   timeEntries: TimeEntry[];
+  empresas: Empresa[];
+  activeEmpresaId: string | null;
 
   // Preferências de notificações
   notificationPreferences: {
@@ -169,6 +195,7 @@ interface AppState {
     prazos: boolean;
     system: boolean;
     emailMarketing: boolean;   // extra
+    device: boolean;
   };
   setNotificationPref: (key: keyof AppState['notificationPreferences'], value: boolean) => void;
 
@@ -185,8 +212,11 @@ interface AppState {
 
   // Demandas
   addDemanda: (data: Omit<Demanda, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
-  updateDemanda: (id: string, data: Partial<Demanda>) => Promise<void>;
-  deleteDemanda: (id: string) => Promise<void>;
+  updateDemanda: (id: string, data: Partial<Demanda>, options?: { silent?: boolean }) => Promise<void>;
+  patchDemandas: (patches: { id: string; data: Partial<Demanda> }[], options?: { silent?: boolean }) => Promise<void>;
+  moveDemandaOnBoard: (id: string, columnId: string, index: number) => Promise<void>;
+  moveColumnDemandas: (fromColumn: string, toColumn: string) => Promise<number>;
+  deleteDemanda: (id: string, options?: { silent?: boolean }) => Promise<void>;
 
   // Notas
   addNota: (data: Omit<Nota, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
@@ -195,6 +225,7 @@ interface AppState {
 
   // Chat
   addChatMensagem: (data: Omit<ChatMensagem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  updateChatMensagem: (id: string, data: Partial<ChatMensagem>) => Promise<void>;
 
   // Projetos
   addProjeto: (data: Omit<Projeto, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
@@ -219,6 +250,11 @@ clearNotifications: () => Promise<void>;
   updateMembro: (id: string, data: Partial<Membro>) => Promise<void>;
   deleteMembro: (id: string) => Promise<void>;
 
+  addEmpresa: (data: Omit<Empresa, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  updateEmpresa: (id: string, data: Partial<Empresa>) => Promise<void>;
+  deleteEmpresa: (id: string) => Promise<void>;
+  setActiveEmpresa: (id: string) => Promise<void>;
+
   // Templates
   addTemplate: (data: Omit<Template, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateTemplate: (id: string, data: Partial<Template>) => Promise<void>;
@@ -231,6 +267,47 @@ clearNotifications: () => Promise<void>;
   // Tradução
   translateContent: (text: string, targetLang: 'pt-BR' | 'en') => string;
   translateAllUserContent: (targetLang: 'pt-BR' | 'en') => Promise<void>;
+}
+
+async function applyDemandaPatches(
+  get: () => { demandas: Demanda[] },
+  set: (partial: { demandas: Demanda[] } | ((state: { demandas: Demanda[] }) => { demandas: Demanda[] })) => void,
+  patches: { id: string; data: Partial<Demanda> }[],
+  options?: { silent?: boolean }
+) {
+  if (!patches.length) return;
+  const previous = get().demandas;
+  const byId = new Map(patches.map((patch) => [patch.id, patch.data]));
+  const stamp = new Date().toISOString();
+  const next = previous.map((demanda) => {
+    const data = byId.get(demanda.id);
+    if (!data) return demanda;
+    return {
+      ...demanda,
+      ...reconcileDemanda(demanda, data),
+      updatedAt: stamp,
+    };
+  });
+
+  set({ demandas: next });
+
+  try {
+    await Promise.all(
+      next
+        .filter((demanda) => byId.has(demanda.id))
+        .map((demanda) => updateItem('demandas', demanda))
+    );
+    if (!options?.silent) toast.success('Quadro atualizado');
+  } catch (err) {
+    set((state) => ({
+      demandas: state.demandas.map((item) => {
+        if (!byId.has(item.id) || item.updatedAt !== stamp) return item;
+        return previous.find((old) => old.id === item.id) || item;
+      }),
+    }));
+    toast.error('Não foi possível salvar o quadro');
+    throw err;
+  }
 }
 
 export const useAppStore = create<AppState>()(
@@ -253,6 +330,8 @@ export const useAppStore = create<AppState>()(
       membros: [],
       templates: [],
       timeEntries: [],
+      empresas: [],
+      activeEmpresaId: null,
 
       notificationPreferences: {
         newDemanda: true,
@@ -260,6 +339,7 @@ export const useAppStore = create<AppState>()(
         prazos: true,
         system: true,
         emailMarketing: true,
+        device: true,
       },
 
       setNotificationPref: (key, value) =>
@@ -328,6 +408,8 @@ export const useAppStore = create<AppState>()(
           membros: [],
           templates: [],
           timeEntries: [],
+          empresas: [],
+          activeEmpresaId: null,
         });
         // Limpa IndexedDB se quiser (opcional)
         // await clearAllStores(); // função que você pode criar
@@ -370,6 +452,7 @@ export const useAppStore = create<AppState>()(
       loadAll: async () => {
         set({ isLoading: true });
         try {
+          const { empresas, activeId } = await ensureEmpresas();
           const [
             demandas,
             notas,
@@ -392,16 +475,21 @@ export const useAppStore = create<AppState>()(
             getAll<TimeEntry>('timeEntries'),
           ]);
 
+          const mine = <T extends { empresaId?: string }>(list: T[] | undefined) =>
+            (list || []).filter((item) => item.empresaId === activeId);
+
           set({
-            demandas: demandas || [],
-            notas: notas || [],
-            chatMensagens: chatMensagens || [],
-            projetos: projetos || [],
-            objetivos: objetivos || [],
-            notifications: notifications || [],
-            membros: membros || [],
-            templates: templates || [],
-            timeEntries: timeEntries || [],
+            empresas,
+            activeEmpresaId: activeId,
+            demandas: mine(demandas),
+            notas: mine(notas),
+            chatMensagens: mine(chatMensagens),
+            projetos: mine(projetos),
+            objetivos: mine(objetivos),
+            notifications: mine(notifications),
+            membros: mine(membros),
+            templates: mine(templates),
+            timeEntries: mine(timeEntries),
           });
         } catch (err) {
           console.error('Erro ao carregar dados do IndexedDB:', err);
@@ -412,33 +500,36 @@ export const useAppStore = create<AppState>()(
       },
 
       /* DEMANDAS */
-      addDemanda: async (data) => {
+      addDemanda: (data) => enqueueDemanda(async () => {
         const id = crypto.randomUUID();
+        const reconciled = reconcileDemanda(data, data);
         const nova: Demanda = {
           ...data,
+          ...reconciled,
           id,
+          empresaId: get().activeEmpresaId || undefined,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
 
         try {
           await addItem('demandas', nova);
-          set((state) => ({ demandas: [...state.demandas, nova] }));
+          set((state) => ({ demandas: [...state.demandas.filter((item) => item.id !== id), nova] }));
           toast.success('Demanda criada com sucesso');
           return id;
         } catch (err) {
           toast.error('Erro ao criar demanda');
           throw err;
         }
-      },
+      }),
 
-      updateDemanda: async (id, data) => {
+      updateDemanda: (id, data, options) => enqueueDemanda(async () => {
         const current = get().demandas.find((d) => d.id === id);
         if (!current) return;
 
         const updated: Demanda = {
           ...current,
-          ...data,
+          ...reconcileDemanda(current, data),
           updatedAt: new Date().toISOString(),
         };
 
@@ -447,23 +538,56 @@ export const useAppStore = create<AppState>()(
           set((state) => ({
             demandas: state.demandas.map((d) => (d.id === id ? updated : d)),
           }));
-          toast.success('Demanda atualizada');
+          if (!options?.silent) toast.success('Demanda atualizada');
         } catch (err) {
           toast.error('Erro ao atualizar demanda');
+          throw err;
         }
-      },
+      }),
 
-      deleteDemanda: async (id) => {
+      patchDemandas: (patches, options) => enqueueDemanda(() => applyDemandaPatches(get, set, patches, options)),
+
+      moveDemandaOnBoard: (id, columnId, index) => enqueueDemanda(async () => {
+        const changes = placeOnBoard(get().demandas, { id, columnId, index });
+        await applyDemandaPatches(
+          get,
+          set,
+          changes.map((change) => ({
+            id: change.id,
+            data: { boardColumn: change.boardColumn, boardOrder: change.boardOrder, status: change.status },
+          })),
+          { silent: true }
+        );
+      }),
+
+      moveColumnDemandas: (fromColumn, toColumn) => enqueueDemanda(async () => {
+        const before = new Map(get().demandas.map((item) => [item.id, item.boardColumn]));
+        const changes = moveColumnOnBoard(get().demandas, fromColumn, toColumn);
+        const moved = changes.filter((change) => change.boardColumn === toColumn && before.get(change.id) !== toColumn).length;
+        await applyDemandaPatches(
+          get,
+          set,
+          changes.map((change) => ({
+            id: change.id,
+            data: { boardColumn: change.boardColumn, boardOrder: change.boardOrder, status: change.status },
+          })),
+          { silent: true }
+        );
+        return moved;
+      }),
+
+      deleteDemanda: (id, options) => enqueueDemanda(async () => {
         try {
           await deleteItem('demandas', id);
           set((state) => ({
             demandas: state.demandas.filter((d) => d.id !== id),
           }));
-          toast.success('Demanda excluída');
+          if (!options?.silent) toast.success('Demanda excluída');
         } catch (err) {
           toast.error('Erro ao excluir demanda');
+          throw err;
         }
-      },
+      }),
 
       /* NOTAS */
       addNota: async (data) => {
@@ -471,6 +595,7 @@ export const useAppStore = create<AppState>()(
         const nova: Nota = {
           ...data,
           id,
+          empresaId: get().activeEmpresaId || undefined,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -512,6 +637,7 @@ export const useAppStore = create<AppState>()(
         const nova: ChatMensagem = {
           ...data,
           id,
+          empresaId: get().activeEmpresaId || undefined,
           createdAt: new Date().toISOString(),
         };
 
@@ -520,12 +646,23 @@ export const useAppStore = create<AppState>()(
         return id;
       },
 
+      updateChatMensagem: async (id, data) => {
+        const current = get().chatMensagens.find((item) => item.id === id);
+        if (!current) return;
+        const updated = { ...current, ...data, updatedAt: new Date().toISOString() };
+        await updateItem('chatMensagens', updated);
+        set((state) => ({
+          chatMensagens: state.chatMensagens.map((item) => (item.id === id ? updated : item)),
+        }));
+      },
+
       /* PROJETOS */
       addProjeto: async (data) => {
         const id = crypto.randomUUID();
         const novo: Projeto = {
           ...data,
           id,
+          empresaId: get().activeEmpresaId || undefined,
           createdAt: new Date().toISOString(),
         };
 
@@ -565,6 +702,7 @@ export const useAppStore = create<AppState>()(
         const novo: Objetivo = {
           ...data,
           id,
+          empresaId: get().activeEmpresaId || undefined,
           createdAt: new Date().toISOString(),
         };
 
@@ -605,6 +743,7 @@ addNotification: async (data) => {
   const nova: Notification = {
     ...data,
     id,
+    empresaId: get().activeEmpresaId || undefined,
     createdAt: new Date().toISOString(),
   };
 
@@ -701,6 +840,7 @@ clearNotifications: async () => {
         const novo: Membro = {
           ...data,
           id,
+          empresaId: get().activeEmpresaId || undefined,
           createdAt: new Date().toISOString(),
         };
 
@@ -749,6 +889,7 @@ clearNotifications: async () => {
         const novo: Template = {
           ...data,
           id,
+          empresaId: get().activeEmpresaId || undefined,
           createdAt: new Date().toISOString(),
         };
 
@@ -793,6 +934,7 @@ clearNotifications: async () => {
         const novo: TimeEntry = {
           ...data,
           id,
+          empresaId: get().activeEmpresaId || undefined,
           createdAt: new Date().toISOString(),
         };
 
@@ -803,6 +945,51 @@ clearNotifications: async () => {
       deleteTimeEntry: async (id) => {
         await deleteItem('timeEntries', id);
         set((state) => ({ timeEntries: state.timeEntries.filter((e) => e.id !== id) }));
+      },
+
+      addEmpresa: async (data) => {
+        const id = crypto.randomUUID();
+        const now = new Date().toISOString();
+        const empresa: Empresa = { ...data, id, createdAt: now, updatedAt: now };
+        await addItem('empresas', empresa);
+        await rememberEmpresa(id);
+        await get().loadAll();
+        toast.success(`${empresa.name} criada. Os dados dela ficam separados.`);
+        return id;
+      },
+
+      updateEmpresa: async (id, data) => {
+        const current = get().empresas.find((empresa) => empresa.id === id);
+        if (!current) return;
+        const updated: Empresa = { ...current, ...data, updatedAt: new Date().toISOString() };
+        await updateItem('empresas', updated);
+        set((state) => ({
+          empresas: state.empresas.map((empresa) => (empresa.id === id ? updated : empresa)),
+        }));
+        toast.success('Empresa atualizada');
+      },
+
+      deleteEmpresa: async (id) => {
+        if (get().empresas.length <= 1) {
+          toast.error('Mantenha ao menos uma empresa.');
+          return;
+        }
+        const removed = get().empresas.find((empresa) => empresa.id === id);
+        await purgeEmpresa(id);
+        if (get().activeEmpresaId === id) {
+          const next = get().empresas.find((empresa) => empresa.id !== id);
+          if (next) await rememberEmpresa(next.id);
+        }
+        await get().loadAll();
+        toast.success(removed ? `${removed.name} removida com os dados dela.` : 'Empresa removida');
+      },
+
+      setActiveEmpresa: async (id) => {
+        const empresa = get().empresas.find((item) => item.id === id);
+        if (!empresa || id === get().activeEmpresaId) return;
+        await rememberEmpresa(id);
+        await get().loadAll();
+        toast.success(`Agora você está em ${empresa.name}`);
       },
 
       /* TRADUÇÃO */
@@ -834,7 +1021,7 @@ clearNotifications: async () => {
             }
           }
 
-          set({ demandas, notas });
+          await get().loadAll();
           toast.success('Conteúdo traduzido');
         } catch (err) {
           toast.error('Erro na tradução');

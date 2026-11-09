@@ -4,44 +4,57 @@ import { useTranslation } from '../i18n/useTranslation';
 import { MessageSquare, Send, Loader2, Copy, Reply, ThumbsUp } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import PageHeader from '../components/layout/PageHeader';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
 // Adicione date-fns para timestamps relativos (instale via npm install date-fns)
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 // Adicione react-markdown e remark-gfm (instale via npm install react-markdown remark-gfm)
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-// Adicione uuid (instale via npm install uuid)
-import { v4 as uuidv4 } from 'uuid';
-
 export default function ChatGlobal() {
   const { t } = useTranslation();
-  const { user, isLoading } = useAppStore(); // Removido chatMensagens do store, usando local
+  const { user, isLoading, chatMensagens, addChatMensagem, updateChatMensagem } = useAppStore();
 
-  const [mensagens, setMensagens] = useState<any[]>([]);
   const [novaMensagem, setNovaMensagem] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<any | null>(null);
   const [search, setSearch] = useState('');
   const chatRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imported = useRef(false);
 
-  // Carrega mensagens do localStorage
+  const mensagens = useMemo(
+    () => chatMensagens.filter((item) => !item.demandaId && (item.channel === 'global' || !item.channel)),
+    [chatMensagens]
+  );
+
   useEffect(() => {
+    if (imported.current || isLoading) return;
+    imported.current = true;
+    if (mensagens.length > 0) return;
     const saved = localStorage.getItem('chat_global');
-    if (saved) {
-      setMensagens(JSON.parse(saved));
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return;
+      parsed
+        .filter((item) => item?.message && item.senderId !== 'grok')
+        .forEach((item) => {
+          addChatMensagem({
+            message: String(item.message),
+            senderId: item.senderId,
+            senderName: item.senderName,
+            channel: 'global',
+            replyToId: item.replyToId,
+            reactions: Array.isArray(item.reactions) ? item.reactions : [],
+          });
+        });
+    } catch {
+      /* histórico local inválido */
     }
-  }, []);
-
-  // Salva mensagens no localStorage
-  useEffect(() => {
-    localStorage.setItem('chat_global', JSON.stringify(mensagens));
-  }, [mensagens]);
+  }, [addChatMensagem, isLoading, mensagens.length]);
 
   // Ajusta altura da textarea automaticamente
   useEffect(() => {
@@ -73,60 +86,26 @@ export default function ChatGlobal() {
     return filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [mensagens, search]);
 
-  const handleEnviar = () => {
+  const handleEnviar = async () => {
     const trimmed = novaMensagem.trim();
-    if (!trimmed) return;
-
-    const userMessage = {
-      id: uuidv4(),
-      message: trimmed,
-      senderId: user?.id || 'current-user',
-      senderName: user?.name || 'Pedro',
-      createdAt: new Date().toISOString(),
-      replyToId: replyingTo?.id,
-      reactions: [],
-    };
-
-    setMensagens((prev) => [...prev, userMessage]);
-    setNovaMensagem('');
-    setReplyingTo(null);
-    toast.success('Mensagem enviada');
-
-    // Simula resposta da IA com streaming
-    const botId = uuidv4();
-    const botMessage = {
-      id: botId,
-      message: '',
-      senderId: 'grok',
-      senderName: 'Grok',
-      createdAt: new Date().toISOString(),
-      reactions: [],
-    };
-    setMensagens((prev) => [...prev, botMessage]);
-
-    // Resposta simulada completa
-    const fullResponse = `Olá, Pedro! Você disse: "${trimmed}".
-
-Esta é uma resposta simulada porque não há backend ou API integrada ainda.
-
-Em uma aplicação real, aqui viria a resposta gerada por uma IA como eu, o Grok, respondendo corretamente à sua pergunta sobre qualquer tópico.
-
-Por exemplo, se você perguntar sobre programação, eu explicaria o código, ou sobre ciência, fatos interessantes.
-
-Por enquanto, imagine que eu estou respondendo de forma inteligente! 😊`;
-
-    let index = 0;
-    const streamInterval = setInterval(() => {
-      if (index < fullResponse.length) {
-        const current = fullResponse.slice(0, index + 1);
-        setMensagens((prev) =>
-          prev.map((m) => (m.id === botId ? { ...m, message: current } : m))
-        );
-        index++;
-      } else {
-        clearInterval(streamInterval);
-      }
-    }, 20); // Velocidade do streaming
+    if (!trimmed || enviando) return;
+    setEnviando(true);
+    try {
+      await addChatMensagem({
+        message: trimmed,
+        senderId: user?.id || 'current-user',
+        senderName: user?.name || 'Você',
+        channel: 'global',
+        replyToId: replyingTo?.id,
+        reactions: [],
+      });
+      setNovaMensagem('');
+      setReplyingTo(null);
+    } catch {
+      toast.error('Não foi possível enviar');
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const handleCopy = (text: string) => {
@@ -135,17 +114,10 @@ Por enquanto, imagine que eu estou respondendo de forma inteligente! 😊`;
   };
 
   const handleReact = (id: string, emoji: string) => {
-    setMensagens((prev) =>
-      prev.map((m) => {
-        if (m.id === id) {
-          const reactions = m.reactions || [];
-          if (!reactions.includes(emoji)) {
-            return { ...m, reactions: [...reactions, emoji] };
-          }
-        }
-        return m;
-      })
-    );
+    const current = mensagens.find((item) => item.id === id);
+    const reactions = current?.reactions || [];
+    if (reactions.includes(emoji)) return;
+    updateChatMensagem(id, { reactions: [...reactions, emoji] });
   };
 
   if (isLoading) {
@@ -160,12 +132,11 @@ Por enquanto, imagine que eu estou respondendo de forma inteligente! 😊`;
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100 flex flex-col">
       <div className="flex w-full min-w-0 flex-col px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div className="mx-auto max-w-5xl flex-1 flex flex-col pb-16">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-3 bg-zinc-800/70 rounded-xl shadow-md">
-              <MessageSquare className="w-7 h-7 text-indigo-400" />
-            </div>
-            <h1 className="text-2xl font-bold text-white sm:text-3xl">{t('chat') || 'Chat Global'}</h1>
-          </div>
+          <PageHeader
+            icon={<MessageSquare className="h-5 w-5" />}
+            title={t('chat') || 'Chat Global'}
+            description="Mensagens da equipe ficam salvas neste aparelho."
+          />
 
           <Card
             className="flex-1 flex flex-col shadow-2xl border border-zinc-800 bg-zinc-900/50 rounded-3xl overflow-hidden"
@@ -204,8 +175,6 @@ Por enquanto, imagine que eu estou respondendo de forma inteligente! 😊`;
                     <div
                       key={msg.id}
                       className={`flex items-start gap-3 animate-fade-in ${isMe ? 'justify-end' : 'justify-start'}`}
-                      onMouseEnter={() => setHoveredId(msg.id)}
-                      onMouseLeave={() => setHoveredId(null)}
                     >
                       {!isMe && (
                         <div className="relative">
@@ -253,33 +222,17 @@ Por enquanto, imagine que eu estou respondendo de forma inteligente! 😊`;
                             ))}
                           </div>
                         )}
-                        {hoveredId === msg.id && (
-                          <div
-                            className={`absolute top-0 -translate-y-1/2 flex gap-2 bg-zinc-800/80 p-1 rounded-full shadow-lg ${isMe ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'}`}
-                          >
-                            <button
-                              onClick={() => handleReact(msg.id, '👍')}
-                              className="hover:text-indigo-400"
-                              title="Reagir com 👍"
-                            >
-                              <ThumbsUp className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleCopy(msg.message)}
-                              className="hover:text-indigo-400"
-                              title="Copiar"
-                            >
-                              <Copy className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setReplyingTo(msg)}
-                              className="hover:text-indigo-400"
-                              title="Responder"
-                            >
-                              <Reply className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
+                        <div className="mt-2 flex gap-1">
+                          <button type="button" className="touch-target rounded-full px-2 hover:text-indigo-300" aria-label="Reagir" onClick={() => handleReact(msg.id, '👍')}>
+                            <ThumbsUp className="h-4 w-4" />
+                          </button>
+                          <button type="button" className="touch-target rounded-full px-2 hover:text-indigo-300" aria-label="Copiar" onClick={() => handleCopy(msg.message)}>
+                            <Copy className="h-4 w-4" />
+                          </button>
+                          <button type="button" className="touch-target rounded-full px-2 hover:text-indigo-300" aria-label="Responder" onClick={() => setReplyingTo(msg)}>
+                            <Reply className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                       {isMe && (
                         <img
@@ -295,7 +248,7 @@ Por enquanto, imagine que eu estou respondendo de forma inteligente! 😊`;
               <div ref={bottomRef} className="h-0" />
             </div>
 
-            <div className="p-6 border-t border-zinc-800 bg-zinc-900/50">
+            <div className="border-t border-zinc-800 bg-zinc-900/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
               {replyingTo && (
                 <div className="mb-3 bg-zinc-800/50 p-3 rounded-xl flex items-center justify-between">
                   <div>

@@ -1,116 +1,111 @@
-// components/kanban/SortableCard.tsx
+import { useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Calendar, Clock, User, GripVertical } from 'lucide-react';
+import { Calendar, Clock, User } from 'lucide-react';
+import { KANBAN_COLUMNS, formatPrazoLabel, isPrazoOverdue } from '../../lib/kanban';
 
 interface SortableCardProps {
-  id: string | number;
-  item: any;
+  id: string;
+  item: {
+    id: string;
+    title?: string;
+    description?: string;
+    priority?: string;
+    prazo?: string;
+    responsavel?: string;
+    esforcoEstimado?: number;
+    columnId?: string;
+  };
+  onOpen: () => void;
+  onMove: (columnId: string) => void;
 }
 
-export default function SortableCard({ id, item }: SortableCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
+const priorityClass: Record<string, string> = {
+  baixa: 'bg-emerald-500/15 text-emerald-300',
+  media: 'bg-amber-500/15 text-amber-300',
+  alta: 'bg-orange-500/15 text-orange-300',
+  urgente: 'bg-red-500/15 text-red-300',
+};
 
-  const style = {
-    transform: CSS.Transform.toString({
-      x: transform?.x || 0,
-      y: transform?.y || 0,
-      scaleX: isDragging ? 1.02 : 1,
-      scaleY: isDragging ? 1.02 : 1,
-    } as any),
-    transition,
-    opacity: isDragging ? 0.85 : 1,
-  };
-
-  const isOverdue =
-    item.prazo && new Date(item.prazo) < new Date() && item.status !== 'concluida';
-
-  const prioridadeColor = {
-    baixa: 'bg-emerald-700/40 text-emerald-400',
-    media: 'bg-yellow-700/40 text-yellow-400',
-    alta: 'bg-orange-700/40 text-orange-400',
-    urgente: 'bg-red-700/40 text-red-400', // corrigi 'critica' para 'urgente' (compatível com seu enum)
-  }[(item.priority?.toLowerCase() as any)] || 'bg-zinc-700 text-zinc-300';
+export default function SortableCard({ id, item, onOpen, onMove }: SortableCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const pointer = useRef<{ x: number; y: number } | null>(null);
+  const overdue = isPrazoOverdue(item.prazo, item.columnId);
+  const priority = item.priority?.toLowerCase() || 'media';
 
   return (
-    <div
+    <article
       ref={setNodeRef}
-      style={style}
-      className={`group relative p-4 bg-zinc-800 rounded-xl border border-zinc-700 shadow-sm transition-all
-        hover:shadow-lg hover:border-zinc-600
-        ${isDragging ? 'ring-2 ring-zinc-500 ring-offset-2 ring-offset-zinc-950 shadow-xl' : ''}
-      `}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        background: 'var(--card-elevated)',
+        borderColor: 'var(--border)',
+      }}
+      className={`kanban-card cursor-grab touch-manipulation rounded-2xl border p-3 shadow-sm active:cursor-grabbing ${
+        isDragging ? 'z-10 opacity-80 ring-2 ring-violet-400' : ''
+      }`}
+      {...attributes}
+      {...listeners}
+      onPointerDown={(event) => {
+        pointer.current = { x: event.clientX, y: event.clientY };
+      }}
+      onClick={(event) => {
+        const origin = pointer.current;
+        const moved = origin
+          ? Math.abs(event.clientX - origin.x) > 6 || Math.abs(event.clientY - origin.y) > 6
+          : false;
+        if (!moved && !isDragging) onOpen();
+      }}
     >
-      {/* Drag Handle */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute top-2 right-2 text-zinc-500 opacity-0 group-hover:opacity-100 transition cursor-grab active:cursor-grabbing"
-      >
-        <GripVertical className="w-4 h-4" />
-      </div>
-
-      {/* Título - SEM TRADUÇÃO AUTOMÁTICA */}
-      <h3 className="font-medium text-zinc-100 truncate pr-6">
-        {item.title || 'Sem título'}
-      </h3>
-
-      {/* Descrição - SEM TRADUÇÃO AUTOMÁTICA */}
+      <h3 className="text-sm font-medium leading-5">{item.title || 'Sem título'}</h3>
       {item.description && (
-        <p className="text-sm text-zinc-400 mt-1 line-clamp-2">
-          {item.description}
-        </p>
+        <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">{item.description}</p>
       )}
-
-      {/* Meta Info */}
-      <div className="mt-4 flex flex-wrap gap-2 text-xs">
-        {item.priority && (
-          <span
-            className={`px-2 py-0.5 rounded-full font-medium ${prioridadeColor}`}
-          >
-            {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}
-          </span>
-        )}
-
+      <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+        <span className={`rounded-full px-2 py-0.5 font-medium capitalize ${priorityClass[priority] || priorityClass.media}`}>
+          {priority}
+        </span>
         {item.prazo && (
-          <span
-            className={`flex items-center gap-1 ${
-              isOverdue ? 'text-red-400' : 'text-zinc-400'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            {new Date(item.prazo).toLocaleDateString('pt-BR')}
+          <span className={`inline-flex items-center gap-1 ${overdue ? 'text-red-300' : 'text-[var(--text-muted)]'}`}>
+            <Calendar size={12} />
+            {formatPrazoLabel(item.prazo)}
           </span>
         )}
-
         {item.responsavel && (
-          <span className="flex items-center gap-1 text-zinc-400">
-            <User className="w-3.5 h-3.5" />
+          <span className="inline-flex items-center gap-1 text-[var(--text-muted)]">
+            <User size={12} />
             {item.responsavel}
           </span>
         )}
-
-        {item.esforcoEstimado && (
-          <span className="flex items-center gap-1 text-zinc-400">
-            <Clock className="w-3.5 h-3.5" />
-            {item.esforcoEstimado} h
+        {!!item.esforcoEstimado && (
+          <span className="inline-flex items-center gap-1 text-[var(--text-muted)]">
+            <Clock size={12} />
+            {item.esforcoEstimado}h
           </span>
         )}
+        {overdue && <span className="font-medium text-red-300">Atrasada</span>}
       </div>
-
-      {/* Indicador de atraso */}
-      {isOverdue && (
-        <div className="absolute bottom-2 right-3 text-[10px] text-red-400 font-medium">
-          Atrasada
-        </div>
-      )}
-    </div>
+      <label className="mt-3 block text-[11px] text-[var(--text-muted)]">
+        Mover para
+        <select
+          aria-label="Mover para"
+          value={item.columnId || 'backlog'}
+          className="havk-field mt-1 min-h-11 w-full text-sm"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => {
+            event.stopPropagation();
+            if (event.target.value !== item.columnId) onMove(event.target.value);
+          }}
+        >
+          {KANBAN_COLUMNS.map((column) => (
+            <option key={column.id} value={column.id}>
+              {column.title}
+            </option>
+          ))}
+        </select>
+      </label>
+    </article>
   );
 }

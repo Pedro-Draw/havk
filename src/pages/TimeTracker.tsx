@@ -15,6 +15,7 @@ import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
+import { confirmAction } from '../lib/confirm';
 
 export default function TimeTracker() {
   const { t } = useTranslation();
@@ -105,7 +106,13 @@ export default function TimeTracker() {
   };
 
   const handleClearHistory = async () => {
-    if (!confirm(t('confirmarLimparHistorico') || 'Tem certeza que deseja limpar todo o histórico?')) return;
+    const accepted = await confirmAction({
+      title: 'Limpar histórico?',
+      message: t('confirmarLimparHistorico') || 'Todo o histórico de tempo desta empresa será apagado.',
+      confirmLabel: 'Limpar',
+      tone: 'danger',
+    });
+    if (!accepted) return;
 
     try {
       // Como o store não tem clearAll ainda, deletamos um por um (ou adicione clearTimeEntries no store)

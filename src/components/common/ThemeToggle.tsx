@@ -46,15 +46,7 @@ export default function ThemeToggle() {
       onClick={() => setTheme(nextTheme)}
       aria-label={getLabel()}
       title={getLabel()}
-      className="
-        p-2 rounded-full
-        transition-all duration-300
-        text-zinc-400
-        hover:bg-zinc-800
-        hover:text-zinc-100
-        focus:outline-none focus:ring-2 focus:ring-zinc-400
-        active:scale-95
-      "
+      className="glass-icon"
     >
       <Icon className="w-5 h-5 transition-transform duration-300" />
     </button>

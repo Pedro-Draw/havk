@@ -45,6 +45,7 @@ export default {
     objetivos: 'Objectives',
     relatorios: 'Reports',
     equipe: 'Team',
+    empresas: 'Companies',
     chatGlobal: 'Chat',
     chat: 'Chat',
     templates: 'Templates',

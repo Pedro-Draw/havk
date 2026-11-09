@@ -25,6 +25,8 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
+import { confirmAction } from '../lib/confirm';
+import ViewSwitch from '../components/demandas/ViewSwitch';
 
 export type DemandaTipo = 'bug' | 'feature' | 'melhoria' | 'inovacao' | 'outro';
 type Dificuldade = 'muito-facil' | 'facil' | 'media' | 'dificil' | 'muito-dificil';
@@ -50,10 +52,12 @@ export default function DemandaDetail() {
     notas,
     addDemanda,
     updateDemanda,
+    deleteDemanda,
     addChatMensagem,
     addNota,
     updateNota,
     isLoading,
+    user,
   } = useAppStore();
 
   const [tab, setTab] = useState<'detalhes' | 'chat' | 'notas' | 'anexos' | 'historico'>('detalhes');
@@ -90,10 +94,22 @@ export default function DemandaDetail() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [priorityFilter, setPriorityFilter] = useState('todos');
+  const [listMode, setListMode] = useState<'cards' | 'table'>('cards');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const demanda = idParam ? demandas.find(d => d.id === idParam) : null;
+  const isNewRoute = idParam === 'nova';
+  const demanda = idParam && !isNewRoute ? demandas.find(d => d.id === idParam) : null;
   const filteredChat = chatMensagens.filter(m => m.demandaId === idParam);
   const existingNota = notas.find(n => n.demandaId === idParam);
+
+  useEffect(() => {
+    if (isNewRoute) setShowCreateModal(true);
+  }, [isNewRoute]);
+
+  const closeCreate = () => {
+    setShowCreateModal(false);
+    if (isNewRoute) navigate('/demandas', { replace: true });
+  };
 
   useEffect(() => {
     if (existingNota) {
@@ -134,11 +150,14 @@ export default function DemandaDetail() {
   }, [isEditing]);
 
   // Função wrapper para navegação protegida
-  const protectedNavigate = (to: string) => {
+  const protectedNavigate = async (to: string) => {
     if (isEditing) {
-      const confirmed = window.confirm(
-        'Você tem alterações não salvas. Deseja sair sem salvar ou cancelar?'
-      );
+      const confirmed = await confirmAction({
+        title: 'Sair sem salvar?',
+        message: 'Há alterações que ainda não foram salvas.',
+        confirmLabel: 'Sair',
+        tone: 'danger',
+      });
       if (confirmed) {
         // Se confirmar, limpa o estado de edição antes de navegar
         setIsEditing(false);
@@ -291,7 +310,7 @@ export default function DemandaDetail() {
       const newDemanda = {
         ...newDemandaForm,
         id: crypto.randomUUID(),
-        createdBy: 'Pedrin',
+        createdBy: user?.name || user?.email || 'Você',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         anexos: [],
@@ -408,7 +427,7 @@ export default function DemandaDetail() {
     );
   }
 
-  if (!idParam) {
+  if (!idParam || isNewRoute) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100">
         <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
@@ -426,14 +445,17 @@ export default function DemandaDetail() {
                 </div>
               </div>
 
-              <Button
-                variant="primary"
-                size="lg"
-                icon={<Plus className="w-5 h-5" />}
-                onClick={() => setShowCreateModal(true)}
-              >
-                Nova Demanda
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <ViewSwitch />
+                <Button
+                  variant="primary"
+                  size="lg"
+                  icon={<Plus className="w-5 h-5" />}
+                  onClick={() => setShowCreateModal(true)}
+                >
+                  Nova Demanda
+                </Button>
+              </div>
             </div>
 
             <div className="mb-8 flex flex-col sm:flex-row gap-4 items-end">
@@ -473,6 +495,48 @@ export default function DemandaDetail() {
               </select>
             </div>
 
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <button type="button" className={`touch-target rounded-xl px-3 text-sm ${listMode === 'cards' ? 'glass-button glass-button-primary' : 'glass-button glass-button-secondary'}`} onClick={() => setListMode('cards')}>Cards</button>
+              <button type="button" className={`touch-target rounded-xl px-3 text-sm ${listMode === 'table' ? 'glass-button glass-button-primary' : 'glass-button glass-button-secondary'}`} onClick={() => setListMode('table')}>Tabela</button>
+              {selectedIds.length > 0 && (
+                <>
+                  <span className="text-sm text-zinc-400">{selectedIds.length} selecionadas</span>
+                  <select
+                    className="havk-field min-h-11 text-sm"
+                    defaultValue=""
+                    onChange={async (event) => {
+                      const status = event.target.value;
+                      if (!status) return;
+                      for (const id of selectedIds) {
+                        await updateDemanda(id, { status: status as 'aberta' | 'em-progresso' | 'concluida' | 'bloqueada' }, { silent: true });
+                      }
+                      toast.success('Status atualizado');
+                      setSelectedIds([]);
+                      event.target.value = '';
+                    }}
+                  >
+                    <option value="">Mudar status</option>
+                    <option value="aberta">Aberta</option>
+                    <option value="em-progresso">Em progresso</option>
+                    <option value="bloqueada">Bloqueada</option>
+                    <option value="concluida">Concluída</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="touch-target rounded-xl px-3 text-sm text-red-300 glass-button glass-button-secondary"
+                    onClick={async () => {
+                      if (!await confirmAction({ title: 'Excluir selecionadas?', message: 'As demandas marcadas saem desta empresa.', confirmLabel: 'Excluir', tone: 'danger' })) return;
+                      for (const id of selectedIds) await deleteDemanda(id, { silent: true });
+                      toast.success('Demandas excluídas');
+                      setSelectedIds([]);
+                    }}
+                  >
+                    Excluir
+                  </button>
+                </>
+              )}
+            </div>
+
             {filteredDemandas.length === 0 ? (
               <Card className="text-center py-24 border-zinc-800/50 bg-zinc-900/40 rounded-2xl">
                 <AlertTriangle className="w-24 h-24 mx-auto mb-6 text-amber-500/70" />
@@ -485,7 +549,43 @@ export default function DemandaDetail() {
                 </Button>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <>
+              <div className={`${listMode === 'table' ? 'hidden md:block' : 'hidden'} mb-6 overflow-x-auto rounded-2xl border border-zinc-800`}>
+                <table className="min-w-full text-sm">
+                  <thead className="bg-zinc-900 text-left text-zinc-400">
+                    <tr>
+                      <th className="p-3" />
+                      <th className="p-3">Título</th>
+                      <th className="p-3">Responsável</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Prioridade</th>
+                      <th className="p-3">Prazo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDemandas.map((dem) => (
+                      <tr key={dem.id} className="border-t border-zinc-800">
+                        <td className="p-3">
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5"
+                            checked={selectedIds.includes(dem.id)}
+                            onChange={() => setSelectedIds((current) => current.includes(dem.id) ? current.filter((id) => id !== dem.id) : [...current, dem.id])}
+                          />
+                        </td>
+                        <td className="p-3">
+                          <button type="button" className="text-left font-medium" onClick={() => protectedNavigate(`/demandas/${dem.id}`)}>{dem.title || 'Sem título'}</button>
+                        </td>
+                        <td className="p-3">{dem.responsavel || '—'}</td>
+                        <td className="p-3">{dem.status}</td>
+                        <td className="p-3">{dem.priority}</td>
+                        <td className="p-3">{getPrazoInfo(dem.prazo, dem.status).label}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className={`grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${listMode === 'table' ? 'md:hidden' : ''}`}>
                 {filteredDemandas.map((dem, idx) => {
                   const { label, colorClass } = getPrazoInfo(dem.prazo, dem.status);
                   const uniqueKey = dem.id || `demanda-fallback-${idx}`;
@@ -498,6 +598,15 @@ export default function DemandaDetail() {
                       onClick={() => protectedNavigate(`/demandas/${dem.id}`)}
                     >
                       <div className="p-6 flex flex-col flex-1">
+                        <label className="mb-3 flex items-center gap-2 text-sm text-zinc-400" onClick={(event) => event.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5"
+                            checked={selectedIds.includes(dem.id)}
+                            onChange={() => setSelectedIds((current) => current.includes(dem.id) ? current.filter((id) => id !== dem.id) : [...current, dem.id])}
+                          />
+                          Selecionar
+                        </label>
                         <h3 className="font-semibold text-xl text-white mb-4 line-clamp-2 leading-tight">
                           {dem.title || 'Sem título'}
                         </h3>
@@ -554,16 +663,17 @@ export default function DemandaDetail() {
                   );
                 })}
               </div>
+              </>
             )}
           </div>
         </div>
 
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex bg-black/70 sm:items-center sm:justify-center sm:p-4">
+            <div className="h-[100dvh] w-full overflow-y-auto border border-zinc-700 bg-zinc-900 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))] sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl sm:p-8">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Criar Nova Demanda</h2>
-                <button onClick={() => setShowCreateModal(false)} className="text-zinc-400 hover:text-white">
+                <button onClick={closeCreate} className="glass-icon" aria-label="Fechar">
                   <X className="w-7 h-7" />
                 </button>
               </div>
@@ -675,7 +785,7 @@ export default function DemandaDetail() {
                 </div>
 
                 <div className="flex justify-end gap-4 pt-6">
-                  <Button variant="secondary" size="lg" onClick={() => setShowCreateModal(false)}>
+                  <Button variant="secondary" size="lg" onClick={closeCreate}>
                     Cancelar
                   </Button>
                   <Button
@@ -791,15 +901,18 @@ export default function DemandaDetail() {
           </div>
 
           {/* Tabs - também protegidas */}
-          <div className="flex overflow-x-auto border-b border-zinc-800/80 mb-10 scrollbar-hide">
+          <div className="mb-6 flex overflow-x-auto border-b border-[var(--border)]">
             {['detalhes', 'chat', 'notas', 'anexos', 'historico'].map(key => (
               <button
                 key={key}
-                onClick={() => {
+                onClick={async () => {
                   if (isEditing) {
-                    const confirmed = window.confirm(
-                      'Você tem alterações não salvas. Deseja mudar de aba sem salvar ou cancelar?'
-                    );
+                    const confirmed = await confirmAction({
+                      title: 'Mudar de aba sem salvar?',
+                      message: 'Há alterações que ainda não foram salvas.',
+                      confirmLabel: 'Continuar',
+                      tone: 'danger',
+                    });
                     if (confirmed) {
                       setIsEditing(false);
                       setTempAnexos([]);
@@ -810,10 +923,10 @@ export default function DemandaDetail() {
                   }
                 }}
                 className={`
-                  group flex items-center gap-3 px-7 py-5 font-medium whitespace-nowrap transition-all duration-200
+                  group flex shrink-0 items-center gap-2 px-3 py-3 text-sm font-medium whitespace-nowrap transition-colors sm:px-5
                   ${tab === key
-                    ? 'border-b-4 border-indigo-500 text-indigo-300 bg-zinc-900/70'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 border-b-4 border-transparent'}
+                    ? 'border-b-2 border-violet-500 text-[var(--text)]'
+                    : 'border-b-2 border-transparent text-[var(--text-muted)]'}
                 `}
               >
                 {key === 'detalhes' && <FileText className="w-5 h-5" />}

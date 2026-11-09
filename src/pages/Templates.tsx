@@ -16,6 +16,7 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
+import { confirmAction } from '../lib/confirm';
 
 export default function Templates() {
   const { t } = useTranslation();
@@ -88,7 +89,13 @@ export default function Templates() {
   };
 
   const deleteTemplateLocal = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este template?')) return;
+    const accepted = await confirmAction({
+      title: 'Excluir template?',
+      message: 'Este modelo deixa de aparecer nesta empresa.',
+      confirmLabel: 'Excluir',
+      tone: 'danger',
+    });
+    if (!accepted) return;
 
     try {
       await deleteTemplate(id);

@@ -19,6 +19,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
+import { confirmAction } from '../lib/confirm';
 import clsx from 'clsx';
 
 type NotificationType = 'success' | 'warning' | 'error';
@@ -57,6 +58,7 @@ export default function Inbox() {
     updateNotification,
     deleteNotification,
     clearNotifications,
+    markAllNotificationsRead,
     isLoading,
   } = useAppStore();
 
@@ -201,6 +203,24 @@ export default function Inbox() {
   const displayed = processedNotifications.slice(0, visibleCount);
   const hasMore = visibleCount < processedNotifications.length;
 
+  const groupedDisplayed = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const groups = [
+      { id: 'hoje', label: 'Hoje', items: [] as AppNotification[] },
+      { id: 'ontem', label: 'Ontem', items: [] as AppNotification[] },
+      { id: 'anteriores', label: 'Anteriores', items: [] as AppNotification[] },
+    ];
+    displayed.forEach((notif) => {
+      const day = new Date(notif.createdAt);
+      day.setHours(0, 0, 0, 0);
+      const diff = Math.round((start.getTime() - day.getTime()) / 86400000);
+      const index = diff <= 0 ? 0 : diff === 1 ? 1 : 2;
+      groups[index].items.push(notif);
+    });
+    return groups.filter((group) => group.items.length > 0);
+  }, [displayed]);
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -234,7 +254,13 @@ export default function Inbox() {
   };
 
   const deleteSelected = async () => {
-    if (!confirm(`Excluir ${selectedIds.size} notificação(ões)?`)) return;
+    const accepted = await confirmAction({
+      title: 'Excluir avisos?',
+      message: `${selectedIds.size} aviso(s) serão removidos.`,
+      confirmLabel: 'Excluir',
+      tone: 'danger',
+    });
+    if (!accepted) return;
     for (const id of selectedIds) await deleteNotification(id);
     toast.success('Selecionadas excluídas');
     cancelSelectMode();
@@ -278,7 +304,7 @@ export default function Inbox() {
 
             <div className="flex flex-wrap gap-3 sm:gap-4 w-full sm:w-auto">
               {unreadCount > 0 && (
-                <Button variant="outline" size="md" className="text-sm sm:text-base border-indigo-500/40 hover:border-indigo-400 flex-1 sm:flex-none">
+                <Button variant="outline" size="md" onClick={() => markAllNotificationsRead()} className="text-sm sm:text-base border-indigo-500/40 hover:border-indigo-400 flex-1 sm:flex-none">
                   <Check className="w-4 h-4 mr-2" />
                   Marcar todas
                 </Button>
@@ -376,7 +402,10 @@ export default function Inbox() {
                   {searchTerm && <p className="mt-3 text-xs sm:text-sm">Tente ajustar os termos de busca</p>}
                 </div>
               ) : (
-                displayed.map((notif) => {
+                groupedDisplayed.map((group) => (
+                <section key={group.id} className="space-y-3">
+                  <h2 className="px-1 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{group.label}</h2>
+                {group.items.map((notif) => {
                   const isSelected = selectedIds.has(notif.id);
                   const typeStyles = {
                     success: 'bg-green-950/30 border-green-800/40 text-green-300',
@@ -435,7 +464,7 @@ export default function Inbox() {
                       </div>
 
                       <div className={clsx(
-                        "flex flex-col gap-2 sm:gap-3 items-end opacity-0 group-hover:opacity-100 transition-opacity duration-200",
+                        "flex flex-col gap-2 sm:gap-3 items-end opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100",
                         selectMode && "opacity-70 group-hover:opacity-70",
                         "text-xs sm:text-sm"
                       )}>
@@ -473,7 +502,9 @@ export default function Inbox() {
                       </div>
                     </div>
                   );
-                })
+                })}
+                </section>
+                ))
               )}
 
               {hasMore && (
@@ -495,7 +526,7 @@ export default function Inbox() {
 
       {/* Barra flutuante de ações em massa - ajustada para mobile */}
       {selectMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-4 sm:bottom-6 left-4 sm:left-1/2 right-4 sm:right-auto sm:-translate-x-1/2 z-50 bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/80 rounded-xl sm:rounded-2xl shadow-2xl shadow-black/60 px-4 py-3 sm:px-6 sm:py-4 flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-center gap-4 sm:gap-6">
+        <div className="glass-popover fixed bottom-4 left-4 right-4 z-50 flex flex-wrap items-center justify-between gap-4 rounded-2xl px-4 py-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:flex-nowrap sm:justify-center sm:px-6 sm:py-4">
           <span className="text-zinc-300 font-medium text-sm sm:text-base">
             {selectedIds.size} selecionada{selectedIds.size > 1 ? 's' : ''}
           </span>

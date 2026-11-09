@@ -22,6 +22,8 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { mapAuthError } from '../lib/authSession';
+import { devicePermission, requestDevicePermission } from '../lib/deviceNotify';
+import { confirmAction } from '../lib/confirm';
 
 export default function Configuracoes() {
   const { t, i18n } = useTranslation();
@@ -265,44 +267,21 @@ export default function Configuracoes() {
     toast.success('Dados exportados com sucesso');
   };
 
-  const handleLogout = () => {
-  toast((toastId) => (
-    <div className="flex flex-col gap-4 w-80 p-4 rounded-xl
-      bg-white dark:bg-zinc-900
-      border border-zinc-200 dark:border-zinc-700
-      text-zinc-900 dark:text-zinc-100
-      shadow-xl">
-
-      <p className="font-medium">Tem certeza que deseja sair?</p>
-
-      <div className="flex gap-3 justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => toast.dismiss(toastId.id)}
-        >
-          Cancelar
-        </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={async () => {
-              toast.dismiss(toastId.id);
-              try {
-                sessionStorage.removeItem('havk-dev-session');
-                await firebaseSignOut(auth);
-              } catch {
-                // ignora erro do firebase, faz logout local de qualquer forma
-              }
-              await logout();
-              window.location.href = '/login';
-            }}
-          >
-            Sim, sair
-          </Button>
-        </div>
-      </div>
-    ), { duration: 10000 });
+  const handleLogout = async () => {
+    const accepted = await confirmAction({
+      title: 'Sair da conta?',
+      message: 'Você volta para a tela de entrada. Os dados da empresa continuam neste aparelho.',
+      confirmLabel: 'Sair',
+    });
+    if (!accepted) return;
+    try {
+      sessionStorage.removeItem('havk-dev-session');
+      await firebaseSignOut(auth);
+    } catch {
+      /* o encerramento local segue mesmo assim */
+    }
+    await logout();
+    window.location.href = '/login';
   };
 
   const handleDeleteAccount = () => {
@@ -712,7 +691,28 @@ export default function Configuracoes() {
               {activeSection === 'notificacoes' && (
                 <Card title={t('preferenciasDeNotificacoes')} className="border-zinc-800 shadow-xl">
                   <div className="space-y-5">
+                    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6">
+                      <p className="text-xl font-medium">Central do dispositivo</p>
+                      <p className="mt-1 text-base text-zinc-400">Avisos com a logo da Havk e a mensagem da ação, na central de notificações deste aparelho.</p>
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <Button
+                          variant="primary"
+                          onClick={async () => {
+                            const result = await requestDevicePermission();
+                            if (result !== 'granted') {
+                              toast.error('Libere as notificações da Havk nas configurações do sistema.');
+                              return;
+                            }
+                            setNotificationPref('device', true);
+                            toast.success('A Havk vai avisar neste dispositivo, com a logo e a mensagem.');
+                          }}
+                        >
+                          {devicePermission() === 'granted' ? 'Enviar teste' : 'Ativar neste dispositivo'}
+                        </Button>
+                      </div>
+                    </div>
                     {[
+                      { key: 'device', title: 'Notificações do dispositivo', desc: 'Mostrar os avisos da Havk fora do aplicativo' },
                       { key: 'newDemanda', title: 'Novas demandas', desc: 'Receber quando uma nova demanda for criada' },
                       { key: 'chat', title: 'Mensagens no chat', desc: 'Notificações de novas mensagens' },
                       { key: 'prazos', title: 'Prazos próximos', desc: 'Lembretes de prazos se aproximando' },

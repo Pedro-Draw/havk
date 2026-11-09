@@ -19,6 +19,7 @@ export const PRIMARY_ROUTES = new Set([
   '/objetivos',
   '/relatorios',
   '/equipe',
+  '/empresas',
   '/chat',
   '/configuracoes',
 ])

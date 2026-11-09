@@ -1,12 +1,16 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Bell, Search, Menu, X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Bell, Search, Menu, ChevronRight, ChevronLeft, Command, Star, PanelLeftClose } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useTranslation } from '../../i18n/useTranslation';
 import ThemeToggle from '../common/ThemeToggle';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { MOBILE_MENU_EVENT, PRIMARY_ROUTES, screenParent, setMobileMenuOpen } from '../../lib/mobileNav';
+import { openCommandPalette } from '../../lib/navigation';
+import { PLACES_EVENT, isFavorite, toggleFavorite } from '../../lib/places';
+import { useAuth } from '../../hooks/useAuth';
+import CompanySwitch from './CompanySwitch';
 
 function QuickSearch() {
   const navigate = useNavigate();
@@ -65,10 +69,10 @@ function QuickSearch() {
         }}
         onFocus={() => setOpen(true)}
         placeholder="Buscar demandas e projetos"
-        className="w-full rounded-full border border-zinc-700 bg-zinc-900 py-1.5 pl-9 pr-3 text-base text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 sm:py-2 sm:pl-10 sm:pr-4 sm:text-sm"
+        className="havk-field rounded-full py-1.5 pl-9 pr-3 text-base sm:py-2 sm:pl-10 sm:pr-4 sm:text-sm"
       />
       {open && query.trim() && (
-        <div className="absolute left-0 right-0 z-50 mt-2 max-h-80 overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+        <div className="glass-popover overlay-scroll absolute left-0 right-0 z-50 mt-2 max-h-80 overflow-y-auto rounded-xl">
           {results.length === 0 ? (
             <p className="px-4 py-3 text-sm text-zinc-500">Nenhum resultado</p>
           ) : (
@@ -104,9 +108,12 @@ export default function Topbar() {
   const updateNotification = useAppStore((state) => state.updateNotification);
 
   const { t } = useTranslation();
+  const { signOut } = useAuth();
 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [favorite, setFavorite] = useState(() => isFavorite(location.pathname));
 
   const notificationRef = useRef<HTMLDivElement | null>(null);
 
@@ -123,6 +130,13 @@ export default function Topbar() {
   }, []);
 
   useEffect(() => {
+    const sync = () => setFavorite(isFavorite(location.pathname));
+    sync();
+    window.addEventListener(PLACES_EVENT, sync);
+    return () => window.removeEventListener(PLACES_EVENT, sync);
+  }, [location.pathname]);
+
+  useEffect(() => {
     const onState = (event: Event) => {
       setShowMobileMenu(Boolean((event as CustomEvent<boolean>).detail));
     };
@@ -131,11 +145,6 @@ export default function Topbar() {
   }, []);
 
   const handleLeadingButton = () => {
-    if (isSubscreen) {
-      setMobileMenuOpen(false);
-      navigate(screenParent(location.pathname));
-      return;
-    }
     setMobileMenuOpen(!showMobileMenu);
   };
 
@@ -152,69 +161,68 @@ export default function Topbar() {
   };
 
   return (
-    <header
-      className="
-        sticky top-0 z-30 w-full
-        border-b border-zinc-800 bg-zinc-950/95 backdrop-blur
-      "
-    >
-      <div className="grid h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-5">
-      {/* Esquerda */}
-      <div className="flex items-center gap-1.5 sm:gap-3">
+    <header className="glass-bar z-30 w-full shrink-0">
+      <div className="grid h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 lg:h-16 lg:gap-3 lg:px-5">
+      <div className="flex items-center gap-1.5">
         <button
           onClick={handleLeadingButton}
-          className="
-            -ml-1 rounded-full p-1.5
-            text-zinc-100
-            transition-colors
-            hover:bg-zinc-800
-            focus:outline-none focus:ring-2 focus:ring-zinc-400
-            lg:hidden
-          "
-          aria-label={isSubscreen ? 'Voltar' : showMobileMenu ? t('mobileMenu.fecharMenu') : t('mobileMenu.abrirMenu')}
+          className="glass-icon lg:hidden"
+          aria-label={showMobileMenu ? 'Recolher menu' : t('mobileMenu.abrirMenu')}
+          aria-expanded={showMobileMenu}
         >
-          {isSubscreen ? (
-            <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
-          ) : showMobileMenu ? (
-            <X className="h-5 w-5" strokeWidth={2} />
-          ) : (
-            <Menu className="h-5 w-5" strokeWidth={2} />
-          )}
+          {showMobileMenu ? <PanelLeftClose size={18} /> : <Menu size={18} />}
         </button>
+        {isSubscreen && (
+          <button
+            type="button"
+            className="glass-icon lg:hidden"
+            aria-label="Voltar"
+            onClick={() => navigate(screenParent(location.pathname))}
+          >
+            <ChevronLeft size={18} />
+          </button>
+        )}
 
         <Link
           to="/"
-          className="text-base font-semibold tracking-tight text-white lg:hidden"
+          className="text-base font-semibold tracking-tight lg:hidden"
         >
           Havk
         </Link>
       </div>
 
-      <div className="hidden min-w-0 justify-center sm:flex">
+      <div className="hidden min-w-0 justify-center lg:flex">
         <div className="w-full max-w-xl">
           <QuickSearch />
         </div>
       </div>
-      <div className="sm:hidden" />
 
-      {/* Direita */}
-      <div className="flex items-center justify-end gap-1 sm:gap-2">
+      <div className="flex items-center justify-end gap-1.5 lg:gap-2">
 
-        {/* Tema */}
-        <div className="shrink-0">
+        <div className="hidden lg:block">
+          <CompanySwitch />
+        </div>
+        <div className="hidden shrink-0 lg:block">
           <ThemeToggle />
         </div>
 
-        {/* Sino de notificações */}
+        <button
+          type="button"
+          className="glass-icon hidden lg:inline-flex"
+          aria-label={favorite ? 'Remover dos favoritos' : 'Favoritar esta página'}
+          aria-pressed={favorite}
+          onClick={() => toggleFavorite(location.pathname)}
+        >
+          <Star className={`h-4 w-4 ${favorite ? 'fill-current' : ''}`} />
+        </button>
+        <button type="button" className="glass-icon hidden lg:inline-flex" aria-label="Busca global" onClick={openCommandPalette}>
+          <Command className="h-4 w-4" />
+        </button>
+
         <div className="relative">
           <button
             onClick={() => setShowNotifications((prev) => !prev)}
-            className="
-              relative p-2 rounded-full
-              hover:bg-zinc-800
-              transition-colors duration-200
-              focus:outline-none focus:ring-2 focus:ring-zinc-400
-            "
+            className="glass-icon relative"
             aria-label="Notificações"
           >
             <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-zinc-300" />
@@ -235,15 +243,7 @@ export default function Topbar() {
           {showNotifications && (
             <div
               ref={notificationRef}
-              className={clsx(
-                "absolute right-0 mt-3 w-[min(22rem,calc(100vw-1.5rem))] sm:mt-4",
-                "max-h-[70vh] overflow-y-auto overscroll-contain",
-                "bg-zinc-900",
-                "border border-zinc-700",
-                "rounded-xl shadow-2xl shadow-black/60",
-                "z-50 transition-all duration-200",
-                "scrollbar-thin scrollbar-thumb-zinc-400 dark:scrollbar-thumb-zinc-600 scrollbar-track-transparent"
-              )}
+              className="glass-popover overlay-scroll absolute right-0 z-50 mt-3 max-h-[70vh] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl"
             >
               <div className="sticky top-0 bg-zinc-900 border-b border-zinc-700 px-4 py-3 flex items-center justify-between z-10">
                 <h3 className="font-semibold text-base sm:text-lg text-zinc-100">
@@ -322,13 +322,12 @@ export default function Topbar() {
         </div>
 
         {/* Avatar */}
-        <Link
-          to="/configuracoes"
-          className="
-            flex items-center gap-2
-            hover:opacity-90 transition-opacity
-            focus:outline-none focus:ring-2 focus:ring-zinc-400 rounded-full
-          "
+        <div className="relative">
+        <button
+          type="button"
+          onClick={() => setShowProfile((value) => !value)}
+          className="glass-icon h-9 w-9 overflow-hidden"
+          aria-label="Menu do perfil"
         >
           {user?.avatar ? (
             <img
@@ -345,26 +344,27 @@ export default function Topbar() {
               {user?.name?.charAt(0) || 'U'}
             </div>
           )}
-        </Link>
+        </button>
+        {showProfile && (
+          <div className="glass-popover absolute right-0 z-50 mt-2 w-48 rounded-xl p-1">
+            <Link to="/configuracoes" className="block rounded-lg px-3 py-2 text-sm hover:bg-white/10" onClick={() => setShowProfile(false)}>
+              Configurações
+            </Link>
+            <button type="button" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-white/10" onClick={() => signOut()}>
+              Sair
+            </button>
+          </div>
+        )}
+        </div>
 
         {/* Botão Nova Demanda */}
         <button
           onClick={handleNovaDemanda}
-          className="
-            hidden lg:flex items-center gap-2
-            bg-white
-            text-zinc-900
-            hover:bg-zinc-200
-            px-4 sm:px-5 py-2 rounded-xl font-medium text-sm
-            transition-colors duration-200
-          "
+          className="glass-button glass-button-primary hidden rounded-xl px-4 py-2 text-sm font-medium lg:flex"
         >
           + {t('novaDemanda')}
         </button>
       </div>
-      </div>
-      <div className="px-3 pb-2 sm:hidden">
-        <QuickSearch />
       </div>
     </header>
   );

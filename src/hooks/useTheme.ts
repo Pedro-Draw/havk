@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useAppStore } from "../store/useAppStore";
 
 export type Theme = "light" | "dark" | "gray" | "system";
 
@@ -27,6 +28,8 @@ export const useTheme = create<ThemeState>((set) => ({
     localStorage.setItem("theme", theme);
     applyTheme(theme);
     set({ theme });
+    const store = useAppStore.getState();
+    if (store.theme !== theme) store.setTheme(theme);
   },
 }));
 

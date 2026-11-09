@@ -1,708 +1,562 @@
-// pages/Kanban.tsx
-import { useState, useEffect } from 'react';
-import { Trash2 } from 'lucide-react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   DndContext,
-  rectIntersection,
+  DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCorners,
+  pointerWithin,
+  useDroppable,
   useSensor,
   useSensors,
-  DragEndEvent,
-  useDroppable,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-  arrayMove,
 } from '@dnd-kit/sortable';
+import { KanbanSquare, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
-
 import SortableCard from '../components/kanban/SortableCard';
 import Button from '../components/ui/Button';
+import Modal from '../components/ui/Modal';
+import PageHeader from '../components/layout/PageHeader';
+import ViewSwitch from '../components/demandas/ViewSwitch';
 import { useAppStore } from '../store/useAppStore';
-import { DemandaTipo } from './DemandaDetail'; // ajuste o path se necessário
+import { confirmAction } from '../lib/confirm';
+import {
+  KANBAN_COLUMNS,
+  columnForDemanda,
+  columnTitle,
+  fromDateInputValue,
+  statusForColumn,
+  toDateInputValue,
+} from '../lib/kanban';
 
-/* Mapeamento colunas Kanban → status do store */
-const columnToStatus: Record<string, string> = {
-  backlog: 'aberta',
-  afazer: 'aberta',
-  andamento: 'em-progresso',
-  teste: 'em-progresso',
-  concluida: 'concluida',
-};
-
-const statusToColumn: Record<string, string> = {
-  aberta: 'backlog',
-  'em-progresso': 'andamento',
-  concluida: 'concluida',
-  bloqueada: 'backlog',
-};
-
-/* Tipagem compatível com o store */
-interface KanbanTask {
+interface BoardTask {
   id: string;
   title: string;
   description?: string;
-  status: string; // coluna kanban
   priority: 'baixa' | 'media' | 'alta' | 'urgente';
-  prazo?: string;           // agora string "YYYY-MM-DD" no frontend
+  prazo?: string;
   responsavel?: string;
-  createdBy?: string;
-  createdAt: string;
-  updatedAt?: string;
-  tipo?: DemandaTipo;
+  tipo?: string;
   dificuldade?: string;
   esforcoEstimado?: number;
+  columnId: string;
+  boardOrder: number;
 }
 
-/* Modal genérico */
-interface ModalProps {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-  onConfirm?: () => void;
-  confirmLabel?: string;
+type Board = Record<string, BoardTask[]>;
+
+const emptyTask = {
+  title: '',
+  description: '',
+  priority: 'media' as const,
+  prazo: '',
+  responsavel: '',
+  tipo: 'feature',
+  dificuldade: 'media',
+  esforcoEstimado: 0,
+  columnId: 'afazer',
+};
+
+function columnDropId(columnId: string) {
+  return `col:${columnId}`;
 }
 
-function Modal({ title, children, onClose, onConfirm, confirmLabel = 'Salvar' }: ModalProps) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-zinc-900 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border border-zinc-700">
-        <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-800 bg-zinc-950/50">
-          <h2 className="text-xl font-bold text-white">{title}</h2>
-          <button onClick={onClose} className="text-zinc-400 hover:text-white text-2xl font-bold">
-            ×
-          </button>
-        </div>
-        <div className="flex-1 px-6 py-6 overflow-y-auto">{children}</div>
-        <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-950/50 flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          {onConfirm && <Button variant="primary" onClick={onConfirm}>{confirmLabel}</Button>}
-        </div>
-      </div>
-    </div>
-  );
+function buildBoard(demandas: Array<Record<string, any>>): Board {
+  const board = Object.fromEntries(KANBAN_COLUMNS.map((column) => [column.id, [] as BoardTask[]])) as Board;
+  const seen = new Set<string>();
+
+  demandas.forEach((demanda) => {
+    if (!demanda?.id || seen.has(demanda.id)) return;
+    seen.add(demanda.id);
+    const columnId = columnForDemanda(demanda);
+    board[columnId].push({
+      id: demanda.id,
+      title: String(demanda.title || '').replace(/^Havk AI translated:\s*/i, ''),
+      description: demanda.description,
+      priority: demanda.priority || 'media',
+      prazo: toDateInputValue(demanda.prazo),
+      responsavel: demanda.responsavel,
+      tipo: demanda.tipo,
+      dificuldade: demanda.dificuldade,
+      esforcoEstimado: demanda.esforcoEstimado,
+      columnId,
+      boardOrder: typeof demanda.boardOrder === 'number' ? demanda.boardOrder : board[columnId].length,
+    });
+  });
+
+  Object.values(board).forEach((tasks) => tasks.sort((a, b) => a.boardOrder - b.boardOrder));
+  return board;
 }
 
-/* Coluna droppable com highlight forte ao passar por cima */
+function findColumn(board: Board, id: string): string | undefined {
+  if (id.startsWith('col:')) return id.slice(4);
+  return Object.entries(board).find(([, tasks]) => tasks.some((task) => task.id === id))?.[0];
+}
+
+const collisionDetection: CollisionDetection = (args) => {
+  const pointers = pointerWithin(args);
+  return pointers.length ? pointers : closestCorners(args);
+};
+
 function KanbanColumn({
   id,
   title,
+  hint,
+  count,
+  accent,
   tasks,
+  mobileActive,
+  onMoveAll,
   children,
 }: {
   id: string;
   title: string;
-  tasks: KanbanTask[];
-  children: React.ReactNode;
+  hint: string;
+  count: number;
+  accent: string;
+  tasks: BoardTask[];
+  mobileActive: boolean;
+  onMoveAll: (columnId: string) => void;
+  children: ReactNode;
 }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id,
-    data: { type: 'column' },
-  });
+  const { setNodeRef, isOver } = useDroppable({ id: columnDropId(id) });
 
   return (
-    <div
-      ref={setNodeRef}
-      id={id}
-      className={`flex w-[min(78vw,18rem)] shrink-0 flex-col rounded-2xl border-2 bg-zinc-900/70 p-3 shadow-xl backdrop-blur-md transition-all duration-200 sm:w-80 sm:p-5 ${
-        isOver 
-          ? 'border-indigo-500 border-dashed bg-indigo-950/30 ring-2 ring-indigo-500/50 ring-offset-2 ring-offset-zinc-950' 
-          : 'border-zinc-800'
-      }`}
+    <section
+      className={`w-full shrink-0 flex-col rounded-2xl border p-3 lg:flex lg:w-80 ${
+        mobileActive ? 'flex' : 'hidden'
+      } ${isOver ? 'ring-2 ring-violet-400/70' : ''}`}
+      style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
     >
-      <h2 className="mb-4 flex items-center justify-between text-base font-bold capitalize text-white sm:mb-5 sm:text-xl">
-        {title}
-        <span className="text-zinc-500 text-sm font-normal">({tasks.length})</span>
-      </h2>
-
-      <div className="min-h-[220px] flex-1 space-y-4 sm:min-h-[420px]">
+      <header className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <span className="h-2 w-2 rounded-full" style={{ background: accent }} />
+            {title}
+          </h2>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{hint}</p>
+        </div>
+        <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs text-[var(--text-secondary)]">{count}</span>
+      </header>
+      {count > 0 && (
+        <label className="mb-3 block text-[11px] text-[var(--text-muted)]">
+          Mover todas
+          <select
+            aria-label={`Mover todas de ${title}`}
+            className="havk-field mt-1 min-h-11 w-full text-sm"
+            value=""
+            onChange={(event) => {
+              const columnId = event.target.value;
+              event.target.value = '';
+              if (columnId) onMoveAll(columnId);
+            }}
+          >
+            <option value="">Escolher coluna</option>
+            {KANBAN_COLUMNS.filter((column) => column.id !== id).map((column) => (
+              <option key={column.id} value={column.id}>{column.title}</option>
+            ))}
+          </select>
+        </label>
+      )}
+      <div ref={setNodeRef} className="flex min-h-64 flex-1 flex-col gap-2">
         {tasks.length === 0 && (
-          <div className={`h-32 flex items-center justify-center text-zinc-600 italic text-sm transition-all ${
-            isOver ? 'text-indigo-400 scale-110' : ''
-          }`}>
+          <div className="grid flex-1 place-items-center rounded-xl border border-dashed px-3 text-center text-xs text-[var(--text-muted)]" style={{ borderColor: 'var(--border)' }}>
             Solte uma demanda aqui
           </div>
         )}
         {children}
       </div>
-    </div>
+    </section>
   );
 }
 
-/**
- * Formata a data ISO (vinda do banco) para string "YYYY-MM-DD" correta no fuso local
- * Evita o problema de aparecer 1 dia antes
- */
-function formatDateForInput(isoString?: string): string | undefined {
-  if (!isoString) return undefined;
-
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return undefined;
-
-    const year  = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day   = String(date.getDate()).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
-  } catch {
-    console.warn('Data inválida ao formatar para input:', isoString);
-    return undefined;
-  }
-}
-
-/* Converte "YYYY-MM-DD" do input → ISO string salva no banco (meia-noite local) */
-function localDateStringToISOString(dateStr: string): string {
-  // Cria data no fuso local, meia-noite
-  const [year, month, day] = dateStr.split('-').map(Number);
-  const localDate = new Date(year, month - 1, day, 0, 0, 0, 0);
-  
-  return localDate.toISOString();
-}
-
-/* Kanban principal */
 export default function Kanban() {
-  const { demandas, addDemanda, updateDemanda, deleteDemanda, isLoading } = useAppStore();
+  const demandas = useAppStore((state) => state.demandas);
+  const isLoading = useAppStore((state) => state.isLoading);
+  const user = useAppStore((state) => state.user);
+  const addDemanda = useAppStore((state) => state.addDemanda);
+  const updateDemanda = useAppStore((state) => state.updateDemanda);
+  const deleteDemanda = useAppStore((state) => state.deleteDemanda);
+  const moveDemandaOnBoard = useAppStore((state) => state.moveDemandaOnBoard);
+  const moveColumnDemandas = useAppStore((state) => state.moveColumnDemandas);
 
-  const [columns, setColumns] = useState<Record<string, KanbanTask[]>>({
-    backlog: [],
-    afazer: [],
-    andamento: [],
-    teste: [],
-    concluida: [],
-  });
-
-  const [showNewModal, setShowNewModal] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [currentTask, setCurrentTask] = useState<KanbanTask | null>(null);
-
-  const emptyTask: Partial<KanbanTask> = {
-    title: '',
-    description: '',
-    priority: 'media',
-    prazo: '',
-    responsavel: '',
-    tipo: 'feature',
-    dificuldade: 'media',
-    esforcoEstimado: 0,
-  };
-
-  const [newTaskData, setNewTaskData] = useState<Partial<KanbanTask>>(emptyTask);
+  const savedBoard = useMemo(() => buildBoard(demandas), [demandas]);
+  const [draft, setDraft] = useState<Board | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [mobileColumn, setMobileColumn] = useState('backlog');
+  const [query, setQuery] = useState('');
+  const [showNew, setShowNew] = useState(false);
+  const [current, setCurrent] = useState<BoardTask | null>(null);
+  const [form, setForm] = useState<TaskForm>(emptyTask);
+  const boardRef = useRef<Board>(savedBoard);
+  const board = draft ?? savedBoard;
+  boardRef.current = board;
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const deleteTask = async () => {
-    if (!currentTask) return;
-
-    const confirmDelete = window.confirm(
-      `Tem certeza que deseja excluir a demanda "${currentTask.title}"?`
-    );
-
-    if (!confirmDelete) return;
-
-    try {
-      await deleteDemanda(currentTask.id);
-
-      setColumns((prev) => {
-        const newCols: Record<string, KanbanTask[]> = {};
-
-        Object.entries(prev).forEach(([colId, tasks]) => {
-          newCols[colId] = tasks.filter((t) => t.id !== currentTask.id);
-        });
-
-        return newCols;
-      });
-
-      toast.success('Demanda excluída com sucesso');
-      setShowDetailModal(false);
-      setCurrentTask(null);
-    } catch (err) {
-      toast.error('Erro ao excluir demanda');
-      console.error(err);
-    }
+  const moveToColumn = async (taskId: string, columnId: string) => {
+    await moveDemandaOnBoard(taskId, columnId, Number.MAX_SAFE_INTEGER);
+    setMobileColumn(columnId);
+    toast.success(`Movida para ${columnTitle(columnId)}`);
   };
 
-  // Sincroniza demandas do store para colunas
-  useEffect(() => {
-    if (isLoading || !demandas?.length) return;
+  const moveColumn = async (fromColumn: string, toColumn: string) => {
+    const moved = await moveColumnDemandas(fromColumn, toColumn);
+    if (!moved) return;
+    setMobileColumn(toColumn);
+    toast.success(`${moved} ${moved === 1 ? 'demanda movida' : 'demandas movidas'} para ${columnTitle(toColumn)}`);
+  };
 
-    const grouped: Record<string, KanbanTask[]> = {
-      backlog: [],
-      afazer: [],
-      andamento: [],
-      teste: [],
-      concluida: [],
-    };
+  const visible = (tasks: BoardTask[]) => {
+    const term = query.trim().toLowerCase();
+    if (!term) return tasks;
+    return tasks.filter((task) =>
+      `${task.title} ${task.description || ''} ${task.responsavel || ''}`.toLowerCase().includes(term)
+    );
+  };
 
-    const seenIds = new Set<string>();
+  const moveTask = (activeTaskId: string, _sourceId: string, targetId: string, overId: string) => {
+    const currentBoard = boardRef.current;
+    let task: BoardTask | undefined;
+    const next = Object.fromEntries(
+      Object.entries(currentBoard).map(([columnId, tasks]) => [
+        columnId,
+        tasks.filter((item) => {
+          if (item.id !== activeTaskId) return true;
+          task = item;
+          return false;
+        }),
+      ])
+    ) as Board;
+    if (!task || !next[targetId]) return;
+    const overIndex = next[targetId].findIndex((item) => item.id === overId);
+    next[targetId].splice(overIndex >= 0 ? overIndex : next[targetId].length, 0, { ...task, columnId: targetId });
+    boardRef.current = next;
+    setDraft(next);
+  };
 
-    demandas.forEach((dem) => {
-      if (seenIds.has(dem.id)) return;
-      seenIds.add(dem.id);
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+    setDraft(boardRef.current);
+  };
 
-      const col = statusToColumn[dem.status] || 'backlog';
-
-      grouped[col].push({
-        id: dem.id,
-        title: dem.title?.replace(/^Havk AI translated:\s*/i, '') || dem.title || '',
-        description: dem.description,
-        status: col,
-        priority: dem.priority,
-        prazo: formatDateForInput(dem.prazo),           // ← aqui a correção principal
-        responsavel: dem.responsavel,
-        createdBy: dem.createdBy,
-        createdAt: dem.createdAt,
-        updatedAt: dem.updatedAt,
-        tipo: dem.tipo,
-        dificuldade: dem.dificuldade,
-        esforcoEstimado: dem.esforcoEstimado,
-      });
-    });
-
-    setColumns((prev) => {
-      if (JSON.stringify(prev) === JSON.stringify(grouped)) return prev;
-      return grouped;
-    });
-  }, [demandas, isLoading]);
-
-  const findContainer = (id: string): string | undefined => {
-    if (id in columns) return id;
-    for (const [colId, items] of Object.entries(columns)) {
-      if (items.some((item) => item.id === id)) return colId;
-    }
-    return undefined;
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    const activeKey = String(active.id);
+    const overKey = String(over.id);
+    const sourceId = findColumn(boardRef.current, activeKey);
+    const targetId = findColumn(boardRef.current, overKey);
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    moveTask(activeKey, sourceId, targetId, overKey);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
+    setActiveId(null);
 
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    let sourceColumnId = findContainer(activeId);
-    let targetColumnId = findContainer(overId);
-
-    if (!targetColumnId && Object.keys(columns).includes(overId)) {
-      targetColumnId = overId;
-    }
-
-    if (!sourceColumnId || !targetColumnId) return;
-
-    if (sourceColumnId === targetColumnId) {
-      const sourceItems = [...columns[sourceColumnId]];
-      const targetIndex = sourceItems.findIndex((item) => item.id === overId);
-      const sourceIndex = sourceItems.findIndex((item) => item.id === activeId);
-
-      if (sourceIndex !== targetIndex && targetIndex !== -1) {
-        const reordered = arrayMove(sourceItems, sourceIndex, targetIndex);
-        setColumns((prev) => ({ ...prev, [sourceColumnId]: reordered }));
-      }
+    if (!over) {
+      setDraft(null);
       return;
     }
 
-    const movingTask = columns[sourceColumnId].find((item) => item.id === activeId);
-    if (!movingTask) return;
-
-    const newStatus = columnToStatus[targetColumnId] as any;
-
-    try {
-      await updateDemanda(activeId, {
-        status: newStatus,
-        updatedAt: new Date().toISOString(),
-      });
-
-      setColumns((prev) => {
-        const newColumns: Record<string, KanbanTask[]> = {};
-
-        Object.entries(prev).forEach(([colId, tasks]) => {
-          newColumns[colId] = tasks.filter((t) => t.id !== activeId);
-        });
-
-        newColumns[targetColumnId].push({
-          ...movingTask,
-          status: targetColumnId,
-        });
-
-        return newColumns;
-      });
-
-      toast.success(`Movido para ${targetColumnId}`);
-    } catch (err) {
-      toast.error('Erro ao mover tarefa');
-      console.error(err);
-      setColumns((prev) => ({ ...prev }));
-    }
-  };
-
-  const createNewTask = async () => {
-    if (!newTaskData.title?.trim()) {
-      toast.error('Título é obrigatório');
+    const activeKey = String(active.id);
+    const overKey = String(over.id);
+    const sourceBoard = boardRef.current;
+    const targetId = findColumn(sourceBoard, overKey);
+    if (!targetId) {
+      setDraft(null);
       return;
     }
 
+    const withoutActive = sourceBoard[targetId].filter((task) => task.id !== activeKey);
+    const currentIndex = sourceBoard[targetId].findIndex((task) => task.id === activeKey);
+    const overIndex = withoutActive.findIndex((task) => task.id === overKey);
+    const index = overKey === activeKey
+      ? Math.max(currentIndex, 0)
+      : overIndex >= 0
+        ? overIndex
+        : withoutActive.length;
+
     try {
-      const prazoISO = newTaskData.prazo
-        ? localDateStringToISOString(newTaskData.prazo)
-        : undefined;
-
-      await addDemanda({
-        title: newTaskData.title.trim(),
-        description: newTaskData.description?.trim() || '',
-        priority: newTaskData.priority || 'media',
-        status: 'aberta',
-        prazo: prazoISO,
-        responsavel: newTaskData.responsavel || undefined,
-        tipo: (newTaskData.tipo || 'feature') as any,
-        dificuldade: (newTaskData.dificuldade || 'media') as any,
-        esforcoEstimado: newTaskData.esforcoEstimado || 0,
-        createdBy: 'Pedrin',
-        updatedAt: new Date().toISOString(),
-      });
-
-      toast.success('Demanda criada com sucesso!');
-      setNewTaskData(emptyTask);
-      setShowNewModal(false);
-    } catch (err) {
-      toast.error('Erro ao criar demanda');
-      console.error(err);
+      await moveDemandaOnBoard(activeKey, targetId, index);
+      setMobileColumn(targetId);
+    } catch (error) {
+      console.error(error);
+      toast.error('Não foi possível mover a demanda');
+    } finally {
+      setDraft(null);
     }
   };
 
-  const saveTaskDetail = async () => {
-    if (!currentTask) return;
-
-    try {
-      const prazoISO = currentTask.prazo
-        ? localDateStringToISOString(currentTask.prazo)
-        : undefined;
-
-      await updateDemanda(currentTask.id, {
-        title: currentTask.title.trim(),
-        description: currentTask.description?.trim() || '',
-        priority: currentTask.priority,
-        prazo: prazoISO,
-        responsavel: currentTask.responsavel || undefined,
-        tipo: currentTask.tipo as any,
-        dificuldade: currentTask.dificuldade as any,
-        esforcoEstimado: currentTask.esforcoEstimado || 0,
-        updatedAt: new Date().toISOString(),
-      });
-
-      toast.success('Demanda atualizada');
-      setShowDetailModal(false);
-      setCurrentTask(null);
-    } catch (err) {
-      toast.error('Erro ao salvar alterações');
-      console.error(err);
+  const createTask = async () => {
+    if (!form.title.trim()) {
+      toast.error('O título é obrigatório');
+      return;
     }
+    await addDemanda({
+      title: form.title.trim(),
+      description: form.description?.trim() || '',
+      priority: form.priority,
+      status: statusForColumn(form.columnId),
+      boardColumn: form.columnId,
+      prazo: form.prazo ? fromDateInputValue(form.prazo) : undefined,
+      responsavel: form.responsavel?.trim() || undefined,
+      tipo: form.tipo as any,
+      dificuldade: form.dificuldade as any,
+      esforcoEstimado: form.esforcoEstimado || 0,
+      createdBy: user?.name || user?.email || 'Você',
+    });
+    setMobileColumn(form.columnId);
+    setForm(emptyTask);
+    setShowNew(false);
   };
+
+  const saveTask = async () => {
+    if (!current || !current.title.trim()) {
+      toast.error('O título é obrigatório');
+      return;
+    }
+    await updateDemanda(current.id, {
+      title: current.title.trim(),
+      description: current.description?.trim() || '',
+      priority: current.priority,
+      prazo: current.prazo ? fromDateInputValue(current.prazo) : undefined,
+      responsavel: current.responsavel || undefined,
+      tipo: current.tipo as any,
+      dificuldade: current.dificuldade as any,
+      esforcoEstimado: current.esforcoEstimado || 0,
+      boardColumn: current.columnId,
+      status: statusForColumn(current.columnId),
+    });
+    setCurrent(null);
+  };
+
+  const removeTask = async () => {
+    if (!current) return;
+    const accepted = await confirmAction({
+      title: 'Excluir demanda?',
+      message: `"${current.title}" sai do quadro desta empresa.`,
+      confirmLabel: 'Excluir',
+      tone: 'danger',
+    });
+    if (!accepted) return;
+    await deleteDemanda(current.id);
+    setCurrent(null);
+  };
+
+  const activeTask = activeId
+    ? Object.values(board).flat().find((task) => task.id === activeId)
+    : undefined;
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500" />
-      </div>
-    );
+    return <div className="grid min-h-[50vh] place-items-center text-sm text-[var(--text-muted)]">Carregando quadro...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
-        <div className="max-w-7xl mx-auto pb-16">
-          <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-2xl font-bold text-white sm:text-3xl">Kanban</h1>
-            <Button onClick={() => setShowNewModal(true)} className="w-full sm:w-auto">+ Nova Demanda</Button>
-          </div>
+    <div className="px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div className="mx-auto max-w-[1600px]">
+        <PageHeader
+          icon={<KanbanSquare size={18} />}
+          title="Kanban"
+          description="Arraste as demandas entre as etapas. A coluna fica salva e não volta sozinha."
+          meta={`${demandas.length} demanda${demandas.length === 1 ? '' : 's'}`}
+          actions={
+            <>
+              <ViewSwitch />
+              <Button icon={<Plus size={16} />} onClick={() => setShowNew(true)}>Nova demanda</Button>
+            </>
+          }
+        />
 
-          <DndContext
-            sensors={sensors}
-            collisionDetection={rectIntersection}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="flex max-w-full snap-x snap-mandatory gap-4 overflow-x-auto pb-6 sm:gap-6 sm:pb-8">
-              {Object.entries(columns).map(([columnId, tasks]) => (
-                <KanbanColumn key={columnId} id={columnId} title={columnId} tasks={tasks}>
-                  <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Filtrar neste quadro"
+            className="havk-field max-w-md px-3 py-2.5 text-sm"
+          />
+          <p className="hidden text-xs text-[var(--text-muted)] sm:block">
+            Em andamento acima de 5 itens fica apertado. Bloqueadas saem do fluxo até o impedimento acabar.
+          </p>
+        </div>
+
+        <div className="mb-3 flex gap-2 overflow-x-auto lg:hidden">
+          {KANBAN_COLUMNS.map((column) => (
+            <button
+              key={column.id}
+              type="button"
+              onClick={() => setMobileColumn(column.id)}
+              className={`glass-button shrink-0 rounded-full px-3 py-1.5 text-xs ${
+                mobileColumn === column.id ? 'glass-button-primary' : 'glass-button-secondary'
+              }`}
+            >
+              {column.title} {board[column.id].length}
+            </button>
+          ))}
+        </div>
+
+        <DndContext
+          sensors={sensors}
+          collisionDetection={collisionDetection}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => {
+            setActiveId(null);
+            setDraft(null);
+          }}
+        >
+          <div className="kanban-scroll flex gap-3 overflow-x-auto pb-4">
+            {KANBAN_COLUMNS.map((column) => {
+              const tasks = visible(board[column.id] || []);
+              const crowded = column.id === 'andamento' && board[column.id].length > 5;
+              return (
+                <KanbanColumn
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  hint={crowded ? 'Muitas demandas ao mesmo tempo' : column.hint}
+                  count={board[column.id].length}
+                  accent={column.accent}
+                  tasks={tasks}
+                  mobileActive={mobileColumn === column.id}
+                  onMoveAll={(columnId) => moveColumn(column.id, columnId)}
+                >
+                  <SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
                     {tasks.map((task) => (
-                      <div
+                      <SortableCard
                         key={task.id}
-                        onClick={() => {
-                          setCurrentTask(task);
-                          setShowDetailModal(true);
-                        }}
-                        className="cursor-pointer"
-                      >
-                        <SortableCard id={task.id} item={task} />
-                      </div>
+                        id={task.id}
+                        item={task}
+                        onOpen={() => setCurrent(task)}
+                        onMove={(columnId) => moveToColumn(task.id, columnId)}
+                      />
                     ))}
                   </SortableContext>
                 </KanbanColumn>
-              ))}
+              );
+            })}
+          </div>
+          <DragOverlay>
+            {activeTask ? (
+              <div className="w-72 rounded-2xl border p-3 shadow-2xl" style={{ background: 'var(--card-elevated)', borderColor: 'var(--border)' }}>
+                <p className="text-sm font-medium">{activeTask.title}</p>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
+
+      <Modal
+        isOpen={showNew}
+        title="Nova demanda"
+        onClose={() => setShowNew(false)}
+        onConfirm={createTask}
+        confirmLabel="Criar demanda"
+      >
+        <TaskFields value={form} onChange={setForm} />
+      </Modal>
+
+      <Modal isOpen={!!current} title="Demanda" onClose={() => setCurrent(null)}>
+        {current && (
+          <div className="space-y-4">
+            <TaskFields value={current} onChange={(value) => setCurrent({ ...current, ...value })} />
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+              <Button variant="destructive" onClick={removeTask}>Excluir</Button>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => setCurrent(null)}>Cancelar</Button>
+                <Button onClick={saveTask}>Salvar</Button>
+              </div>
             </div>
-          </DndContext>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
 
-          {/* Modal Nova Demanda */}
-          {showNewModal && (
-            <Modal
-              title="Criar Nova Demanda"
-              onClose={() => {
-                setShowNewModal(false);
-                setNewTaskData(emptyTask);
-              }}
-              onConfirm={createNewTask}
-              confirmLabel="Criar Demanda"
-            >
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm text-zinc-400 mb-2">Título *</label>
-                  <input
-                    type="text"
-                    value={newTaskData.title ?? ''}
-                    onChange={(e) => setNewTaskData({ ...newTaskData, title: e.target.value })}
-                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
-                    placeholder="Ex: Implementar login com Google"
-                    required
-                  />
-                </div>
+interface TaskForm {
+  title: string;
+  description?: string;
+  priority: BoardTask['priority'];
+  prazo?: string;
+  responsavel?: string;
+  tipo?: string;
+  dificuldade?: string;
+  esforcoEstimado?: number;
+  columnId: string;
+}
 
-                <div>
-                  <label className="block text-sm text-zinc-400 mb-2">Descrição</label>
-                  <textarea
-                    value={newTaskData.description ?? ''}
-                    onChange={(e) => setNewTaskData({ ...newTaskData, description: e.target.value })}
-                    className="w-full h-32 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 resize-none"
-                    placeholder="Detalhes, requisitos, contexto..."
-                  />
-                </div>
+function TaskFields({
+  value,
+  onChange,
+}: {
+  value: TaskForm;
+  onChange: (value: TaskForm) => void;
+}) {
+  const set = (patch: Partial<TaskForm>) => onChange({ ...value, ...patch });
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-sm text-zinc-400 mb-2">Tipo</label>
-                    <select
-                      value={newTaskData.tipo ?? 'feature'}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, tipo: e.target.value as any })}
-                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="bug">Bug / Erro</option>
-                      <option value="feature">Nova Feature</option>
-                      <option value="melhoria">Melhoria</option>
-                      <option value="inovacao">Inovação</option>
-                      <option value="outro">Outro</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-zinc-400 mb-2">Dificuldade</label>
-                    <select
-                      value={newTaskData.dificuldade ?? 'media'}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, dificuldade: e.target.value as any })}
-                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="muito-facil">Muito Fácil</option>
-                      <option value="facil">Fácil</option>
-                      <option value="media">Média</option>
-                      <option value="dificil">Difícil</option>
-                      <option value="muito-dificil">Muito Difícil</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-sm text-zinc-400 mb-2">Prioridade</label>
-                    <select
-                      value={newTaskData.priority ?? 'media'}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, priority: e.target.value as any })}
-                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="baixa">Baixa</option>
-                      <option value="media">Média</option>
-                      <option value="alta">Alta</option>
-                      <option value="urgente">Urgente</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-zinc-400 mb-2">Esforço estimado (horas)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={newTaskData.esforcoEstimado ?? 0}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, esforcoEstimado: Number(e.target.value) || 0 })}
-                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-sm text-zinc-400 mb-2">Prazo</label>
-                    <input
-                      type="date"
-                      value={newTaskData.prazo ?? ''}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, prazo: e.target.value })}
-                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-zinc-400 mb-2">Responsável</label>
-                    <input
-                      type="text"
-                      value={newTaskData.responsavel ?? ''}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, responsavel: e.target.value })}
-                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
-                      placeholder="Nome ou email"
-                    />
-                  </div>
-                </div>
-              </div>
-            </Modal>
-          )}
-
-          {/* Modal Detalhe / Edição */}
-          {showDetailModal && currentTask && (
-            <Modal
-              title={currentTask.title || 'Detalhes da Demanda'}
-              onClose={() => {
-                setShowDetailModal(false);
-                setCurrentTask(null);
-              }}
-            >
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm text-zinc-400 mb-2">Título</label>
-                  <input
-                    type="text"
-                    value={currentTask.title}
-                    onChange={(e) =>
-                      setCurrentTask((p) => (p ? { ...p, title: e.target.value } : null))
-                    }
-                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-zinc-400 mb-2">Descrição</label>
-                  <textarea
-                    value={currentTask.description ?? ''}
-                    onChange={(e) =>
-                      setCurrentTask((p) =>
-                        p ? { ...p, description: e.target.value } : null
-                      )
-                    }
-                    className="w-full h-32 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white resize-none focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-sm text-zinc-400 mb-2">Prioridade</label>
-                    <select
-                      value={currentTask.priority}
-                      onChange={(e) =>
-                        setCurrentTask((p) =>
-                          p ? { ...p, priority: e.target.value as any } : null
-                        )
-                      }
-                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="baixa">Baixa</option>
-                      <option value="media">Média</option>
-                      <option value="alta">Alta</option>
-                      <option value="urgente">Urgente</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-zinc-400 mb-2">Prazo</label>
-                    <input
-                      type="date"
-                      value={currentTask.prazo ?? ''}
-                      onChange={(e) =>
-                        setCurrentTask((p) =>
-                          p ? { ...p, prazo: e.target.value } : null
-                        )
-                      }
-                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-sm text-zinc-400 mb-2">Responsável</label>
-                    <input
-                      type="text"
-                      value={currentTask.responsavel ?? ''}
-                      onChange={(e) =>
-                        setCurrentTask((p) =>
-                          p ? { ...p, responsavel: e.target.value } : null
-                        )
-                      }
-                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-zinc-400 mb-2">Tipo</label>
-                    <select
-                      value={currentTask.tipo ?? 'feature'}
-                      onChange={(e) =>
-                        setCurrentTask((p) =>
-                          p ? { ...p, tipo: e.target.value as any } : null
-                        )
-                      }
-                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="bug">Bug</option>
-                      <option value="feature">Feature</option>
-                      <option value="melhoria">Melhoria</option>
-                      <option value="inovacao">Inovação</option>
-                      <option value="outro">Outro</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-6 border-t border-zinc-800">
-                  <Button
-                    variant="destructive"
-                    onClick={deleteTask}
-                    className="flex items-center gap-2"
-                  >
-                    <Trash2 size={16} />
-                    Excluir
-                  </Button>
-
-                  <div className="flex gap-3">
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        setShowDetailModal(false);
-                        setCurrentTask(null);
-                      }}
-                    >
-                      Cancelar
-                    </Button>
-
-                    <Button variant="primary" onClick={saveTaskDetail}>
-                      Salvar Alterações
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </Modal>
-          )}
-        </div>
+  return (
+    <div className="space-y-4">
+      <label className="block space-y-1.5 text-sm">
+        <span className="text-[var(--text-secondary)]">Título</span>
+        <input className="havk-field px-3 py-2.5" value={value.title} onChange={(event) => set({ title: event.target.value })} />
+      </label>
+      <label className="block space-y-1.5 text-sm">
+        <span className="text-[var(--text-secondary)]">Descrição</span>
+        <textarea className="havk-field min-h-28 px-3 py-2.5" value={value.description} onChange={(event) => set({ description: event.target.value })} />
+      </label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FieldSelect label="Coluna" value={value.columnId} onChange={(columnId) => set({ columnId })} options={KANBAN_COLUMNS.map((column) => ({ value: column.id, label: column.title }))} />
+        <FieldSelect label="Prioridade" value={value.priority} onChange={(priority) => set({ priority: priority as typeof value.priority })} options={['baixa', 'media', 'alta', 'urgente'].map((item) => ({ value: item, label: item }))} />
+        <FieldSelect label="Tipo" value={value.tipo || 'feature'} onChange={(tipo) => set({ tipo })} options={['bug', 'feature', 'melhoria', 'inovacao', 'outro'].map((item) => ({ value: item, label: item }))} />
+        <FieldSelect label="Dificuldade" value={value.dificuldade || 'media'} onChange={(dificuldade) => set({ dificuldade })} options={['muito-facil', 'facil', 'media', 'dificil', 'muito-dificil'].map((item) => ({ value: item, label: item }))} />
+        <label className="block space-y-1.5 text-sm">
+          <span className="text-[var(--text-secondary)]">Prazo</span>
+          <input type="date" className="havk-field px-3 py-2.5" value={value.prazo || ''} onChange={(event) => set({ prazo: event.target.value })} />
+        </label>
+        <label className="block space-y-1.5 text-sm">
+          <span className="text-[var(--text-secondary)]">Responsável</span>
+          <input className="havk-field px-3 py-2.5" value={value.responsavel || ''} onChange={(event) => set({ responsavel: event.target.value })} />
+        </label>
       </div>
     </div>
+  );
+}
+
+function FieldSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <label className="block space-y-1.5 text-sm">
+      <span className="text-[var(--text-secondary)]">{label}</span>
+      <select className="havk-field px-3 py-2.5" value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
   );
 }

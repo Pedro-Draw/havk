@@ -12,7 +12,11 @@ import { useState, useMemo } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { useAppStore } from '../store/useAppStore';
+import { fromDateInputValue, toDateInputValue } from '../lib/kanban';
 import toast from 'react-hot-toast';
+import { confirmAction } from '../lib/confirm';
+
+type CalendarView = 'mes' | 'semana' | 'dia' | 'agenda';
 
 type EventType = 'demanda' | 'objetivo';
 
@@ -27,6 +31,20 @@ interface CalendarEvent {
   completed?: boolean;
 }
 
+function EventRow({ event, onDelete, compact = false }: { event: CalendarEvent; onDelete: () => void; compact?: boolean }) {
+  return (
+    <div className="mb-2 flex items-start justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-900/70 p-3">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{event.type === 'demanda' ? 'Demanda' : 'Objetivo'} · {event.title}</p>
+        {!compact && event.description && <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{event.description}</p>}
+      </div>
+      <button type="button" className="touch-target shrink-0 text-red-400" aria-label="Excluir" onClick={onDelete}>
+        <Trash2 size={16} />
+      </button>
+    </div>
+  );
+}
+
 export default function Calendario() {
   const { t } = useTranslation();
   const {
@@ -34,13 +52,19 @@ export default function Calendario() {
     objetivos,
     addDemanda,
     addObjetivo,
+    deleteDemanda,
+    deleteObjetivo,
     isLoading,
   } = useAppStore();
 
   const today = new Date();
+  const [view, setView] = useState<CalendarView>(() =>
+    window.matchMedia('(max-width: 767px)').matches ? 'agenda' : 'mes'
+  );
+  const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [form, setForm] = useState({
@@ -117,16 +141,15 @@ export default function Calendario() {
     return events;
   }, [demandas, objetivos]);
 
+  const eventKey = (value: string) => toDateInputValue(value);
+
   const eventsByDay = useMemo<Record<number, number>>(() => {
     const map: Record<number, number> = {};
 
-    allEvents.forEach(e => {
-      const date = new Date(e.date);
-      if (
-        date.getMonth() === currentMonth &&
-        date.getFullYear() === currentYear
-      ) {
-        map[date.getDate()] = (map[date.getDate()] || 0) + 1;
+    allEvents.forEach((event) => {
+      const [year, month, day] = eventKey(event.date).split('-').map(Number);
+      if (month - 1 === currentMonth && year === currentYear) {
+        map[day] = (map[day] || 0) + 1;
       }
     });
 
@@ -135,16 +158,30 @@ export default function Calendario() {
 
   const selectedEvents = useMemo<CalendarEvent[]>(() => {
     if (!selectedDay) return [];
-
-    return allEvents.filter(e => {
-      const date = new Date(e.date);
-      return (
-        date.getDate() === selectedDay &&
-        date.getMonth() === currentMonth &&
-        date.getFullYear() === currentYear
-      );
-    });
+    const key = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+    return allEvents.filter((event) => eventKey(event.date) === key);
   }, [selectedDay, allEvents, currentMonth, currentYear]);
+
+  const weekDays = useMemo(() => {
+    const start = new Date(cursor);
+    const weekday = start.getDay();
+    start.setDate(start.getDate() + (weekday === 0 ? -6 : 1 - weekday));
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      return date;
+    });
+  }, [cursor]);
+
+  const agendaDays = useMemo(() => {
+    const groups = new Map<string, CalendarEvent[]>();
+    allEvents.forEach((event) => {
+      const key = eventKey(event.date);
+      if (!key) return;
+      groups.set(key, [...(groups.get(key) || []), event]);
+    });
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [allEvents]);
 
   /* ===============================
      Criar novo evento
@@ -162,7 +199,7 @@ export default function Calendario() {
           description: form.description.trim() || undefined,
           priority: form.priority,
           status: 'aberta',
-          prazo: selectedDate.toISOString(),
+          prazo: fromDateInputValue(toDateInputValue(selectedDate.toISOString())),
           // prazoInicio: selectedDate.toISOString(), // opcional
         });
         toast.success('Demanda criada no calendário');
@@ -170,7 +207,7 @@ export default function Calendario() {
         await addObjetivo({
           title: form.title.trim(),
           completed: false,
-          deadline: selectedDate.toISOString(),
+          deadline: fromDateInputValue(toDateInputValue(selectedDate.toISOString())),
         });
         toast.success('Objetivo criado no calendário');
       }
@@ -181,6 +218,37 @@ export default function Calendario() {
       console.error(err);
       toast.error('Erro ao criar evento');
     }
+  };
+
+  const removeEvent = async (event: CalendarEvent) => {
+    const accepted = await confirmAction({
+      title: 'Excluir este item?',
+      message: `"${event.title}" será removido desta empresa.`,
+      confirmLabel: 'Excluir',
+      tone: 'danger',
+    });
+    if (!accepted) return;
+    if (event.type === 'demanda') await deleteDemanda(event.id);
+    else await deleteObjetivo(event.id);
+  };
+
+  const shiftCursor = (days: number) => {
+    setCursor((current) => {
+      const next = new Date(current);
+      next.setDate(next.getDate() + days);
+      setCurrentMonth(next.getMonth());
+      setCurrentYear(next.getFullYear());
+      setSelectedDay(next.getDate());
+      return next;
+    });
+  };
+
+  const openDay = (date: Date) => {
+    setCursor(date);
+    setCurrentMonth(date.getMonth());
+    setCurrentYear(date.getFullYear());
+    setSelectedDay(date.getDate());
+    setView('dia');
   };
 
   if (isLoading) {
@@ -197,8 +265,8 @@ export default function Calendario() {
         <div className="mx-auto max-w-7xl pb-16">
           {/* Modal Novo Evento */}
           {isModalOpen && (
-            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-              <div className="bg-zinc-900 w-full max-w-lg rounded-2xl p-6 border border-zinc-800 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="fixed inset-0 z-50 flex bg-black/70 sm:items-center sm:justify-center sm:p-4">
+              <div className="flex h-[100dvh] w-full flex-col space-y-5 overflow-y-auto border border-zinc-800 bg-zinc-900 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))] sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold text-white">Novo Evento neste dia</h2>
                   <X
@@ -244,7 +312,7 @@ export default function Calendario() {
                   </select>
                 )}
 
-                <div className="flex justify-end gap-3 pt-2">
+                <div className="sticky bottom-0 flex justify-end gap-3 bg-zinc-900 pt-2">
                   <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                     Cancelar
                   </Button>
@@ -269,10 +337,24 @@ export default function Calendario() {
                   <h1 className="text-2xl font-bold sm:text-3xl">{t('calendario') || 'Calendário'}</h1>
                 </div>
 
+                <div className="flex flex-wrap gap-2">
+                  {(['agenda', 'dia', 'semana', 'mes'] as CalendarView[]).map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`touch-target rounded-xl px-3 text-sm capitalize ${view === item ? 'glass-button glass-button-primary' : 'glass-button glass-button-secondary'}`}
+                      onClick={() => setView(item)}
+                    >
+                      {item === 'mes' ? 'Mês' : item}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="flex items-center gap-4 bg-zinc-900/50 px-4 py-2 rounded-xl border border-zinc-800">
                   <button
-                    onClick={prevMonth}
-                    className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
+                    onClick={() => (view === 'mes' ? prevMonth() : shiftCursor(view === 'semana' ? -7 : -1))}
+                    className="glass-icon"
+                    aria-label="Anterior"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
@@ -283,15 +365,70 @@ export default function Calendario() {
                     })}
                   </span>
                   <button
-                    onClick={nextMonth}
-                    className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
+                    onClick={() => (view === 'mes' ? nextMonth() : shiftCursor(view === 'semana' ? 7 : 1))}
+                    className="glass-icon"
+                    aria-label="Próximo"
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
                 </div>
               </div>
 
-              <Card className="shadow-xl border-zinc-800 overflow-hidden">
+              {view === 'agenda' && (
+                <div className="space-y-4">
+                  {agendaDays.length === 0 ? (
+                    <Card className="p-8 text-center text-zinc-400">Nenhum prazo ou objetivo com data.</Card>
+                  ) : agendaDays.map(([day, events]) => (
+                    <section key={day}>
+                      <button type="button" className="mb-2 text-sm font-semibold text-indigo-300" onClick={() => openDay(new Date(`${day}T12:00:00`))}>
+                        {day.split('-').reverse().join('/')}
+                      </button>
+                      <div className="space-y-2">
+                        {events.map((event) => (
+                          <EventRow key={`${event.type}-${event.id}`} event={event} onDelete={() => removeEvent(event)} />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
+
+              {view === 'semana' && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
+                  {weekDays.map((date) => {
+                    const key = toDateInputValue(date.toISOString());
+                    const events = allEvents.filter((event) => eventKey(event.date) === key);
+                    return (
+                      <Card key={key} className="min-h-28 border-zinc-800 p-3">
+                        <button type="button" className="mb-2 text-sm font-semibold" onClick={() => openDay(date)}>
+                          {date.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })}
+                        </button>
+                        <div className="space-y-2">
+                          {events.map((event) => (
+                            <EventRow key={`${event.type}-${event.id}`} event={event} onDelete={() => removeEvent(event)} compact />
+                          ))}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {view === 'dia' && (
+                <Card className="border-zinc-800 p-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold">{cursor.toLocaleDateString('pt-BR')}</h2>
+                    <Button variant="primary" icon={<Plus size={16} />} onClick={() => setIsModalOpen(true)}>Novo</Button>
+                  </div>
+                  {selectedEvents.length === 0 ? (
+                    <p className="py-8 text-center text-zinc-500">Nada neste dia.</p>
+                  ) : selectedEvents.map((event) => (
+                    <EventRow key={`${event.type}-${event.id}`} event={event} onDelete={() => removeEvent(event)} />
+                  ))}
+                </Card>
+              )}
+
+              <Card className={`shadow-xl border-zinc-800 overflow-hidden ${view === 'mes' ? '' : 'hidden'}`}>
                 <div className="grid grid-cols-7 gap-px bg-zinc-800/50 p-1">
                   {/* Dias da semana */}
                   {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((dia) => (
@@ -406,8 +543,10 @@ export default function Calendario() {
 
                               {/* TODO: implementar delete */}
                               <button
-                                className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => toast('Exclusão ainda não implementada')}
+                                type="button"
+                                className="touch-target text-red-400"
+                                aria-label="Excluir"
+                                onClick={() => removeEvent(e)}
                               >
                                 <Trash2 size={16} />
                               </button>

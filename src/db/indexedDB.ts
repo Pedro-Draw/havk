@@ -9,7 +9,7 @@ interface DBStore {
 }
 
 const DB_NAME = 'HavkDB';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 const STORES: DBStore[] = [
   {
@@ -82,6 +82,11 @@ const STORES: DBStore[] = [
     keyPath: 'id',
     autoIncrement: false,
   },
+  {
+    name: 'empresas',
+    keyPath: 'id',
+    autoIncrement: false,
+  },
 ];
 
 let db: IDBDatabase | null = null;
@@ -98,6 +103,10 @@ export const openDB = (): Promise<IDBDatabase> => {
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
       db = request.result;
+      db.onversionchange = () => {
+        db?.close();
+        db = null;
+      };
       resolve(db);
     };
 

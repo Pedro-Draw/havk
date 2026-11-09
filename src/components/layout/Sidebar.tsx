@@ -1,142 +1,66 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useTranslation } from '../../i18n/useTranslation';
-import {
-  LayoutDashboard,
-  Inbox,
-  FolderKanban,
-  Calendar,
-  BarChart3,
-  Users,
-  Settings,
-  KanbanSquare,
-  Clock,
-  BrainCircuit,
-  StickyNote,
-  Target,
-  FileText,
-  MessageSquare,
-  GanttChart,
-  ListTodo,
-} from 'lucide-react';
+import { useVisibleNav } from '../../hooks/useVisibleNav';
+import IconButton from '../ui/IconButton';
+
+const STORAGE_KEY = 'havk-sidebar-collapsed';
+
+if (typeof document !== 'undefined' && localStorage.getItem(STORAGE_KEY) === '1') {
+  document.documentElement.dataset.sidebar = 'collapsed';
+}
 
 export default function Sidebar() {
   const { t } = useTranslation();
+  const { groups } = useVisibleNav();
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(STORAGE_KEY) === '1');
 
-  const baseClass =
-    'flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150';
-
-  const activeClass = 'bg-zinc-800 text-white';
-
-  const inactiveClass =
-    'text-zinc-400 hover:bg-zinc-900 hover:text-white';
-
-  const getClass = ({ isActive }: { isActive: boolean }) =>
-    `${baseClass} ${isActive ? activeClass : inactiveClass}`;
+  useEffect(() => {
+    document.documentElement.dataset.sidebar = collapsed ? 'collapsed' : 'expanded';
+    localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
+  }, [collapsed]);
 
   return (
     <aside
-      className="fixed top-0 left-0 z-40 hidden h-screen w-64 flex-col border-r border-zinc-800 bg-zinc-950 lg:flex"
-      aria-label="Sidebar"
+      className="glass-bar fixed inset-y-0 left-0 z-40 hidden h-dvh flex-col border-r lg:flex"
+      style={{ width: 'var(--sidebar-w)', background: 'var(--sidebar)' }}
+      aria-label="Menu lateral"
     >
-      <div className="flex h-16 shrink-0 items-center border-b border-zinc-800 px-6">
-        <Link to="/" className="text-xl font-bold tracking-tight text-white">
-          Havk
+      <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-3" style={{ borderColor: 'var(--border)' }}>
+        <Link to="/" className="truncate px-2 text-lg font-semibold tracking-tight" title="Havk">
+          {collapsed ? 'H' : 'Havk'}
         </Link>
+        <IconButton label={collapsed ? 'Expandir menu' : 'Recolher menu'} onClick={() => setCollapsed((value) => !value)}>
+          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+        </IconButton>
       </div>
-      <div
-        className="
-          flex-1
-          overflow-y-auto
-          px-3
-          pb-6
-          scrollbar-thin
-          scrollbar-thumb-zinc-700
-          scrollbar-track-transparent
-        "
-      >
-        <nav className="flex flex-col gap-1 mt-4">
 
-          <NavLink to="/" end className={getClass}>
-            <LayoutDashboard size={18} />
-            {t('sidebar.dashboard') || 'Dashboard'}
-          </NavLink>
-
-          <NavLink to="/inbox" className={getClass}>
-            <Inbox size={18} />
-            {t('sidebar.inbox') || 'Inbox'}
-          </NavLink>
-
-          <NavLink to="/demandas" className={getClass}>
-            <ListTodo size={18} />
-            {t('sidebar.demandas') || 'Demandas'}
-          </NavLink>
-
-          <NavLink to="/projetos" className={getClass}>
-            <FolderKanban size={18} />
-            {t('sidebar.projetos') || 'Projetos'}
-          </NavLink>
-
-          <NavLink to="/kanban" className={getClass}>
-            <KanbanSquare size={18} />
-            {t('sidebar.kanban') || 'Kanban'}
-          </NavLink>
-
-          <NavLink to="/calendario" className={getClass}>
-            <Calendar size={18} />
-            {t('sidebar.calendario') || 'Calendário'}
-          </NavLink>
-
-          <NavLink to="/gantt" className={getClass}>
-            <GanttChart size={18} />
-            {t('sidebar.gantt') || 'Gantt'}
-          </NavLink>
-
-          <NavLink to="/tempo" className={getClass}>
-            <Clock size={18} />
-            {t('sidebar.timeTracker') || 'Tempo'}
-          </NavLink>
-
-          <NavLink to="/ia" className={getClass}>
-            <BrainCircuit size={18} />
-            {t('sidebar.aiStudio') || 'IA Studio'}
-          </NavLink>
-
-          <NavLink to="/notas" className={getClass}>
-            <StickyNote size={18} />
-            {t('sidebar.notas') || 'Notas'}
-          </NavLink>
-
-          <NavLink to="/objetivos" className={getClass}>
-            <Target size={18} />
-            {t('sidebar.objetivos') || 'Objetivos'}
-          </NavLink>
-
-          <NavLink to="/relatorios" className={getClass}>
-            <BarChart3 size={18} />
-            {t('sidebar.relatorios') || 'Relatórios'}
-          </NavLink>
-
-          <NavLink to="/equipe" className={getClass}>
-            <Users size={18} />
-            {t('sidebar.equipe') || 'Equipe'}
-          </NavLink>
-
-          <NavLink to="/chat" className={getClass}>
-            <MessageSquare size={18} />
-            {t('sidebar.chatGlobal') || 'Chat'}
-          </NavLink>
-
-          <NavLink to="/templates" className={getClass}>
-            <FileText size={18} />
-            {t('sidebar.templates') || 'Templates'}
-          </NavLink>
-
-          <NavLink to="/configuracoes" className={getClass}>
-            <Settings size={18} />
-            {t('sidebar.configuracoes') || 'Configurações'}
-          </NavLink>
-
-        </nav>
+      <div className="sidebar-scroll flex-1 overflow-y-auto px-2 pb-6">
+        {groups.map((group) => (
+          <div key={group.id}>
+            {!collapsed && <p className="nav-group-label">{group.label}</p>}
+            {collapsed && <div className="h-3" />}
+            <nav className="flex flex-col gap-1">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const label = t(item.key) || item.label;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    title={label}
+                    className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
+                  >
+                    <Icon size={18} />
+                    {!collapsed && <span className="truncate">{label}</span>}
+                  </NavLink>
+                );
+              })}
+            </nav>
+          </div>
+        ))}
       </div>
     </aside>
   );

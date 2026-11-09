@@ -1,21 +1,24 @@
 // App.tsx
-import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
-import { useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./lib/firebase";
 import { DEV_SESSION_KEY, applyFirebaseUser } from "./lib/authSession";
 import { useAppStore } from "./store/useAppStore";
+import { rememberPlace } from "./lib/places";
 
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import MobileMenu from "./components/layout/MobileMenu";
 import Footer from "./components/layout/Footer";
+import CommandPalette from "./components/command/CommandPalette";
 
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
 import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
 
 import Dashboard from "./pages/Dashboard";
 import Inbox from "./pages/Inbox";
@@ -35,6 +38,10 @@ import ChatGlobal from "./pages/ChatGlobal";
 import Configuracoes from "./pages/Configuracoes";
 
 import NotFound from "./pages/NotFound";
+import Empresas from "./pages/Empresas";
+import HavkToaster from "./components/ui/HavkToaster";
+import ConfirmDialog from "./components/ui/ConfirmDialog";
+import { devicePermission, requestDevicePermission } from "./lib/deviceNotify";
 
 function AuthSync() {
   useEffect(() => {
@@ -98,6 +105,11 @@ function AppLayout() {
   const loadAll = useAppStore((state) => state.loadAll);
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
   const user = useAppStore((state) => state.user);
+  const location = useLocation();
+
+  useEffect(() => {
+    rememberPlace(location.pathname);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -106,22 +118,81 @@ function AppLayout() {
   }, [isAuthenticated, user, loadAll]);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="app-shell">
       <Sidebar />
-
-      <div className="flex min-h-screen min-w-0 flex-col lg:pl-64">
+      <div className="app-main">
         <Topbar />
-
-        <main className="w-full min-w-0 flex-1">
+        <main className="app-content">
+          <DeviceNotice />
           <Outlet />
+          <Footer />
         </main>
-
-        <Footer />
       </div>
-
       <MobileMenu />
+      <CommandPalette />
     </div>
   );
+}
+
+function DeviceNotice() {
+  const [hidden, setHidden] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('havk-notify-ask') === '1' || devicePermission() !== 'default';
+  });
+
+  if (hidden) return null;
+
+  return (
+    <div className="havk-toast mx-auto mb-4">
+      <img src={`${import.meta.env.BASE_URL}apple-touch-icon.png`} alt="" className="havk-toast-logo" />
+      <div className="min-w-0 flex-1">
+        <p className="havk-toast-kicker">Neste dispositivo</p>
+        <p className="havk-toast-message">A Havk pode enviar avisos com a logo e a mensagem direto na central de notificações.</p>
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            className="rounded-full bg-violet-600 px-3 py-1.5 text-sm font-medium text-white"
+            onClick={async () => {
+              const result = await requestDevicePermission();
+              localStorage.setItem('havk-notify-ask', '1');
+              setHidden(true);
+              if (result === 'granted') {
+                toast.success('A Havk vai avisar neste dispositivo, com a logo e a mensagem.');
+              } else {
+                toast.error('O sistema não liberou as notificações da Havk.');
+              }
+            }}
+          >
+            Ativar
+          </button>
+          <button
+            type="button"
+            className="rounded-full px-3 py-1.5 text-sm text-[var(--text-secondary)]"
+            onClick={() => {
+              localStorage.setItem('havk-notify-ask', '1');
+              setHidden(true);
+            }}
+          >
+            Agora não
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PasswordResetLink() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('mode') === 'resetPassword' && params.get('oobCode') && location.pathname !== '/reset-password') {
+      navigate(`/reset-password?${params.toString()}`, { replace: true });
+    }
+  }, [location.pathname, location.search, navigate]);
+
+  return null;
 }
 
 function AppRoutes() {
@@ -131,6 +202,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Rotas protegidas */}
       <Route element={<ProtectedRoute />}>
@@ -153,6 +225,7 @@ function AppRoutes() {
           <Route path="/objetivos" element={<Objetivos />} />
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/equipe" element={<Equipe />} />
+          <Route path="/empresas" element={<Empresas />} />
           <Route path="/chat" element={<ChatGlobal />} />
           <Route path="/configuracoes" element={<Configuracoes />} />
 
@@ -176,15 +249,10 @@ export default function App() {
   return (
     <Router basename={routerBasename === '' ? undefined : routerBasename}>
       <AuthSync />
+      <PasswordResetLink />
       <AppRoutes />
-      <Toaster
-        position="top-center"
-        containerClassName="!top-4"
-        toastOptions={{
-          duration: 4000,
-          className: "text-sm",
-        }}
-      />
+      <HavkToaster />
+      <ConfirmDialog />
     </Router>
   );
 }

@@ -1,285 +1,213 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
-import {
-  X,
-  LayoutDashboard,
-  Inbox,
-  FolderKanban,
-  ListTodo,
-  Calendar,
-  GanttChart,
-  Clock,
-  Bot,
-  NotebookPen,
-  CopyPlus,
-  Target,
-  BarChart3,
-  Users,
-  MessageSquare,
-  Settings,
-  Plus
-} from 'lucide-react';
-
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { PanelLeftClose, Plus, Search, Star } from 'lucide-react';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useAppStore } from '../../store/useAppStore';
 import { MOBILE_MENU_EVENT, setMobileMenuOpen } from '../../lib/mobileNav';
+import { useVisibleNav } from '../../hooks/useVisibleNav';
+import { openCommandPalette } from '../../lib/navigation';
+import { isFavorite, toggleFavorite } from '../../lib/places';
+import ThemeToggle from '../common/ThemeToggle';
 
 export default function MobileMenu() {
-  const [isOpen, setIsOpen] = useState(false);
-
+  const [open, setOpen] = useState(false);
   const { t } = useTranslation();
-  const { user } = useAppStore();
-
-  const menuRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef(0);
-
-  const location = useLocation();
+  const { user, empresas, activeEmpresaId, setActiveEmpresa } = useAppStore();
+  const { groups } = useVisibleNav();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [favorite, setFavorite] = useState(() => isFavorite(location.pathname));
 
-  /* =====================================================
-     🔥 SINCRONIZAÇÃO COM TOPBAR
-  ===================================================== */
+  const menuGroups = useMemo(
+    () =>
+      groups.map((group) => ({
+        ...group,
+        items: group.items.map((item) => ({
+          ...item,
+          label: t(item.key) || item.label,
+        })),
+      })),
+    [groups, t]
+  );
+
+  const activeEmpresa = empresas.find((empresa) => empresa.id === activeEmpresaId) || empresas[0];
 
   useEffect(() => {
-    const onState = (event: Event) => {
-      setIsOpen(Boolean((event as CustomEvent<boolean>).detail));
-    };
-
+    const onState = (event: Event) => setOpen(Boolean((event as CustomEvent<boolean>).detail));
     window.addEventListener(MOBILE_MENU_EVENT, onState);
     return () => window.removeEventListener(MOBILE_MENU_EVENT, onState);
   }, []);
 
   useEffect(() => {
+    setFavorite(isFavorite(location.pathname));
+  }, [location.pathname]);
+
+  useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  /* =====================================================
-     🔒 BLOQUEIA SCROLL DO BODY
-  ===================================================== */
-
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-
+    document.body.style.overflow = open ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen]);
-
-  /* =====================================================
-     🖱️ FECHA AO CLICAR FORA
-  ===================================================== */
-
-  /* =====================================================
-     ⌨️ FECHA COM ESC
-  ===================================================== */
+  }, [open]);
 
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setMobileMenuOpen(false);
-      }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileMenuOpen(false);
     };
-
-    window.addEventListener('keydown', handleKey);
-
-    return () => window.removeEventListener('keydown', handleKey);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  /* =====================================================
-     👆 SWIPE GLOBAL (ABRIR MENU)
-  ===================================================== */
+  const close = () => setMobileMenuOpen(false);
 
-  useEffect(() => {
-    const handleTouchStart = (e: TouchEvent) => {
-      touchStartX.current = e.touches[0].clientX;
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      const endX = e.changedTouches[0].clientX;
-      const diff = endX - touchStartX.current;
-
-      if (touchStartX.current < 24 && diff > 80) {
-        setMobileMenuOpen(true);
-      }
-    };
-
-    document.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchend', handleTouchEnd);
-
-    return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, []);
-
-  /* =====================================================
-     👆 SWIPE PARA FECHAR
-  ===================================================== */
-
-  const handleTouchStartMenu = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchMoveMenu = (e: React.TouchEvent) => {
-    const endX = e.touches[0].clientX;
-    const diff = endX - touchStartX.current;
-
-    if (diff < -50) {
-      setMobileMenuOpen(false);
-    }
-  };
-
-  /* =====================================================
-     📋 MENU ITEMS
-  ===================================================== */
-
-  const menuItems = useMemo(
-    () => [
-      { icon: LayoutDashboard, label: t('sidebar.dashboard'), path: '/' },
-      { icon: Inbox, label: t('sidebar.inbox'), path: '/inbox' },
-      { icon: ListTodo, label: t('sidebar.demandas') || 'Demandas', path: '/demandas' },
-      { icon: FolderKanban, label: t('sidebar.projetos'), path: '/projetos' },
-      { icon: ListTodo, label: t('sidebar.kanban'), path: '/kanban' },
-      { icon: Calendar, label: t('sidebar.calendario'), path: '/calendario' },
-      { icon: GanttChart, label: t('sidebar.gantt'), path: '/gantt' },
-      { icon: Clock, label: t('sidebar.timeTracker'), path: '/tempo' },
-      { icon: Bot, label: t('sidebar.aiStudio'), path: '/ia' },
-      { icon: NotebookPen, label: t('sidebar.notas'), path: '/notas' },
-      { icon: CopyPlus, label: t('sidebar.templates'), path: '/templates' },
-      { icon: Target, label: t('sidebar.objetivos'), path: '/objetivos' },
-      { icon: BarChart3, label: t('sidebar.relatorios'), path: '/relatorios' },
-      { icon: Users, label: t('sidebar.equipe'), path: '/equipe' },
-      { icon: MessageSquare, label: t('sidebar.chat'), path: '/chat' },
-      { icon: Settings, label: t('sidebar.configuracoes'), path: '/configuracoes' }
-    ],
-    [t]
-  );
-
-  /* =====================================================
-     👤 AVATAR FALLBACK
-  ===================================================== */
-
-  const getInitials = () => {
-    if (!user?.name) return 'U';
-
-    const parts = user.name.split(' ');
-    const initials = parts.map(p => p[0]).join('');
-
-    return initials.slice(0, 2).toUpperCase();
-  };
-
-  /* =====================================================
-     RENDER
-  ===================================================== */
+  const initials = (user?.name || 'U')
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <>
-      {/* MENU */}
       <div
-        ref={menuRef}
+        className={`mobile-drawer ${open ? 'is-open' : ''}`}
         role="dialog"
         aria-modal="true"
-        onTouchStart={handleTouchStartMenu}
-        onTouchMove={handleTouchMoveMenu}
-        className={`fixed inset-y-0 left-0 z-[70] w-[min(82vw,18rem)] max-w-sm overflow-y-auto border-r border-zinc-800 bg-zinc-900 transform transition-all duration-300 ease-out lg:hidden ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        aria-label="Menu"
+        aria-hidden={!open}
       >
+        <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-3" style={{ borderColor: 'var(--border)' }}>
+          <p className="px-2 text-lg font-semibold tracking-tight">Havk</p>
+          <button type="button" className="drawer-close" aria-label="Recolher menu" onClick={close}>
+            <PanelLeftClose size={18} />
+          </button>
+        </div>
 
-        {/* HEADER */}
-        <div className="flex items-center justify-between border-b border-zinc-800 p-4">
+        <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+          {activeEmpresa && (
+            <button
+              type="button"
+              className="company-switch mx-1 mt-3 w-[calc(100%-0.5rem)] max-w-none"
+              onClick={() => {
+                close();
+                navigate('/empresas');
+              }}
+            >
+              {activeEmpresa.logo ? (
+                <img src={activeEmpresa.logo} alt="" className="company-mark" />
+              ) : (
+                <span className="company-mark">{activeEmpresa.name.slice(0, 1).toUpperCase()}</span>
+              )}
+              <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">{activeEmpresa.name}</span>
+            </button>
+          )}
 
-          <div className="flex items-center gap-3">
-
-            {user?.avatar ? (
-              <img
-                src={user.avatar}
-                alt="Perfil"
-                className="h-9 w-9 rounded-full border-2 border-zinc-700 object-cover"
-              />
-            ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-700 text-xs font-semibold text-zinc-300">
-                {getInitials()}
-              </div>
-            )}
-
-            <div>
-              <p className="font-semibold text-white">
-                {user?.name || 'Usuário'}
-              </p>
-
-              <p className="text-sm text-zinc-500 truncate max-w-[160px]">
-                {user?.email}
-              </p>
+          {empresas.length > 1 && (
+            <div className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
+              {empresas.map((empresa) => (
+                <button
+                  key={empresa.id}
+                  type="button"
+                  className={`company-mark shrink-0 ${empresa.id === activeEmpresa?.id ? 'ring-2 ring-violet-400' : ''}`}
+                  aria-label={empresa.name}
+                  onClick={() => {
+                    if (empresa.id !== activeEmpresa?.id) void setActiveEmpresa(empresa.id);
+                  }}
+                >
+                  {empresa.logo ? <img src={empresa.logo} alt="" className="h-full w-full object-cover" /> : empresa.name.slice(0, 1).toUpperCase()}
+                </button>
+              ))}
             </div>
+          )}
 
+          <button
+            type="button"
+            className="havk-field mx-1 mt-3 flex w-[calc(100%-0.5rem)] items-center gap-2 rounded-full px-3 py-2 text-left text-sm text-[var(--text-muted)]"
+            onClick={() => {
+              close();
+              openCommandPalette();
+            }}
+          >
+            <Search size={16} />
+            Buscar
+          </button>
+
+          {menuGroups.map((group) => (
+            <div key={group.id}>
+              <p className="nav-group-label">{group.label}</p>
+              <nav className="flex flex-col gap-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.end}
+                      onClick={close}
+                      className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
+                    >
+                      <Icon size={18} />
+                      <span className="truncate">{item.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </nav>
+            </div>
+          ))}
+        </div>
+
+        <div className="drawer-foot shrink-0 space-y-3 border-t px-3 py-3" style={{ borderColor: 'var(--border)' }}>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              className="sidebar-link min-w-0 flex-1"
+              aria-pressed={favorite}
+              onClick={() => {
+                toggleFavorite(location.pathname);
+                setFavorite(isFavorite(location.pathname));
+              }}
+            >
+              <Star size={18} className={favorite ? 'fill-current' : ''} />
+              <span className="truncate">{favorite ? 'Nos favoritos' : 'Favoritar página'}</span>
+            </button>
+            <ThemeToggle />
+          </div>
+
+          <div className="flex items-center gap-3 px-2">
+            {user?.avatar ? (
+              <img src={user.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+            ) : (
+              <span className="company-mark">{initials}</span>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{user?.name || 'Conta'}</p>
+              <p className="truncate text-xs text-[var(--text-muted)]">{user?.email}</p>
+            </div>
           </div>
 
           <button
-            onClick={() => setMobileMenuOpen(false)}
-            className="text-zinc-400 hover:text-white"
-            aria-label={t('mobileMenu.fecharMenu')}
-          >
-            <X className="h-5 w-5" />
-          </button>
-
-        </div>
-
-        {/* MENU */}
-        <nav className="space-y-0.5 p-2">
-
-          {menuItems.map(item => {
-            const isActive =
-              location.pathname === item.path ||
-              location.pathname.startsWith(item.path + '/');
-
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === '/'}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                  isActive
-                    ? 'bg-zinc-800 text-white border-l-2 border-blue-500'
-                    : 'text-zinc-300 hover:bg-zinc-800 hover:translate-x-1'
-                }`}
-              >
-                <item.icon className="h-4 w-4" />
-
-                {item.label}
-              </NavLink>
-            );
-          })}
-
-          {/* NOVA DEMANDA */}
-
-          <button
+            type="button"
+            className="glass-button glass-button-primary flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium"
             onClick={() => {
-              setMobileMenuOpen(false);
+              close();
               navigate('/demandas/nova');
             }}
-            className="mt-3 flex w-full items-center gap-3 rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 transition-all hover:bg-white"
           >
-            <Plus className="h-4 w-4" />
-
+            <Plus size={16} />
             {t('novaDemanda')}
           </button>
-
-        </nav>
+        </div>
       </div>
 
-      {/* OVERLAY */}
-
-      {isOpen && (
-        <div
-          aria-hidden="true"
-          className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm transition-opacity lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
+      {open && (
+        <button
+          type="button"
+          aria-label="Recolher menu"
+          className="fixed inset-0 z-[60] bg-black/45 backdrop-blur-[2px] lg:hidden"
+          onClick={close}
         />
       )}
     </>

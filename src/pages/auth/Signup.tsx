@@ -88,7 +88,7 @@ export default function Signup() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center overflow-x-hidden bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8">
+    <div className="auth-shell flex min-h-screen items-center justify-center overflow-x-hidden bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8">
       <div className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-5 sm:p-6 shadow-2xl">
 
         {/* HEADER */}

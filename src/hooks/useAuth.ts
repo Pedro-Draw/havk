@@ -16,6 +16,17 @@ import {
 } from 'firebase/auth'
 import toast from 'react-hot-toast'
 import { DEV_SESSION_KEY, applyFirebaseUser, mapAuthError } from '../lib/authSession'
+import { lookupAccount } from '../lib/passwordReset'
+
+export type PasswordResetResult = 'sent' | 'missing' | 'invalid' | 'failed'
+
+const toastStyle = {
+  background: '#18181b',
+  color: '#fafafa',
+  border: '1px solid #3f3f46',
+  borderRadius: '16px',
+  maxWidth: '420px',
+}
 
 export const useAuth = () => {
   const { user, isAuthenticated, setUser, logout: storeLogout } = useAppStore()
@@ -102,25 +113,39 @@ export const useAuth = () => {
   }
 
   // RECUPERAR SENHA
-  const sendPasswordReset = async (email: string): Promise<boolean> => {
+  const sendPasswordReset = async (email: string): Promise<PasswordResetResult> => {
+    const normalized = email.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+      toast.error('Digite um e-mail válido.', { style: toastStyle })
+      return 'invalid'
+    }
+
+    const account = await lookupAccount(normalized)
+    if (account === 'missing') {
+      toast.error('Não existe uma conta com esse e-mail. Nenhum link foi enviado.', { style: toastStyle })
+      return 'missing'
+    }
+    if (account === 'unknown') {
+      toast.error('Não foi possível confirmar essa conta. Nenhum link foi enviado.', { style: toastStyle })
+      return 'failed'
+    }
+
     try {
-      await sendPasswordResetEmail(auth, email)
-      toast.success('E-mail de recuperação enviado! Verifique sua caixa de entrada.')
-      return true
+      await sendPasswordResetEmail(auth, normalized)
+      toast.success('Enviamos o link de recuperação para esse e-mail. Confira a caixa de entrada e o spam.', { style: toastStyle })
+      return 'sent'
     } catch (error: any) {
       console.error('Erro ao enviar e-mail de recuperação:', error)
-      switch (error.code) {
-        case 'auth/user-not-found':
-          // Por segurança, não revelamos se o e-mail existe ou não
-          toast.success('Se este e-mail estiver cadastrado, você receberá um link de recuperação.')
-          return true
-        case 'auth/invalid-email':
-          toast.error('E-mail inválido.')
-          break
-        default:
-          toast.error('Erro ao enviar e-mail de recuperação.')
+      if (error.code === 'auth/user-not-found') {
+        toast.error('Não existe uma conta com esse e-mail. Nenhum link foi enviado.', { style: toastStyle })
+        return 'missing'
       }
-      return false
+      if (error.code === 'auth/invalid-email') {
+        toast.error('Digite um e-mail válido.', { style: toastStyle })
+        return 'invalid'
+      }
+      toast.error('Não foi possível enviar o e-mail de recuperação. Tente novamente.', { style: toastStyle })
+      return 'failed'
     }
   }
 

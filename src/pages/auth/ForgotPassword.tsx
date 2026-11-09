@@ -1,15 +1,15 @@
 // pages/ForgotPassword.tsx
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../../i18n/useTranslation';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { Mail, ArrowLeft } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState('');
+  const [params] = useSearchParams();
+  const [email, setEmail] = useState(params.get('email') || '');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,25 +30,26 @@ export default function ForgotPassword() {
     setLoading(true);
 
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError(t('emailInvalido') || 'Digite um e-mail válido');
+      setError('Digite um e-mail válido.');
       setLoading(false);
-      toast.error(t('emailInvalido') || 'E-mail inválido');
       return;
     }
 
     try {
-      const success = await sendPasswordReset(email.trim().toLowerCase());
+      const result = await sendPasswordReset(email.trim().toLowerCase());
 
-      if (success) {
+      if (result === 'sent') {
         setSubmitted(true);
-        setMessage(
-          t('linkRecuperacaoEnviado') ||
-            'Se o e-mail existir em nosso sistema, enviaremos um link de recuperação.'
-        );
+        setMessage('Enviamos o link de recuperação para esse e-mail. Confira a caixa de entrada e o spam.');
+      } else if (result === 'missing') {
+        setError('Não existe uma conta com esse e-mail. Nenhum link foi enviado.');
+      } else if (result === 'invalid') {
+        setError('Digite um e-mail válido.');
+      } else {
+        setError('Não foi possível confirmar ou enviar a recuperação. Tente novamente.');
       }
-    } catch (err) {
-      setError(t('erroEnviarEmail') || 'Não foi possível enviar o e-mail. Tente novamente.');
-      toast.error(t('erroEnviarEmail') || 'Erro ao enviar e-mail');
+    } catch {
+      setError('Não foi possível enviar o e-mail. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -56,7 +57,7 @@ export default function ForgotPassword() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4">
+      <div className="auth-shell min-h-screen flex items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4">
         <div className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-8 shadow-2xl text-center">
           <div className="mb-6">
             <div className="mx-auto w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
@@ -80,7 +81,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center overflow-x-hidden bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8">
+    <div className="auth-shell flex min-h-screen items-center justify-center overflow-x-hidden bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8">
       <div className="w-full max-w-md rounded-2xl border border-zinc-800/60 bg-zinc-900/80 p-5 shadow-2xl backdrop-blur-sm sm:p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Havk</h1>

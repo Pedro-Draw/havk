@@ -30,7 +30,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
 
-  const { signIn, signInWithGoogle, signInWithGithub, signInAsDev } = useAuth();
+  const { signIn, signInWithGoogle, signInWithGithub, signInAsDev, sendPasswordReset } = useAuth();
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
   const isAuthLoading = useAppStore((state) => state.isAuthLoading);
   const { t } = useTranslation();
@@ -156,7 +156,7 @@ export default function Login() {
     <>
       <div
         onMouseMove={handleMouseMove}
-        className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8 overflow-x-hidden"
+        className="auth-shell relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8 overflow-x-hidden"
       >
 
         {/* Glow Background */}
@@ -258,7 +258,7 @@ export default function Login() {
               </label>
 
               <Link
-                to="/forgot-password"
+                to={`/forgot-password?email=${encodeURIComponent(email.trim().toLowerCase())}`}
                 className="text-indigo-400 hover:text-indigo-300"
               >
                 {t('esqueceuSenha') || 'Esqueceu sua senha?'}
@@ -267,11 +267,16 @@ export default function Login() {
             </div>
 
             {error && (
-
-              <p className="text-red-400 text-sm text-center bg-red-950/40 border border-red-900/50 rounded-lg p-3">
-                {error}
-              </p>
-
+              <div className="space-y-3 rounded-lg border border-red-900/50 bg-red-950/40 p-3 text-center text-sm text-red-300">
+                <p>{error}</p>
+                <button
+                  type="button"
+                  className="font-medium text-indigo-300 underline"
+                  onClick={() => sendPasswordReset(email.trim().toLowerCase())}
+                >
+                  Enviar link para redefinir a senha
+                </button>
+              </div>
             )}
 
             <Button

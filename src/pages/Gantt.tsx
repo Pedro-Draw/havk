@@ -13,6 +13,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
+import PageHeader from '../components/layout/PageHeader';
 import { format, addDays, differenceInDays, startOfDay, isSameDay, isWeekend, addMonths, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import html2canvas from 'html2canvas';
@@ -179,12 +180,11 @@ export default function Gantt() {
     <div className="w-full min-w-0 bg-zinc-950 px-3 py-3 text-zinc-100 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto w-full max-w-full" ref={containerRef}>
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <GanttChart className="h-7 w-7 text-zinc-300 sm:h-10 sm:w-10" />
-            <h1 className="text-2xl font-bold sm:text-3xl">{t('gantt.title') || 'Gantt Avançado'}</h1>
-          </div>
-
+        <PageHeader
+          icon={<GanttChart className="h-5 w-5" />}
+          title={t('gantt.title') || 'Gantt Avançado'}
+          description="A coluna do nome fica fixa. Arraste a linha do tempo com o dedo."
+          actions={
           <div className="flex flex-wrap gap-3 items-center">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
@@ -207,14 +207,15 @@ export default function Gantt() {
               <option value="month">Mês</option>
             </select>
 
-            <button onClick={() => setZoom(z => z + 0.3)} className="p-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg"><ZoomIn className="w-5 h-5" /></button>
-            <button onClick={() => setZoom(z => Math.max(0.5, z - 0.3))} className="p-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg"><ZoomOut className="w-5 h-5" /></button>
-            <button onClick={autoFit} className="p-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg"><Maximize className="w-5 h-5" /></button>
-            <button onClick={handleExportPNG} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium flex items-center gap-2">
+            <button onClick={() => setZoom(z => z + 0.3)} className="glass-icon" aria-label="Aumentar zoom"><ZoomIn className="w-5 h-5" /></button>
+            <button onClick={() => setZoom(z => Math.max(0.5, z - 0.3))} className="glass-icon" aria-label="Diminuir zoom"><ZoomOut className="w-5 h-5" /></button>
+            <button onClick={autoFit} className="glass-icon" aria-label="Ajustar à tela"><Maximize className="w-5 h-5" /></button>
+            <button onClick={handleExportPNG} className="glass-button glass-button-primary flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium">
               Export PNG
             </button>
           </div>
-        </div>
+          }
+        />
 
         {/* Legenda */}
         <div className="flex flex-wrap gap-5 mb-6 text-sm">
@@ -229,7 +230,7 @@ export default function Gantt() {
 
         <Card className="overflow-hidden border border-zinc-800 bg-zinc-900">
           {/* Header de datas */}
-          <div ref={headerRef} className="overflow-x-hidden bg-zinc-950 border-b border-zinc-800 sticky top-0 z-20">
+          <div ref={headerRef} className="overflow-x-hidden border-b border-zinc-800">
             <div
               className="grid text-xs font-medium text-zinc-400"
               style={{ gridTemplateColumns: `260px repeat(${totalUnits}, minmax(${zoom * 1.2}px, 1fr))` }}
@@ -261,7 +262,8 @@ export default function Gantt() {
           {/* Grid principal */}
           <div
             ref={gridRef}
-            className="overflow-auto max-h-[70vh] relative"
+            className="scroll-area relative max-h-[70vh] overflow-auto overscroll-contain"
+            style={{ touchAction: 'pan-x pan-y', WebkitOverflowScrolling: 'touch' }}
             onScroll={handleScroll}
           >
             <div style={{ minWidth: `${260 + totalUnits * zoom * 1.2}px`, height: `${demandasFiltradas.length * 54 + 100}px` }}>
@@ -283,7 +285,9 @@ export default function Gantt() {
                                                   task.status === 'em-progresso' ? 'in_progress' :
                                                   task.status === 'bloqueada' ? 'blocked' : 'planned';
                   const color = statusColors[ganttStatus];
-                  const isCritical = false; // TODO: implementar detecção de caminho crítico
+                  const isLate = task.status !== 'concluida' && differenceInDays(normalize(task.prazo), startOfDay(new Date())) < 0;
+                  const blocksLateChild = demandasFiltradas.some((item) => item.parentId === task.id && item.status !== 'concluida' && item.prazo && differenceInDays(normalize(item.prazo), startOfDay(new Date())) < 0);
+                  const isCritical = isLate || blocksLateChild;
 
                   return (
                     <div
@@ -292,7 +296,7 @@ export default function Gantt() {
                       style={{ gridColumn: '1 / -1' }}
                     >
                       {/* Coluna esquerda: título + expandir */}
-                      <div className={`p-3 flex items-center gap-2 border-r border-zinc-800 bg-zinc-950/90 sticky left-0 z-10 ${prioridadeBorder[task.priority || 'media']}`}>
+                      <div className={`sticky left-0 z-10 flex w-[260px] items-center gap-2 border-r border-zinc-800 bg-zinc-950/90 p-3 ${prioridadeBorder[task.priority || 'media']}`}>
                         {task.isParent && (
                           <button onClick={() => toggleExpand(task.id)}>
                             {expanded.has(task.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -321,8 +325,9 @@ export default function Gantt() {
                         ) : null}
                       </div>
 
-                      {/* TODO: Baseline (plano original) */}
-                      {/* TODO: Dependências (setas SVG) */}
+                      {task.parentId && tree.some((item) => item.id === task.parentId) && (
+                        <span className="absolute bottom-1 left-[168px] text-[10px] text-zinc-500 md:left-[268px]">depende da tarefa pai</span>
+                      )}
                     </div>
                   );
                 })}

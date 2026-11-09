@@ -1,4 +1,4 @@
-import { ReactNode, HTMLAttributes } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
@@ -8,35 +8,27 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
   hoverable?: boolean;
 }
 
-export default function Card({
-  title,
-  description,
-  children,
-  footer,
-  hoverable = false,
-  className,
-  ...props
-}: CardProps) {
+export default function Card({ title, description, children, footer, hoverable = false, className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        'bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-sm transition-all',
-        hoverable && 'hover:border-zinc-700 hover:shadow-md hover:-translate-y-0.5',
+        'havk-card overflow-hidden rounded-2xl border shadow-sm transition-colors duration-200',
+        hoverable && 'hover:-translate-y-0.5 hover:border-zinc-600',
         className
       )}
       {...props}
     >
       {(title || description) && (
-        <div className="border-b border-zinc-800 p-3 sm:p-6">
-          {title && <h3 className="text-sm font-semibold text-white sm:text-lg">{title}</h3>}
-          {description && <p className="mt-1 text-sm text-zinc-400">{description}</p>}
+        <div className="border-b px-4 py-4 sm:px-5" style={{ borderColor: 'var(--border)' }}>
+          {title && <h3 className="text-base font-semibold">{title}</h3>}
+          {description && <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>{description}</p>}
         </div>
       )}
 
-      <div className="p-3 sm:p-6">{children}</div>
+      <div className="p-4 sm:p-5">{children}</div>
 
       {footer && (
-        <div className="border-t border-zinc-800 bg-zinc-950/50 px-4 py-3 sm:px-6 sm:py-4">
+        <div className="border-t px-4 py-3 sm:px-5" style={{ borderColor: 'var(--border)', background: 'var(--card-elevated)' }}>
           {footer}
         </div>
       )}

@@ -1,19 +1,34 @@
-import { forwardRef, TextareaHTMLAttributes } from "react";
+import { forwardRef, useId, type TextareaHTMLAttributes } from 'react';
+import { cn } from '../../utils/cn';
 
-type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement>;
+interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label?: string;
+}
 
-const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className = "", ...props }, ref) => {
-    return (
+const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
+  { className, label, id, ...props },
+  ref
+) {
+  const generatedId = useId();
+  const fieldId = id || generatedId;
+
+  return (
+    <div className="space-y-1.5">
+      {label && (
+        <label htmlFor={fieldId} className="block text-sm font-medium text-[var(--text-secondary)]">
+          {label}
+        </label>
+      )}
       <textarea
         ref={ref}
+        id={fieldId}
         {...props}
-        className={`w-full min-h-[100px] rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none ${className}`}
+        className={cn('havk-field min-h-28 resize-y px-3 py-2.5 text-sm', className)}
       />
-    );
-  }
-);
+    </div>
+  );
+});
 
-Textarea.displayName = "Textarea";
+Textarea.displayName = 'Textarea';
 
 export default Textarea;

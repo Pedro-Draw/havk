@@ -16,6 +16,8 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
+import PermissionEditor from '../components/equipe/PermissionEditor';
+import { confirmAction } from '../lib/confirm';
 
 export default function Equipe() {
   const { translateUserContent: _tc } = useTranslation(); // eslint-disable-line
@@ -32,13 +34,19 @@ export default function Equipe() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<any | null>(null);
 
-  const [newMember, setNewMember] = useState({
+  const blankMember = {
     name: '',
     email: '',
+    phone: '',
+    department: '',
     role: 'Member',
-    avatar: null as string | null, // base64
+    notes: '',
+    avatar: null as string | null,
     status: 'ativo',
-  });
+    admin: false,
+    permissions: [] as string[],
+  };
+  const [newMember, setNewMember] = useState(blankMember);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,21 +76,28 @@ export default function Equipe() {
         await updateMembro(editingMember.id, {
           name: newMember.name.trim(),
           email: newMember.email.trim(),
-          role: newMember.role,
+          phone: newMember.phone.trim(),
+          department: newMember.department.trim(),
+          notes: newMember.notes.trim(),
+          role: newMember.admin ? 'Admin' : newMember.role,
           avatar: newMember.avatar,
           status: newMember.status as 'ativo' | 'inativo',
+          admin: newMember.admin,
+          permissions: newMember.permissions,
         });
-        toast.success('Membro atualizado com sucesso');
       } else {
-        // Adição
         await addMembro({
           name: newMember.name.trim(),
           email: newMember.email.trim(),
-          role: newMember.role,
+          phone: newMember.phone.trim(),
+          department: newMember.department.trim(),
+          notes: newMember.notes.trim(),
+          role: newMember.admin ? 'Admin' : newMember.role,
           avatar: newMember.avatar,
           status: newMember.status as 'ativo' | 'inativo',
+          admin: newMember.admin,
+          permissions: newMember.permissions,
         });
-        toast.success('Membro adicionado com sucesso');
       }
 
       // O store atualiza a lista automaticamente
@@ -95,11 +110,16 @@ export default function Equipe() {
 
   // Excluir com confirmação
   const handleDeleteMember = async (id: string, name: string) => {
-    if (!confirm(`Tem certeza que deseja remover ${name}?`)) return;
+    const accepted = await confirmAction({
+      title: `Remover ${name}?`,
+      message: 'Esta pessoa deixa de aparecer na equipe desta empresa.',
+      confirmLabel: 'Remover',
+      tone: 'danger',
+    });
+    if (!accepted) return;
 
     try {
       await deleteMembro(id);
-      toast.success('Membro removido');
     } catch (err) {
       console.error('Erro ao excluir:', err);
       toast.error('Erro ao remover membro');
@@ -112,9 +132,14 @@ export default function Equipe() {
     setNewMember({
       name: membro.name || '',
       email: membro.email || '',
+      phone: membro.phone || '',
+      department: membro.department || '',
       role: membro.role || 'Member',
+      notes: membro.notes || '',
       avatar: membro.avatar || null,
       status: membro.status || 'ativo',
+      admin: membro.admin === true || (membro.admin == null && membro.role === 'Admin'),
+      permissions: Array.isArray(membro.permissions) ? membro.permissions : [],
     });
     setIsModalOpen(true);
   };
@@ -168,13 +193,7 @@ export default function Equipe() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingMember(null);
-    setNewMember({
-      name: '',
-      email: '',
-      role: 'Member',
-      avatar: null,
-      status: 'ativo',
-    });
+    setNewMember(blankMember);
   };
 
   const roles = [
@@ -245,13 +264,7 @@ export default function Equipe() {
                 icon={<UserPlus className="w-5 h-5" />}
                 onClick={() => {
                   setEditingMember(null);
-                  setNewMember({
-                    name: '',
-                    email: '',
-                    role: 'Member',
-                    avatar: null,
-                    status: 'ativo',
-                  });
+                  setNewMember(blankMember);
                   setIsModalOpen(true);
                 }}
               >
@@ -303,7 +316,8 @@ export default function Equipe() {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[900px]">
                   <thead>
                     <tr className="border-b border-zinc-800 bg-zinc-900/70">
@@ -318,7 +332,8 @@ export default function Equipe() {
                     {filteredMembros.map((membro) => (
                       <tr
                         key={membro.id}
-                        className="border-b border-zinc-800 hover:bg-zinc-900/70 transition-colors"
+                        className="cursor-pointer border-b border-zinc-800 transition-colors hover:bg-zinc-900/70"
+                        onClick={() => handleEdit(membro)}
                       >
                         <td className="py-6 px-8">
                           <div className="flex items-center gap-5">
@@ -348,8 +363,8 @@ export default function Equipe() {
                         </td>
 
                         <td className="py-6 px-8">
-                          <span className={`inline-flex px-5 py-2 rounded-full text-sm font-medium border ${getRoleBadge(membro.role)}`}>
-                            {membro.role}
+                          <span className={`inline-flex px-5 py-2 rounded-full text-sm font-medium border ${getRoleBadge(membro.admin ? 'Admin' : membro.role)}`}>
+                            {membro.admin ? 'Administrador' : membro.role}
                           </span>
                         </td>
 
@@ -366,7 +381,10 @@ export default function Equipe() {
                         <td className="py-6 px-8 text-right">
                           <div className="flex items-center justify-end gap-4">
                             <button
-                              onClick={() => handleEdit(membro)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleEdit(membro);
+                              }}
                               className="p-3 hover:bg-zinc-800 rounded-xl transition-colors group"
                               title="Editar membro"
                             >
@@ -374,7 +392,10 @@ export default function Equipe() {
                             </button>
 
                             <button
-                              onClick={() => handleDeleteMember(membro.id, membro.name)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void handleDeleteMember(membro.id, membro.name);
+                              }}
                               className="p-3 hover:bg-zinc-800 rounded-xl transition-colors group"
                               title="Remover membro"
                             >
@@ -387,13 +408,29 @@ export default function Equipe() {
                   </tbody>
                 </table>
               </div>
+              <div className="divide-y divide-zinc-800 md:hidden">
+                {filteredMembros.map((membro) => (
+                  <article key={membro.id} className="cursor-pointer space-y-3 p-4" onClick={() => handleEdit(membro)}>
+                    <div>
+                      <p className="text-lg font-semibold">{membro.name}</p>
+                      <p className="text-sm text-zinc-400">{membro.email}</p>
+                    </div>
+                    <p className="text-sm text-zinc-300">{membro.admin ? 'Administrador' : membro.role} · {membro.status || 'ativo'}</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => handleEdit(membro)}>Editar</Button>
+                      <Button size="sm" variant="destructive" onClick={(event) => { event.stopPropagation(); void handleDeleteMember(membro.id, membro.name); }}>Remover</Button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              </>
             )}
           </Card>
 
           {/* Modal Adicionar/Editar */}
           {isModalOpen && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="bg-zinc-900 rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto border border-zinc-800 shadow-2xl">
+            <div className="fixed inset-0 z-50 flex bg-black/80 sm:items-center sm:justify-center sm:p-4">
+              <div className="h-[100dvh] w-full overflow-y-auto border border-zinc-800 bg-zinc-900 pb-[env(safe-area-inset-bottom)] shadow-2xl sm:h-auto sm:max-h-[92vh] sm:max-w-2xl sm:rounded-2xl">
                 <div className="p-8 border-b border-zinc-800">
                   <h2 className="text-3xl font-bold text-white">
                     {editingMember ? 'Editar Membro' : 'Adicionar Novo Membro'}
@@ -439,65 +476,67 @@ export default function Equipe() {
 
                   {/* Campos */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-base font-medium text-zinc-300 mb-3">
-                        Nome completo *
-                      </label>
-                      <input
-                        type="text"
-                        value={newMember.name}
-                        onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                        placeholder="Ex: João Silva"
-                        className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-6 py-4 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors text-base"
-                        required
-                      />
-                    </div>
+                    {([
+                      ['name', 'Nome completo *', 'Ex: João Silva'],
+                      ['email', 'E-mail *', 'joao@empresa.com'],
+                      ['phone', 'Telefone', '(11) 90000-0000'],
+                      ['department', 'Setor', 'Produto, design, financeiro'],
+                    ] as const).map(([key, label, placeholder]) => (
+                      <div key={key}>
+                        <label className="mb-3 block text-base font-medium text-zinc-300">{label}</label>
+                        <input
+                          type={key === 'email' ? 'email' : 'text'}
+                          value={newMember[key]}
+                          onChange={(event) => setNewMember({ ...newMember, [key]: event.target.value })}
+                          placeholder={placeholder}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-6 py-4 text-base text-zinc-100 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                    ))}
 
                     <div>
-                      <label className="block text-base font-medium text-zinc-300 mb-3">
-                        E-mail *
-                      </label>
-                      <input
-                        type="email"
-                        value={newMember.email}
-                        onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-                        placeholder="joao@havk.local"
-                        className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-6 py-4 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors text-base"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-base font-medium text-zinc-300 mb-3">
-                        Permissão
-                      </label>
+                      <label className="mb-3 block text-base font-medium text-zinc-300">Cargo</label>
                       <select
                         value={newMember.role}
                         onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
-                        className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-6 py-4 text-zinc-100 focus:outline-none focus:border-indigo-500 transition-colors text-base"
+                        className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-6 py-4 text-base text-zinc-100 focus:border-indigo-500 focus:outline-none"
                       >
                         {roles.map((role) => (
-                          <option key={role} value={role}>
-                            {role}
-                          </option>
+                          <option key={role} value={role}>{role}</option>
                         ))}
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-zinc-300 mb-3">
-                        Status
-                      </label>
+                      <label className="mb-3 block text-base font-medium text-zinc-300">Status</label>
                       <select
                         value={newMember.status}
                         onChange={(e) => setNewMember({ ...newMember, status: e.target.value })}
-                        className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-6 py-4 text-zinc-100 focus:outline-none focus:border-indigo-500 transition-colors text-base"
+                        className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-6 py-4 text-base text-zinc-100 focus:border-indigo-500 focus:outline-none"
                       >
                         <option value="ativo">Ativo</option>
                         <option value="inativo">Inativo</option>
                       </select>
                     </div>
+
+                    <div className="md:col-span-2">
+                      <label className="mb-3 block text-base font-medium text-zinc-300">Observações</label>
+                      <textarea
+                        value={newMember.notes}
+                        onChange={(event) => setNewMember({ ...newMember, notes: event.target.value })}
+                        rows={3}
+                        className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-6 py-4 text-base text-zinc-100 focus:border-indigo-500 focus:outline-none"
+                        placeholder="Contexto desta pessoa nesta empresa"
+                      />
+                    </div>
                   </div>
+
+                  <PermissionEditor
+                    admin={newMember.admin}
+                    permissions={newMember.permissions}
+                    onAdmin={(admin) => setNewMember({ ...newMember, admin })}
+                    onPermissions={(permissions) => setNewMember({ ...newMember, permissions })}
+                  />
 
                   <div className="flex justify-end gap-5 pt-8 border-t border-zinc-800">
                     <Button

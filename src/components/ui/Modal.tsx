@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -50,7 +50,7 @@ export default function Modal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/70 p-0 sm:items-center sm:p-4">
       <button
         type="button"
         aria-label="Fechar"
@@ -58,13 +58,14 @@ export default function Modal({
         onClick={onClose}
       />
       <div
-        className={`relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-zinc-800 bg-zinc-900 shadow-2xl sm:rounded-2xl ${sizeClasses[size]}`}
+        className={`relative flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden rounded-none border pb-[env(safe-area-inset-bottom)] shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl ${sizeClasses[size]}`}
+        style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--text)' }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
       >
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between gap-4 border-b border-zinc-800 px-4 py-4 sm:px-6">
+          <div className="glass-bar sticky top-0 z-10 flex items-center justify-between gap-4 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pt-4">
             {title && (
               <h2 id="modal-title" className="text-lg font-semibold text-white sm:text-xl">
                 {title}
@@ -74,7 +75,7 @@ export default function Modal({
               <button
                 type="button"
                 onClick={onClose}
-                className="ml-auto rounded-full p-1 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                className="glass-icon ml-auto"
                 aria-label="Fechar modal"
               >
                 <X className="h-5 w-5" />
@@ -83,21 +84,21 @@ export default function Modal({
           </div>
         )}
 
-        <div className="overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">{children}</div>
+        <div className="overlay-scroll overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">{children}</div>
 
         {onConfirm && (
-          <div className="flex flex-col-reverse gap-2 border-t border-zinc-800 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <div className="glass-bar sticky bottom-0 z-10 flex flex-col-reverse gap-2 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-300 hover:bg-zinc-800"
+              className="glass-button glass-button-secondary rounded-xl px-4 py-2.5 text-sm font-medium"
             >
               Cancelar
             </button>
             <button
               type="button"
               onClick={onConfirm}
-              className="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-zinc-900 hover:bg-zinc-200"
+              className="glass-button glass-button-primary rounded-xl px-4 py-2.5 text-sm font-semibold"
             >
               {confirmLabel}
             </button>

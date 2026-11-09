@@ -1336,7 +1336,18 @@ export default function Relatorios() {
                 />
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="mb-4 space-y-3 md:hidden">
+                {demandasFiltradas.length === 0 ? (
+                  <p className="py-8 text-center text-zinc-500">Nenhuma demanda encontrada</p>
+                ) : demandasFiltradas.map((d) => (
+                  <article key={d.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                    <p className="font-medium">{getTitulo(d)}</p>
+                    <p className="mt-1 text-sm text-zinc-400">{getResponsavel(d)} · {d.status || 'pendente'}</p>
+                    <p className="mt-1 text-sm text-zinc-500">{getPrioridade(d)}</p>
+                  </article>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="min-w-full divide-y divide-zinc-800 text-sm">
                   <thead className="bg-zinc-900/90 sticky top-0">
                     <tr>

@@ -224,6 +224,28 @@ export default function Dashboard() {
             </div>
           </div>
 
+          <section className="grid gap-3 lg:grid-cols-3">
+            {[
+              { title: 'Atrasadas', items: demandas.filter((item) => item.prazo && new Date(item.prazo) < now && item.status !== 'concluida').slice(0, 4) },
+              { title: 'Prioritárias', items: demandas.filter((item) => (item.priority === 'alta' || item.priority === 'urgente') && item.status !== 'concluida').slice(0, 4) },
+              { title: 'Em andamento', items: demandas.filter((item) => item.status === 'em-progresso').slice(0, 4) },
+            ].map((section) => (
+              <Card key={section.title} title={section.title} description="Meu dia">
+                {section.items.length === 0 ? (
+                  <p className="text-sm text-[var(--text-muted)]">Nada por aqui agora.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {section.items.map((item) => (
+                      <Link key={item.id} to={`/demandas/${item.id}`} className="block rounded-xl border px-3 py-2 text-sm hover:bg-white/5" style={{ borderColor: 'var(--border)' }}>
+                        {item.title || 'Sem título'}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            ))}
+          </section>
+
           {/* Métricas principais - 5 cards premium */}
           <div className="grid grid-cols-2 gap-2 sm:gap-6 lg:grid-cols-5">
             <Tooltip content={t('totalDemandasDesc') || 'Total de demandas criadas no sistema'}>

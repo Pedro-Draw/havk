@@ -76,9 +76,9 @@ export default function Footer() {
         }}
       />
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-8 lg:px-8">
         {/* TRUST BADGES */}
-        <div className="flex flex-wrap justify-center gap-3 opacity-70 mb-4">
+        <div className="mb-4 hidden flex-wrap justify-center gap-3 opacity-70 md:flex">
           <div className="flex items-center gap-1">
             <ShieldCheck className="w-3 h-3 text-green-500" />
             Segurança
@@ -101,7 +101,7 @@ export default function Footer() {
         </div>
 
         {/* NEWSLETTER */}
-        <div className="p-[1px] rounded-lg bg-gradient-to-r from-blue-600 via-green-600 to-blue-600 mb-6">
+        <div className="mb-6 hidden rounded-lg bg-gradient-to-r from-blue-600 via-green-600 to-blue-600 p-[1px] md:block">
           <div className="bg-zinc-950 rounded-lg p-2.5">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
               <div className="text-center sm:text-left">
@@ -142,7 +142,7 @@ export default function Footer() {
         </div>
 
         {/* GRID LINKS */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="hidden gap-4 md:grid md:grid-cols-2 lg:grid-cols-4">
           {/* BRAND */}
           <div>
             <h1 className="text-lg font-bold bg-gradient-to-r from-white to-blue-400 bg-clip-text text-transparent">
@@ -251,7 +251,7 @@ export default function Footer() {
         </div>
 
         {/* HELP */}
-        <div className="mt-6 border-t border-zinc-800 pt-4 text-sm text-zinc-500">
+        <div className="mt-6 hidden border-t border-zinc-800 pt-4 text-sm text-zinc-500 md:block">
           <h3 className="text-white mb-2 flex items-center gap-1.5 text-sm">
             <HelpCircle className="w-3.5 h-3.5" />
             Ajuda & Support
@@ -275,8 +275,8 @@ export default function Footer() {
         </div>
 
         {/* META */}
-        <div className="mt-4 pt-3 border-t border-zinc-800 text-center text-sm text-zinc-500 space-y-1">
-          <div className="flex justify-center gap-3">
+        <div className="space-y-1 border-t border-zinc-800 pt-3 text-center text-sm text-zinc-500 md:mt-4">
+          <div className="hidden justify-center gap-3 md:flex">
             <Globe className="w-3.5 h-3.5 text-zinc-400 hover:text-white transition-colors" />
             <Moon className="w-3.5 h-3.5 text-zinc-400 hover:text-white transition-colors" />
             <Sun className="w-3.5 h-3.5 text-zinc-400 hover:text-white transition-colors" />
