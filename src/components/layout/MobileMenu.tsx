@@ -99,7 +99,7 @@ export default function MobileMenu() {
             <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">{geral || !activeEmpresa ? 'Geral' : activeEmpresa.name}</span>
           </button>
 
-          <div className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
+          <div className="company-icon-row mt-2 flex gap-2 px-1 pb-1">
             <button
               type="button"
               className="company-mark shrink-0"

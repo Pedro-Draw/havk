@@ -197,15 +197,11 @@ export default function Topbar() {
         <button
           type="button"
           onClick={() => setShowProfile((value) => !value)}
-          className="glass-icon h-9 w-9 overflow-hidden"
+          className="glass-icon header-avatar h-9 w-9"
           aria-label="Menu do perfil"
         >
           {user?.avatar ? (
-            <img
-              src={user.avatar}
-              alt="Avatar"
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover ring-2 ring-zinc-700"
-            />
+            <img src={user.avatar} alt="" />
           ) : (
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--hover)] text-sm font-medium">
               {user?.name?.charAt(0) || 'U'}

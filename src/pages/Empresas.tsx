@@ -40,7 +40,7 @@ function CompanyFace({ empresa, inUse, lifted = false }: { empresa: Empresa; inU
         <span className="block truncate text-base font-semibold">{empresa.name}</span>
         <span className="mt-0.5 block truncate text-sm text-[var(--text-muted)]">{[empresa.kind, empresa.segment, empresa.size].filter(Boolean).join(' · ') || 'Sem setor'}</span>
         {!lifted && (
-          <span className="mt-2 block line-clamp-2 text-sm text-[var(--text-secondary)]">{empresa.description || 'Toque para completar as informações.'}</span>
+          <span className="company-about mt-2 block text-sm text-[var(--text-secondary)]">{empresa.description || 'Toque para completar as informações.'}</span>
         )}
         {inUse && <span className="mt-2 inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-600">Em uso</span>}
       </div>
@@ -312,8 +312,8 @@ export default function Empresas() {
             <div className="flex items-start gap-4 border-b p-5" style={{ borderColor: 'var(--border)' }}>
               <div className="flex flex-col items-start gap-2">
                 <button type="button" className="company-logo-button company-logo-button-lg" onClick={() => fileRef.current?.click()} aria-label="Adicionar imagem da empresa">
-                  {form.logo ? <img src={form.logo} alt="" /> : <span>{(form.name || 'E').slice(0, 1).toUpperCase()}</span>}
-                  <span className="company-logo-badge"><Camera size={14} /></span>
+                  {form.logo ? <img src={form.logo} alt="" /> : <span className="company-logo-letter">{(form.name || 'E').slice(0, 1).toUpperCase()}</span>}
+                  <span className="company-logo-badge"><Camera size={10} /></span>
                 </button>
                 <button
                   type="button"

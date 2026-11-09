@@ -107,9 +107,10 @@ body {
 .app-content {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
-  padding-top: 4.85rem;
+  padding-top: 4.35rem;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -209,7 +210,7 @@ html.gray .drawer-foot {
   }
 
   .app-content {
-    padding-top: 5.6rem;
+    padding-top: 5.15rem;
     padding-bottom: 0;
   }
 }
@@ -246,18 +247,43 @@ header.glass-bar {
   border: 1px solid var(--glass-stroke);
   border-bottom: 1px solid var(--glass-stroke);
   border-radius: 22px;
-  background: color-mix(in srgb, var(--glass-bg) 68%, transparent);
-  box-shadow: inset 0 1px 0 var(--glass-shine), 0 16px 40px rgba(0, 0, 0, 0.22);
+  background: rgba(16, 16, 20, 0.42);
+  box-shadow: inset 0 1px 0 var(--glass-shine), 0 16px 40px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
 }
 
 html.light header.glass-bar {
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 12px 32px rgba(24, 24, 27, 0.08);
+  background: rgba(255, 255, 255, 0.46);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 12px 32px rgba(24, 24, 27, 0.08);
 }
 
 .kanban-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: clip;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.kanban-column {
+  background: color-mix(in srgb, var(--card) 62%, transparent);
+  border: 1px solid var(--glass-stroke);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  box-shadow: inset 0 1px 0 var(--glass-shine);
+}
+
+.mobile-drawer,
+.sidebar-scroll,
+.mobile-drawer nav {
+  overflow-x: hidden;
+}
+
+.company-icon-row {
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 @media (min-width: 1024px) {
@@ -798,30 +824,84 @@ main h1 {
 }
 
 .company-logo-button-lg img,
-.company-logo-button-lg > span {
+.company-logo-letter {
   width: 100%;
   height: 100%;
   overflow: hidden;
   border-radius: inherit;
 }
 
-.company-logo-button-lg > span {
+.company-logo-letter {
   display: grid;
   place-items: center;
 }
 
+button.member-photo-pick {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  overflow: visible;
+  font-size: 16px;
+}
+
 .company-logo-badge {
   position: absolute;
-  right: -2px;
-  bottom: -2px;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 18px;
+  height: 18px;
   place-items: center;
+  border: 2px solid var(--card-elevated);
   border-radius: 999px;
   background: var(--primary);
   color: white;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.company-about {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  min-height: 3.9em;
+  max-height: 3.9em;
+  line-height: 1.3em;
+}
+
+.header-avatar {
+  padding: 0;
+  overflow: hidden;
+}
+
+.header-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.member-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--card);
+}
+
+.member-cover {
+  height: 54px;
+}
+
+.member-photo {
+  width: 48px;
+  height: 48px;
+  margin-top: -24px;
+  overflow: hidden;
+  border: 2px solid var(--card);
+  border-radius: 999px;
+  background: var(--field);
+  object-fit: cover;
 }
 
 .profile-photo {

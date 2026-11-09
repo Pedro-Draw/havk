@@ -20,7 +20,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { KanbanSquare, Plus } from 'lucide-react';
+import { Check, KanbanSquare, Play, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SortableCard from '../components/kanban/SortableCard';
 import Button from '../components/ui/Button';
@@ -53,6 +53,10 @@ interface BoardTask {
   boardOrder: number;
   empresaId?: string;
   empresaName?: string;
+  createdAt?: string;
+  createdBy?: string;
+  creatorAvatar?: string | null;
+  seguidores?: string[];
 }
 
 type Board = Record<string, BoardTask[]>;
@@ -78,7 +82,7 @@ function buildBoard(demandas: Array<Record<string, any>>): Board {
   const seen = new Set<string>();
 
   demandas.forEach((demanda) => {
-    if (!demanda?.id || seen.has(demanda.id)) return;
+    if (!demanda?.id || demanda.parentId || seen.has(demanda.id)) return;
     seen.add(demanda.id);
     const columnId = columnForDemanda(demanda);
     board[columnId].push({
@@ -94,6 +98,9 @@ function buildBoard(demandas: Array<Record<string, any>>): Board {
       columnId,
       boardOrder: typeof demanda.boardOrder === 'number' ? demanda.boardOrder : board[columnId].length,
       empresaId: demanda.empresaId,
+      createdAt: demanda.createdAt,
+      createdBy: demanda.createdBy,
+      seguidores: demanda.seguidores,
     });
   });
 
@@ -118,7 +125,6 @@ function KanbanColumn({
   count,
   accent,
   tasks,
-  onMoveAll,
   children,
 }: {
   id: string;
@@ -127,17 +133,15 @@ function KanbanColumn({
   count: number;
   accent: string;
   tasks: BoardTask[];
-  onMoveAll: (columnId: string) => void;
   children: ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: columnDropId(id) });
 
   return (
     <section
-      className={`flex w-[min(84vw,20rem)] shrink-0 snap-start flex-col rounded-2xl border p-3 lg:w-80 ${
+      className={`kanban-column flex w-[min(84vw,20rem)] shrink-0 snap-start flex-col rounded-2xl p-3 lg:w-80 ${
         isOver ? 'ring-2 ring-violet-400/70' : ''
       }`}
-      style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
     >
       <header className="mb-3 flex items-start justify-between gap-3">
         <div>
@@ -149,27 +153,7 @@ function KanbanColumn({
         </div>
         <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs text-[var(--text-secondary)]">{count}</span>
       </header>
-      {count > 0 && (
-        <label className="mb-3 block text-[11px] text-[var(--text-muted)]">
-          Mover todas
-          <select
-            aria-label={`Mover todas de ${title}`}
-            className="havk-field mt-1 min-h-11 w-full text-sm"
-            value=""
-            onChange={(event) => {
-              const columnId = event.target.value;
-              event.target.value = '';
-              if (columnId) onMoveAll(columnId);
-            }}
-          >
-            <option value="">Escolher coluna</option>
-            {KANBAN_COLUMNS.filter((column) => column.id !== id).map((column) => (
-              <option key={column.id} value={column.id}>{column.title}</option>
-            ))}
-          </select>
-        </label>
-      )}
-      <div ref={setNodeRef} className="flex min-h-64 flex-1 flex-col gap-2">
+      <div ref={setNodeRef} className="flex min-h-40 flex-1 flex-col gap-2">
         {tasks.length === 0 && (
           <div className="grid flex-1 place-items-center rounded-xl border border-dashed px-3 text-center text-xs text-[var(--text-muted)]" style={{ borderColor: 'var(--border)' }}>
             Solte uma demanda aqui
@@ -187,6 +171,7 @@ export default function Kanban() {
   const activeEmpresaId = useAppStore((state) => state.activeEmpresaId);
   const isLoading = useAppStore((state) => state.isLoading);
   const user = useAppStore((state) => state.user);
+  const membros = useAppStore((state) => state.membros);
   const addDemanda = useAppStore((state) => state.addDemanda);
   const updateDemanda = useAppStore((state) => state.updateDemanda);
   const deleteDemanda = useAppStore((state) => state.deleteDemanda);
@@ -197,6 +182,9 @@ export default function Kanban() {
   const [draft, setDraft] = useState<Board | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [view, setView] = useState<'kanban' | 'lista'>('kanban');
+  const [editing, setEditing] = useState(false);
+  const [subtaskTitle, setSubtaskTitle] = useState('');
+  const [subtaskNote, setSubtaskNote] = useState('');
   const [query, setQuery] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [current, setCurrent] = useState<BoardTask | null>(null);
@@ -366,7 +354,17 @@ export default function Kanban() {
     setCurrent(null);
   };
 
-  const labeled = (task: BoardTask) => (showCompany ? withCompany(task) : task);
+  const creatorAvatar = (name?: string) => {
+    const key = (name || '').trim().toLowerCase();
+    if (!key) return null;
+    if (user && (user.name?.toLowerCase() === key || user.email?.toLowerCase() === key)) return user.avatar || null;
+    return membros.find((member) => member.name?.toLowerCase() === key || member.email?.toLowerCase() === key)?.avatar || null;
+  };
+  const labeled = (task: BoardTask) => ({
+    ...(showCompany ? withCompany(task) : task),
+    creatorAvatar: creatorAvatar(task.createdBy),
+    empresaName: showCompany ? withCompany(task).empresaName : empresas.find((empresa) => empresa.id === task.empresaId)?.name,
+  });
   const listed = KANBAN_COLUMNS.flatMap((column) => visible(board[column.id] || []).map(labeled));
 
   const activeTask = activeId
@@ -416,7 +414,7 @@ export default function Kanban() {
               <button
                 key={task.id}
                 type="button"
-                onClick={() => setCurrent(task)}
+                onClick={() => { setEditing(false); setCurrent(task); }}
                 className="flex w-full items-center gap-3 border-b px-4 py-3 text-left last:border-b-0"
                 style={{ borderColor: 'var(--border)' }}
               >
@@ -424,7 +422,12 @@ export default function Kanban() {
                   <span className="block truncate text-sm font-medium">{task.title || 'Sem título'}</span>
                   {showCompany && <span className="mt-0.5 block truncate text-xs text-[var(--text-muted)]">{task.empresaName}</span>}
                 </span>
-                <span className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">{columnTitle(task.columnId)}</span>
+                <span
+                  className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium text-white"
+                  style={{ background: KANBAN_COLUMNS.find((column) => column.id === task.columnId)?.accent || '#71717A' }}
+                >
+                  {columnTitle(task.columnId)}
+                </span>
               </button>
             ))}
           </div>
@@ -453,7 +456,6 @@ export default function Kanban() {
                   count={board[column.id].length}
                   accent={column.accent}
                   tasks={tasks}
-                  onMoveAll={(columnId) => moveColumn(column.id, columnId)}
                 >
                   <SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
                     {tasks.map((task) => (
@@ -461,8 +463,10 @@ export default function Kanban() {
                         key={task.id}
                         id={task.id}
                         item={task}
-                        onOpen={() => setCurrent(task)}
-                        onMove={(columnId) => moveToColumn(task.id, columnId)}
+                        onOpen={() => {
+                          setEditing(false);
+                          setCurrent(task);
+                        }}
                       />
                     ))}
                   </SortableContext>
@@ -492,20 +496,182 @@ export default function Kanban() {
         <TaskFields value={form} onChange={setForm} />
       </Modal>
 
-      <Modal isOpen={!!current} title="Demanda" onClose={() => setCurrent(null)}>
+      <Modal isOpen={!!current} title={current?.title || 'Demanda'} size="xl" onClose={() => { setCurrent(null); setEditing(false); }}>
         {current && (
-          <div className="space-y-4">
-            <TaskFields value={current} onChange={(value) => setCurrent({ ...current, ...value })} />
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-              <Button variant="destructive" onClick={removeTask}>Excluir</Button>
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => setCurrent(null)}>Cancelar</Button>
-                <Button onClick={saveTask}>Salvar</Button>
-              </div>
-            </div>
-          </div>
+          <DemandaPanel
+            task={labeled(current)}
+            editing={editing}
+            subtasks={demandas.filter((item) => item.parentId === current.id)}
+            subtaskTitle={subtaskTitle}
+            subtaskNote={subtaskNote}
+            onSubtaskTitle={setSubtaskTitle}
+            onSubtaskNote={setSubtaskNote}
+            onEdit={() => setEditing(true)}
+            onCancelEdit={() => setEditing(false)}
+            onChange={(value) => setCurrent({ ...current, ...value })}
+            onSave={saveTask}
+            onRemove={removeTask}
+            onFollow={async () => {
+              if (!user) return;
+              const currentFollowers = current.seguidores || [];
+              const next = currentFollowers.includes(user.id)
+                ? currentFollowers.filter((id) => id !== user.id)
+                : [...currentFollowers, user.id];
+              setCurrent({ ...current, seguidores: next });
+              await updateDemanda(current.id, { seguidores: next });
+            }}
+            following={Boolean(user && current.seguidores?.includes(user.id))}
+            onAddSubtask={async () => {
+              if (!subtaskTitle.trim()) return;
+              await addDemanda({
+                title: subtaskTitle.trim(),
+                description: subtaskNote.trim(),
+                priority: 'media',
+                status: 'aberta',
+                boardColumn: 'afazer',
+                tipo: 'feature',
+                parentId: current.id,
+                createdBy: user?.name || user?.email || 'Você',
+              });
+              setSubtaskTitle('');
+              setSubtaskNote('');
+            }}
+            onCompleteSubtask={(id) => updateDemanda(id, { status: 'concluida', progresso: 100, boardColumn: 'concluida' })}
+          />
         )}
       </Modal>
+    </div>
+  );
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  aberta: 'Aguardando',
+  'em-progresso': 'Em andamento',
+  concluida: 'Concluída',
+  bloqueada: 'Bloqueada',
+};
+
+function DemandaPanel({
+  task,
+  editing,
+  subtasks,
+  subtaskTitle,
+  subtaskNote,
+  following,
+  onEdit,
+  onCancelEdit,
+  onChange,
+  onSave,
+  onRemove,
+  onFollow,
+  onSubtaskTitle,
+  onSubtaskNote,
+  onAddSubtask,
+  onCompleteSubtask,
+}: {
+  task: BoardTask;
+  editing: boolean;
+  subtasks: Array<{ id: string; title?: string; description?: string; tipo?: string; status?: string }>;
+  subtaskTitle: string;
+  subtaskNote: string;
+  following: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onChange: (value: TaskForm) => void;
+  onSave: () => void;
+  onRemove: () => void;
+  onFollow: () => void;
+  onSubtaskTitle: (value: string) => void;
+  onSubtaskNote: (value: string) => void;
+  onAddSubtask: () => void;
+  onCompleteSubtask: (id: string) => void;
+}) {
+  const created = task.createdAt ? new Date(task.createdAt).toLocaleDateString('pt-BR') : 'Sem data';
+  const initial = (task.createdBy || 'H').slice(0, 1).toUpperCase();
+
+  if (editing) {
+    return (
+      <div className="space-y-4">
+        <TaskFields value={task} onChange={onChange} />
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+          <Button variant="destructive" onClick={onRemove}>Excluir</Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={onCancelEdit}>Cancelar</Button>
+            <Button onClick={onSave}>Salvar</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {task.creatorAvatar ? (
+            <img src={task.creatorAvatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+          ) : (
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--hover)] text-sm font-semibold">{initial}</span>
+          )}
+          <span className="text-sm text-[var(--text-secondary)]">{task.createdBy || 'Sem autor'}</span>
+        </div>
+        <button type="button" className="rounded-full border px-3 py-1 text-sm" style={{ borderColor: 'var(--border)' }} onClick={onFollow}>
+          {following ? 'Seguindo' : 'Seguir'}
+        </button>
+      </div>
+      <p className="text-sm text-[var(--text-muted)]">{created}</p>
+      <div className="whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6" style={{ background: 'var(--field)' }}>
+        {task.description || 'Sem descrição.'}
+      </div>
+      <div className="flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-amber-500/15 px-2 py-1 font-medium capitalize text-amber-700">{task.priority}</span>
+        {task.empresaName && <span className="rounded-full bg-[var(--hover)] px-2 py-1">{task.empresaName}</span>}
+        <span
+          className="rounded-full px-2 py-1 font-medium text-white"
+          style={{ background: KANBAN_COLUMNS.find((column) => column.id === task.columnId)?.accent }}
+        >
+          {columnTitle(task.columnId)}
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-semibold">Tarefas</h3>
+        <Button variant="secondary" onClick={onEdit}>Editar</Button>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+        <input className="havk-field px-3 py-2.5 text-sm" placeholder="O que precisa ser feito" value={subtaskTitle} onChange={(event) => onSubtaskTitle(event.target.value)} />
+        <Button onClick={onAddSubtask}>Nova tarefa</Button>
+      </div>
+      <textarea className="havk-field min-h-16 px-3 py-2.5 text-sm" placeholder="Detalhe para concluir" value={subtaskNote} onChange={(event) => onSubtaskNote(event.target.value)} />
+
+      <div className="space-y-3">
+        {subtasks.length === 0 && <p className="text-sm text-[var(--text-muted)]">Nenhuma tarefa nesta demanda.</p>}
+        {subtasks.map((item) => {
+          const done = item.status === 'concluida';
+          return (
+            <article key={item.id} className="flex items-start gap-3 rounded-2xl border p-3" style={{ borderColor: 'var(--border)' }}>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--hover)] text-sm">{(item.title || 'T').slice(0, 1).toUpperCase()}</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{item.title}</p>
+                <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
+                  <span className="rounded-md border px-1.5 py-0.5" style={{ borderColor: 'var(--border)' }}>Tipo: {item.tipo || 'feature'}</span>
+                  <span className="rounded-md border px-1.5 py-0.5" style={{ borderColor: 'var(--border)' }}>Status: {STATUS_LABEL[item.status || 'aberta'] || item.status}</span>
+                </div>
+                {item.description && <p className="mt-2 text-sm text-[var(--text-secondary)]">{item.description}</p>}
+              </div>
+              <button
+                type="button"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white"
+                style={{ background: done ? '#16a34a' : '#f43f5e' }}
+                aria-label={done ? 'Tarefa concluída' : 'Concluir tarefa'}
+                onClick={() => { if (!done) onCompleteSubtask(item.id); }}
+              >
+                {done ? <Check size={18} /> : <Play size={18} />}
+              </button>
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }

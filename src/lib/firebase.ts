@@ -9,7 +9,7 @@ import {
 } from "firebase/auth";
 
 // 🔐 Config do seu projeto
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyDzUKr7R8cbx4wCV96mgm7_Z_OzLgwzRFw",
   authDomain: "havk-d1abf.firebaseapp.com",
   projectId: "havk-d1abf",

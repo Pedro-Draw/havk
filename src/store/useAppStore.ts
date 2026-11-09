@@ -1,7 +1,7 @@
 // store/useAppStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { getAll, addItem, updateItem, deleteItem } from '../db/indexedDB';
+import { getAll, getItem, addItem, updateItem, deleteItem } from '../db/indexedDB';
 import toast from 'react-hot-toast';
 import { moveColumnOnBoard, placeOnBoard, reconcileDemanda } from '../lib/kanban';
 import { GERAL_EMPRESA_ID, empresaIdForNew, ensureEmpresas, purgeEmpresa, rememberEmpresa, sortEmpresas, visibleInWorkspace, type Empresa } from '../lib/workspace';
@@ -67,6 +67,7 @@ interface Demanda extends BaseEntity {
   esforcoEstimado?: number;
   createdBy?: string;
   parentId?: string;
+  seguidores?: string[];
   progresso?: number;
   boardColumn?: string;
   boardOrder?: number;
@@ -134,6 +135,7 @@ interface Membro extends BaseEntity {
   avatar?: string | null;
   status: 'ativo' | 'inativo';
   phone?: string;
+  cpf?: string;
   department?: string;
   notes?: string;
   admin?: boolean;
@@ -250,6 +252,7 @@ clearNotifications: () => Promise<void>;
   addMembro: (data: Omit<Membro, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateMembro: (id: string, data: Partial<Membro>) => Promise<void>;
   deleteMembro: (id: string) => Promise<void>;
+  deleteMembros: (ids: string[]) => Promise<void>;
 
   addEmpresa: (data: Omit<Empresa, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateEmpresa: (id: string, data: Partial<Empresa>) => Promise<void>;
@@ -841,7 +844,7 @@ clearNotifications: async () => {
         const novo: Membro = {
           ...data,
           id,
-          empresaId: empresaIdForNew(get().activeEmpresaId),
+          empresaId: data.empresaId || empresaIdForNew(get().activeEmpresaId),
           createdAt: new Date().toISOString(),
         };
 
@@ -852,7 +855,7 @@ clearNotifications: async () => {
       },
 
       updateMembro: async (id: string, data: Partial<Membro>) => {
-        const current = get().membros.find((m) => m.id === id);
+        const current = get().membros.find((m) => m.id === id) || await getItem<Membro>('membros', id);
         if (!current) return;
 
         const updated: Membro = {
@@ -881,6 +884,17 @@ clearNotifications: async () => {
           toast.success('Membro excluído');
         } catch (err) {
           toast.error('Erro ao excluir membro');
+        }
+      },
+
+      deleteMembros: async (ids: string[]) => {
+        try {
+          for (const id of ids) await deleteItem('membros', id);
+          const gone = new Set(ids);
+          set((state) => ({ membros: state.membros.filter((m) => !gone.has(m.id)) }));
+          toast.success(ids.length === 1 ? 'Membro removido' : `${ids.length} membros removidos`);
+        } catch (err) {
+          toast.error('Erro ao remover os membros');
         }
       },
 
