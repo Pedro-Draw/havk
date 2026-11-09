@@ -176,13 +176,13 @@ export default function Gantt() {
   }
 
   return (
-    <div className="min-h-screen pt-20 px-4 sm:px-6 lg:px-8 bg-zinc-950 text-zinc-100">
-      <div className="max-w-[98vw] mx-auto" ref={containerRef}>
+    <div className="w-full min-w-0 bg-zinc-950 px-3 py-3 text-zinc-100 sm:px-6 sm:py-8 lg:px-8">
+      <div className="mx-auto w-full max-w-full" ref={containerRef}>
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <GanttChart className="w-10 h-10 text-zinc-300" />
-            <h1 className="text-3xl font-bold">{t('gantt.title') || 'Gantt Avançado'}</h1>
+            <GanttChart className="h-7 w-7 text-zinc-300 sm:h-10 sm:w-10" />
+            <h1 className="text-2xl font-bold sm:text-3xl">{t('gantt.title') || 'Gantt Avançado'}</h1>
           </div>
 
           <div className="flex flex-wrap gap-3 items-center">
@@ -193,7 +193,7 @@ export default function Gantt() {
                 placeholder="Buscar demanda..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
+                className="w-full max-w-xs rounded-lg border border-zinc-700 bg-zinc-800 py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-64"
               />
             </div>
 

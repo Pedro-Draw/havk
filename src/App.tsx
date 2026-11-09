@@ -1,7 +1,10 @@
 // App.tsx
 import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./lib/firebase";
+import { DEV_SESSION_KEY, applyFirebaseUser } from "./lib/authSession";
 import { useAppStore } from "./store/useAppStore";
 
 import ProtectedRoute from "./components/layout/ProtectedRoute";
@@ -9,8 +12,6 @@ import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import MobileMenu from "./components/layout/MobileMenu";
 import Footer from "./components/layout/Footer";
-
-import Splash from "./components/Splash";
 
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
@@ -35,6 +36,64 @@ import Configuracoes from "./pages/Configuracoes";
 
 import NotFound from "./pages/NotFound";
 
+function AuthSync() {
+  useEffect(() => {
+    const stopWaiting = window.setTimeout(() => {
+      if (useAppStore.getState().isAuthLoading) {
+        useAppStore.setState({ isAuthLoading: false });
+      }
+    }, 8000);
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      try {
+        if (firebaseUser) {
+          try {
+            sessionStorage.removeItem(DEV_SESSION_KEY);
+          } catch {
+            /* ignora */
+          }
+          const current = useAppStore.getState().user;
+          if (current?.id !== firebaseUser.uid) {
+            await applyFirebaseUser(firebaseUser);
+          } else {
+            useAppStore.setState({ isAuthenticated: true, isAuthLoading: false });
+          }
+          return;
+        }
+
+        const savedDev = sessionStorage.getItem(DEV_SESSION_KEY);
+        if (savedDev) {
+          const devUser = JSON.parse(savedDev);
+          useAppStore.setState({
+            user: devUser,
+            isAuthenticated: true,
+            isAuthLoading: false,
+          });
+          return;
+        }
+
+        if (!useAppStore.getState().user?.isDev) {
+          useAppStore.setState({
+            user: null,
+            isAuthenticated: false,
+          });
+        }
+      } catch (err) {
+        console.error('Falha ao sincronizar sessão:', err);
+      } finally {
+        useAppStore.setState({ isAuthLoading: false });
+      }
+    });
+
+    return () => {
+      window.clearTimeout(stopWaiting);
+      unsubscribe();
+    };
+  }, []);
+
+  return null;
+}
+
 function AppLayout() {
   const loadAll = useAppStore((state) => state.loadAll);
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
@@ -47,13 +106,13 @@ function AppLayout() {
   }, [isAuthenticated, user, loadAll]);
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+      <div className="flex min-h-screen min-w-0 flex-col lg:pl-64">
         <Topbar />
 
-        <main className="flex-1 pt-16 overflow-x-hidden">
+        <main className="w-full min-w-0 flex-1">
           <Outlet />
         </main>
 
@@ -61,30 +120,8 @@ function AppLayout() {
       </div>
 
       <MobileMenu />
-
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 4000,
-        }}
-      />
     </div>
   );
-}
-
-function AppWrapper() {
-  const [showSplash, setShowSplash] = useState(true);
-
-  if (showSplash) {
-    return (
-      <Splash
-        duration={2000}
-        onFinish={() => setShowSplash(false)}
-      />
-    );
-  }
-
-  return <App />;
 }
 
 function AppRoutes() {
@@ -133,29 +170,21 @@ function AppRoutes() {
   );
 }
 
+const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
+
 export default function App() {
-  const [ready, setReady] = useState(false);
-  const loadAll = useAppStore((state) => state.loadAll);
-  const user = useAppStore((state) => state.user);
-
-  useEffect(() => {
-    const init = async () => {
-      if (user) {
-        await loadAll();
-      }
-      setReady(true);
-    };
-
-    init();
-  }, [user, loadAll]);
-
-  if (!ready) {
-    return null; // ou splash
-  }
-
   return (
-    <Router>
+    <Router basename={routerBasename === '' ? undefined : routerBasename}>
+      <AuthSync />
       <AppRoutes />
+      <Toaster
+        position="top-center"
+        containerClassName="!top-4"
+        toastOptions={{
+          duration: 4000,
+          className: "text-sm",
+        }}
+      />
     </Router>
   );
 }

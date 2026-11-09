@@ -2,8 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+const githubPages = process.env.GITHUB_PAGES === 'true'
+
 export default defineConfig({
-  base: '/', // ✅ NETLIFY USA RAIZ
+  base: githubPages ? '/havk/' : '/',
   plugins: [react()],
   resolve: {
     alias: {
@@ -16,7 +18,12 @@ export default defineConfig({
     sourcemap: true,
   },
   server: {
+    host: true,
     port: 5173,
     open: true,
+  },
+  preview: {
+    host: true,
+    port: 4173,
   },
 })

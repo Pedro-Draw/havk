@@ -861,20 +861,20 @@ export default function Relatorios() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 text-zinc-100">
-      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
+      <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div ref={reportRef} className="max-w-[1600px] mx-auto pb-20 space-y-10">
 
           {/* Cabeçalho */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-6">
-              <div className="p-5 bg-gradient-to-br from-sky-900 to-indigo-900 rounded-2xl shadow-2xl">
-                <BarChart3 className="w-12 h-12 text-white" />
+              <div className="shrink-0 rounded-2xl bg-gradient-to-br from-sky-900 to-indigo-900 p-3 shadow-2xl sm:p-5">
+                <BarChart3 className="h-7 w-7 text-white sm:h-12 sm:w-12" />
               </div>
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">
+              <div className="min-w-0">
+                <h1 className="bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-2xl font-bold text-transparent sm:text-4xl">
                   Relatórios Havk
                 </h1>
-                <p className="text-zinc-400 mt-2 text-lg">Análise avançada de desempenho e produtividade</p>
+                <p className="mt-1 text-sm text-zinc-400 sm:mt-2 sm:text-lg">Análise avançada de desempenho e produtividade</p>
                 <p className="text-zinc-300 mt-1">
                   Período: <span className="font-semibold">{stats.periodoInicio} – {stats.periodoFim}</span>
                 </p>
@@ -886,7 +886,7 @@ export default function Relatorios() {
                 onChange={(e) => setPeriodo(e.target.value as PeriodoFiltro)}
                 options={opcoesPeriodo}
                 icon={<Calendar className="w-5 h-5" />}
-                className="w-64 bg-zinc-800 border-zinc-700"
+                className="w-full bg-zinc-800 border-zinc-700 sm:w-64"
               />
               <div className="flex gap-3">
                 <Button variant="outline" icon={<Download className="w-5 h-5" />} onClick={exportarExcel}>
@@ -921,25 +921,25 @@ export default function Relatorios() {
                   { value: 'concluida', label: 'Concluída' },
                   { value: 'bloqueada', label: 'Bloqueada' },
                 ]}
-                className="w-48 bg-zinc-800 border-zinc-700"
+                className="w-full bg-zinc-800 border-zinc-700 sm:w-48"
               />
               <Select
                 value={filtroResponsavel}
                 onChange={(e) => setFiltroResponsavel(e.target.value)}
                 options={responsaveisUnicos.map(r => ({ value: r, label: r }))}
-                className="w-56 bg-zinc-800 border-zinc-700"
+                className="w-full bg-zinc-800 border-zinc-700 sm:w-56"
               />
               <Select
                 value={filtroPrioridade}
                 onChange={(e) => setFiltroPrioridade(e.target.value)}
                 options={prioridadesUnicas.map(p => ({ value: p, label: p.charAt(0).toUpperCase() + p.slice(1) }))}
-                className="w-48 bg-zinc-800 border-zinc-700"
+                className="w-full bg-zinc-800 border-zinc-700 sm:w-48"
               />
             </div>
           </Card>
 
           {/* Cards KPIs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-6">
             {[
               { title: 'Total Demandas', value: stats.totalDemandas, color: 'text-white' },
               { title: 'Concluídas', value: stats.demandasConcluidas, color: 'text-emerald-400' },
@@ -953,7 +953,7 @@ export default function Relatorios() {
                 className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800 hover:border-zinc-600 transition-all duration-300 shadow-xl hover:shadow-2xl"
               >
                 <p className="text-sm text-zinc-400 mb-1">{item.title}</p>
-                <p className={`text-3xl font-bold ${item.color}`}>{item.value}</p>
+                <p className={`text-2xl font-bold sm:text-3xl ${item.color}`}>{item.value}</p>
               </Card>
             ))}
           </div>
@@ -1082,7 +1082,7 @@ export default function Relatorios() {
               description="Situação atual"
               className="bg-zinc-900/80 border-zinc-800"
             >
-              <div className="h-[28rem] p-6">
+              <div className="h-64 p-2 sm:h-[28rem] sm:p-6">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -1137,7 +1137,7 @@ export default function Relatorios() {
             </Card>
 
             <Card title="Produtividade por Dev" description="Concluídas vs Atribuídas" className="lg:col-span-2 bg-zinc-900/80 border-zinc-800">
-              <div className="h-[380px] pt-6 px-4">
+              <div className="h-64 px-2 pt-2 sm:h-[380px] sm:px-4 sm:pt-6">
                 <Radar
                   ref={radarChartRef}
                   data={radarData}
@@ -1320,19 +1320,19 @@ export default function Relatorios() {
                     { value: 'concluida', label: 'Concluída' },
                     { value: 'bloqueada', label: 'Bloqueada' },
                   ]}
-                  className="w-48"
+                  className="w-full sm:w-48"
                 />
                 <Select
                   value={filtroResponsavel}
                   onChange={e => setFiltroResponsavel(e.target.value)}
                   options={responsaveisUnicos.map(r => ({ value: r, label: r }))}
-                  className="w-56"
+                  className="w-full sm:w-56"
                 />
                 <Select
                   value={filtroPrioridade}
                   onChange={e => setFiltroPrioridade(e.target.value)}
                   options={prioridadesUnicas.map(p => ({ value: p, label: p }))}
-                  className="w-48"
+                  className="w-full sm:w-48"
                 />
               </div>
 

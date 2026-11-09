@@ -34,6 +34,7 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loadingProvider, setLoadingProvider] = useState<'google' | 'github' | null>(null);
+  const [formError, setFormError] = useState('');
 
   const {
     register,
@@ -76,16 +77,19 @@ export default function Signup() {
   };
 
   const onSubmit = async (data: SignupFormData) => {
+    setFormError('');
     try {
       await createAccount(data.name.trim(), data.email.trim().toLowerCase(), data.password);
     } catch (err: any) {
-      toast.error(err.message || 'Ocorreu um erro ao criar sua conta.');
+      const message = err?.message || 'Ocorreu um erro ao criar sua conta.';
+      setFormError(message);
+      toast.error(message);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8">
-      <div className="w-full max-w-sm bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-6 shadow-2xl">
+    <div className="flex min-h-screen items-center justify-center overflow-x-hidden bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8">
+      <div className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-5 sm:p-6 shadow-2xl">
 
         {/* HEADER */}
         <div className="text-center mb-6">
@@ -193,6 +197,17 @@ export default function Signup() {
               <p className="text-red-500 text-xs mt-1">{errors.acceptTerms.message}</p>
             )}
           </div>
+
+          {formError && (
+            <div className="rounded-lg border border-red-900/50 bg-red-950/40 p-3 text-center text-sm text-red-400">
+              <p>{formError}</p>
+              {formError.includes('já está em uso') && (
+                <Link to="/forgot-password" className="mt-2 inline-block font-medium text-indigo-400 hover:text-indigo-300">
+                  Recuperar a senha desta conta
+                </Link>
+              )}
+            </div>
+          )}
 
           <Button
             type="submit"

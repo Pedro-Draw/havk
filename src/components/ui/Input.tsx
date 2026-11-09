@@ -47,25 +47,24 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 
         <div className="relative">
           {leadingIcon && (
-            <div className="absolute inset-y-0 left-3 flex items-center text-zinc-400">
+            <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400">
               {leadingIcon}
             </div>
           )}
 
           <input
+            {...props}
             id={inputId}
             ref={ref}
             aria-invalid={!!error}
             aria-describedby={error ? errorId : undefined}
             className={cn(
-              'w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors',
+              'w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-base text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 sm:px-4 sm:py-2.5 sm:text-sm',
               leadingIcon && 'pl-12',
               trailingIcon && 'pr-12',
-              error &&
-                'border-red-600 focus:border-red-600 focus:ring-red-600',
+              error && 'border-red-600 focus:border-red-600 focus:ring-red-600/30',
               className
             )}
-            {...props}
           />
 
           {trailingIcon && (

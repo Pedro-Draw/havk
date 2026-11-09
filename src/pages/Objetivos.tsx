@@ -406,19 +406,19 @@ export default function ObjetivosPage() {
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
       {showConfetti && <Confetti width={window.innerWidth} height={window.innerHeight} recycle={false} numberOfPieces={200} />}
 
-      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
+      <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div className="mx-auto max-w-7xl pb-20 space-y-10">
           {/* Header */}
           <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex items-start gap-4">
-              <div className="rounded-2xl bg-zinc-800/50 p-4 shadow-lg ring-1 ring-zinc-700/30">
-                <Target className="h-10 w-10 text-zinc-100" strokeWidth={1.5} />
+              <div className="rounded-2xl bg-zinc-800/50 p-3 shadow-lg ring-1 ring-zinc-700/30 sm:p-4">
+                <Target className="h-7 w-7 text-zinc-100 sm:h-10 sm:w-10" strokeWidth={1.5} />
               </div>
-              <div>
-                <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+              <div className="min-w-0">
+                <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
                   {t('objetivosEResultados')}
                 </h1>
-                <p className="mt-2 text-lg text-zinc-300">
+                <p className="mt-1 text-sm text-zinc-300 sm:mt-2 sm:text-lg">
                   {t('acompanhamentoDeMetasDaEquipeEDashboardInterativo')}
                 </p>
               </div>

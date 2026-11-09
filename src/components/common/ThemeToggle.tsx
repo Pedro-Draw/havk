@@ -49,9 +49,9 @@ export default function ThemeToggle() {
       className="
         p-2 rounded-full
         transition-all duration-300
-        text-zinc-600 dark:text-zinc-400
-        hover:bg-zinc-100 dark:hover:bg-zinc-800
-        hover:text-zinc-900 dark:hover:text-zinc-100
+        text-zinc-400
+        hover:bg-zinc-800
+        hover:text-zinc-100
         focus:outline-none focus:ring-2 focus:ring-zinc-400
         active:scale-95
       "

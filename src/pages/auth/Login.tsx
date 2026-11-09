@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
+import { useAppStore } from '../../store/useAppStore';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import {
@@ -17,9 +18,6 @@ import { FaGithub } from 'react-icons/fa';
 import { motion, useMotionValue, useSpring } from 'framer-motion';
 import toast from 'react-hot-toast';
 
-// ✅ Apenas o import foi adicionado aqui
-import SplashScreen from '../../components/SplashScreen';
-
 export default function Login() {
 
   const [email, setEmail] = useState('');
@@ -27,10 +25,14 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
 
   const { signIn, signInWithGoogle, signInWithGithub, signInAsDev } = useAuth();
+  const isAuthenticated = useAppStore((state) => state.isAuthenticated);
+  const isAuthLoading = useAppStore((state) => state.isAuthLoading);
   const { t } = useTranslation();
 
   const emailRef = useRef<HTMLInputElement>(null);
@@ -53,23 +55,31 @@ export default function Login() {
   const validateEmail = (value: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-  const isFormValid = validateEmail(email) && password.length >= 6;
-
   const triggerShake = () => {
     setShake(true);
     setTimeout(() => setShake(false), 500);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-
     e.preventDefault();
     setError('');
 
-    if (!isFormValid) {
-      setError(
-        t('credenciaisInvalidas') ||
-        'Por favor, preencha os campos corretamente.'
-      );
+    const normalizedEmail = email.trim().toLowerCase();
+    const nextEmailError = !normalizedEmail
+      ? 'Informe seu e-mail.'
+      : !validateEmail(normalizedEmail)
+        ? 'Digite um e-mail válido.'
+        : '';
+    const nextPasswordError = !password
+      ? 'Informe sua senha.'
+      : password.length < 6
+        ? 'A senha precisa ter pelo menos 6 caracteres.'
+        : '';
+
+    setEmailError(nextEmailError);
+    setPasswordError(nextPasswordError);
+
+    if (nextEmailError || nextPasswordError) {
       triggerShake();
       return;
     }
@@ -77,31 +87,15 @@ export default function Login() {
     setLoading(true);
 
     try {
-
-      const result = await signIn(email.trim(), password);
-
-      if (!result) {
-        setError(
-          t('credenciaisInvalidas') ||
-          'Email ou senha incorretos.'
-        );
-        triggerShake();
-        return;
+      const result = await signIn(normalizedEmail, password, remember);
+      if (result) {
+        toast.success('Login realizado com sucesso!');
       }
-
-      toast.success('Login realizado com sucesso!');
-
     } catch (err: any) {
-
-      const message =
-        err?.message ||
-        'Ocorreu um erro ao realizar o login.';
-
+      const message = err?.message || 'Ocorreu um erro ao realizar o login.';
       setError(message);
       triggerShake();
-
       toast.error(message);
-
     } finally {
       setLoading(false);
     }
@@ -117,13 +111,13 @@ export default function Login() {
     try {
 
       if (provider === 'google') {
-        await signInWithGoogle();
-        toast.success('Login com Google realizado');
+        const ok = await signInWithGoogle();
+        if (ok) toast.success('Login com Google realizado');
       }
 
       if (provider === 'github') {
-        await signInWithGithub();
-        toast.success('Login com GitHub realizado');
+        const ok = await signInWithGithub();
+        if (ok) toast.success('Login com GitHub realizado');
       }
 
       if (provider === 'dev') {
@@ -146,13 +140,23 @@ export default function Login() {
     }
   };
 
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <div className="w-8 h-8 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <>
-      <SplashScreen />
-
       <div
         onMouseMove={handleMouseMove}
-        className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 overflow-hidden"
+        className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8 overflow-x-hidden"
       >
 
         {/* Glow Background */}
@@ -170,12 +174,12 @@ export default function Login() {
         <motion.div
           animate={shake ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
           transition={{ duration: 0.4 }}
-          className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-8 shadow-2xl z-10"
+          className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-5 sm:p-8 shadow-2xl z-10"
         >
 
           <div className="text-center mb-8">
 
-            <h1 className="text-4xl font-extrabold text-white tracking-tight">
+            <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
               Havk
             </h1>
 
@@ -192,11 +196,19 @@ export default function Login() {
               label={t('email') || 'Email'}
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (emailError) setEmailError('');
+              }}
               placeholder="nome@exemplo.com"
+              error={emailError}
               required
               fullWidth
               autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="email"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   passwordRef.current?.focus();
@@ -209,8 +221,12 @@ export default function Login() {
               label={t('senha') || 'Senha'}
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (passwordError) setPasswordError('');
+              }}
               placeholder="Digite sua senha"
+              error={passwordError}
               required
               fullWidth
               autoComplete="current-password"
@@ -264,7 +280,7 @@ export default function Login() {
               size="lg"
               fullWidth
               loading={loading}
-              disabled={!isFormValid || loading}
+              disabled={loading}
               icon={<LogIn className="w-5 h-5" />}
             >
               {loading ? 'Entrando...' : t('entrar') || 'Entrar'}

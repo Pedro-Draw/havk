@@ -193,7 +193,7 @@ export default function Calendario() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
+      <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div className="mx-auto max-w-7xl pb-16">
           {/* Modal Novo Evento */}
           {isModalOpen && (
@@ -265,8 +265,8 @@ export default function Calendario() {
             <div className="lg:col-span-8">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
                 <div className="flex items-center gap-3">
-                  <CalendarIcon className="h-8 w-8 text-indigo-400" />
-                  <h1 className="text-3xl font-bold">{t('calendario') || 'Calendário'}</h1>
+                  <CalendarIcon className="h-6 w-6 text-indigo-400 sm:h-8 sm:w-8" />
+                  <h1 className="text-2xl font-bold sm:text-3xl">{t('calendario') || 'Calendário'}</h1>
                 </div>
 
                 <div className="flex items-center gap-4 bg-zinc-900/50 px-4 py-2 rounded-xl border border-zinc-800">
@@ -323,12 +323,12 @@ export default function Calendario() {
                         key={day}
                         onClick={() => setSelectedDay(day)}
                         className={`
-                          relative min-h-[100px] p-2 rounded-lg cursor-pointer transition-all
+                          relative min-h-16 cursor-pointer rounded-lg p-1 transition-all sm:min-h-[100px] sm:p-2
                           ${isSelected ? 'bg-indigo-600/30 border border-indigo-500/50' : 'hover:bg-zinc-800/50'}
                           ${isToday ? 'bg-zinc-800/70 font-bold' : ''}
                         `}
                       >
-                        <span className={`text-lg ${isToday ? 'text-indigo-400' : ''}`}>
+                        <span className={`text-sm sm:text-lg ${isToday ? 'text-indigo-400' : ''}`}>
                           {day}
                         </span>
 

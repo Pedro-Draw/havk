@@ -158,20 +158,20 @@ Por enquanto, imagine que eu estou respondendo de forma inteligente! 😊`;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100 flex flex-col">
-      <div className="flex-1 pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300 flex flex-col">
+      <div className="flex w-full min-w-0 flex-col px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div className="mx-auto max-w-5xl flex-1 flex flex-col pb-16">
           <div className="flex items-center gap-3 mb-8">
             <div className="p-3 bg-zinc-800/70 rounded-xl shadow-md">
               <MessageSquare className="w-7 h-7 text-indigo-400" />
             </div>
-            <h1 className="text-3xl font-bold text-white">{t('chat') || 'Chat Global'}</h1>
+            <h1 className="text-2xl font-bold text-white sm:text-3xl">{t('chat') || 'Chat Global'}</h1>
           </div>
 
           <Card
             className="flex-1 flex flex-col shadow-2xl border border-zinc-800 bg-zinc-900/50 rounded-3xl overflow-hidden"
           >
             <div className="p-6 border-b border-zinc-800">
-              <h2 className="text-2xl font-bold text-white">Chat Global da Equipe</h2>
+              <h2 className="text-lg font-bold text-white sm:text-2xl">Chat Global da Equipe</h2>
               <p className="text-sm text-zinc-400 mt-1">Converse com todos os membros da equipe em tempo real</p>
               <input
                 type="text"

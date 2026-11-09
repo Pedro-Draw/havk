@@ -80,10 +80,10 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4">
-      <div className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-8 shadow-2xl">
+    <div className="flex min-h-screen items-center justify-center overflow-x-hidden bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8">
+      <div className="w-full max-w-md rounded-2xl border border-zinc-800/60 bg-zinc-900/80 p-5 shadow-2xl backdrop-blur-sm sm:p-8">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-white tracking-tight">Havk</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Havk</h1>
           <p className="text-zinc-400 mt-2 text-lg">{t('recuperarSenha')}</p>
         </div>
 

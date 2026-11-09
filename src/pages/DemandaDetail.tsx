@@ -411,7 +411,7 @@ export default function DemandaDetail() {
   if (!idParam) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100">
-        <div className="pt-20 lg:pl-[320px] px-5 sm:px-8 lg:px-10">
+        <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
           <div className="mx-auto max-w-7xl pb-16">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
               <div className="flex items-center gap-5">
@@ -419,7 +419,7 @@ export default function DemandaDetail() {
                   <ListTodo className="w-12 h-12 text-indigo-400" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold">Demandas</h1>
+                  <h1 className="text-2xl font-bold sm:text-4xl">Demandas</h1>
                   <p className="text-zinc-400 mt-1 text-lg">
                     {filteredDemandas.length} {filteredDemandas.length === 1 ? 'demanda' : 'demandas'}
                   </p>
@@ -735,7 +735,7 @@ export default function DemandaDetail() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="pt-20 lg:pl-[320px] px-5 sm:px-8 lg:px-10">
+      <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div className="mx-auto max-w-7xl pb-24">
           {/* Cabeçalho */}
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-12">
@@ -746,7 +746,7 @@ export default function DemandaDetail() {
                 className="mt-1 hover:bg-zinc-800 rounded-xl"
                 onClick={() => protectedNavigate('/demandas')}
               >
-                <ArrowLeft className="w-8 h-8" />
+                <ArrowLeft className="h-5 w-5 sm:h-8 sm:w-8" />
               </Button>
 
               <div className="flex-1">
@@ -754,11 +754,11 @@ export default function DemandaDetail() {
                   <input
                     value={editedFields.title ?? demanda.title}
                     onChange={e => setEditedFields({ ...editedFields, title: e.target.value })}
-                    className="text-3xl md:text-4xl font-bold bg-zinc-900/80 border border-zinc-700 rounded-xl px-5 py-3 w-full focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-900/80 px-4 py-2 text-xl font-bold focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 sm:px-5 sm:py-3 sm:text-3xl md:text-4xl"
                     placeholder="Título da Demanda"
                   />
                 ) : (
-                  <h1 className="text-3xl md:text-5xl font-bold break-words leading-tight">
+                  <h1 className="break-words text-xl font-bold leading-tight sm:text-3xl md:text-5xl">
                     {translateUserContent(demanda.title || 'Sem título')}
                   </h1>
                 )}

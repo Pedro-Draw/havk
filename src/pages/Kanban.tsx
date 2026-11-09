@@ -107,18 +107,18 @@ function KanbanColumn({
     <div
       ref={setNodeRef}
       id={id}
-      className={`min-w-[340px] w-96 bg-zinc-900/70 backdrop-blur-md border-2 rounded-2xl p-5 flex flex-col shadow-xl transition-all duration-200 ${
+      className={`flex w-[min(78vw,18rem)] shrink-0 flex-col rounded-2xl border-2 bg-zinc-900/70 p-3 shadow-xl backdrop-blur-md transition-all duration-200 sm:w-80 sm:p-5 ${
         isOver 
           ? 'border-indigo-500 border-dashed bg-indigo-950/30 ring-2 ring-indigo-500/50 ring-offset-2 ring-offset-zinc-950' 
           : 'border-zinc-800'
       }`}
     >
-      <h2 className="text-xl font-bold text-white mb-5 capitalize flex items-center justify-between">
+      <h2 className="mb-4 flex items-center justify-between text-base font-bold capitalize text-white sm:mb-5 sm:text-xl">
         {title}
         <span className="text-zinc-500 text-sm font-normal">({tasks.length})</span>
       </h2>
 
-      <div className="flex-1 space-y-4 min-h-[500px]">
+      <div className="min-h-[220px] flex-1 space-y-4 sm:min-h-[420px]">
         {tasks.length === 0 && (
           <div className={`h-32 flex items-center justify-center text-zinc-600 italic text-sm transition-all ${
             isOver ? 'text-indigo-400 scale-110' : ''
@@ -414,11 +414,11 @@ export default function Kanban() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
+      <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div className="max-w-7xl mx-auto pb-16">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-white">Kanban</h1>
-            <Button onClick={() => setShowNewModal(true)}>+ Nova Demanda</Button>
+          <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-2xl font-bold text-white sm:text-3xl">Kanban</h1>
+            <Button onClick={() => setShowNewModal(true)} className="w-full sm:w-auto">+ Nova Demanda</Button>
           </div>
 
           <DndContext
@@ -426,7 +426,7 @@ export default function Kanban() {
             collisionDetection={rectIntersection}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex gap-6 overflow-x-auto pb-8 snap-x snap-mandatory">
+            <div className="flex max-w-full snap-x snap-mandatory gap-4 overflow-x-auto pb-6 sm:gap-6 sm:pb-8">
               {Object.entries(columns).map(([columnId, tasks]) => (
                 <KanbanColumn key={columnId} id={columnId} title={columnId} tasks={tasks}>
                   <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>

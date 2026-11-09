@@ -92,9 +92,21 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const { demandas, user, isLoading, loadAll } = useAppStore();
 
+  const [compact, setCompact] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches
+  );
+
   useEffect(() => {
     loadAll(); // Carrega todas as entidades do IndexedDB no mount
   }, [loadAll]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 639px)');
+    const update = () => setCompact(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   const now = useMemo(() => new Date(), []);
 
@@ -158,7 +170,7 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900">
-        <div className={`pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300`}>
+        <div className={`w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8`}>
           <div className="max-w-7xl mx-auto space-y-10 pb-12">
             <Skeleton className="h-14 w-80 rounded-2xl" />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -185,30 +197,26 @@ export default function Dashboard() {
       {/* Ajuste principal: pt-20 para header fixo + lg:pl-64 para sidebar fixa no desktop */}
       <div
         className={`
-          pt-20
-          lg:pl-64
-          px-4 sm:px-6 lg:px-8
-          transition-all duration-300
+          w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8
         `}
       >
-        <div className="max-w-7xl mx-auto space-y-10 pb-16">
-          {/* Cabeçalho premium com saudação personalizada */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <div className="p-4 bg-gradient-to-br from-indigo-600/20 to-purple-600/20 rounded-2xl shadow-lg">
-                <BarChart3 className="w-10 h-10 text-indigo-400" />
+        <div className="mx-auto max-w-7xl space-y-4 pb-12 sm:space-y-10">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center sm:gap-6">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+              <div className="shrink-0 rounded-2xl bg-gradient-to-br from-indigo-600/20 to-purple-600/20 p-3 shadow-lg sm:p-4">
+                <BarChart3 className="h-6 w-6 text-indigo-400 sm:h-10 sm:w-10" />
               </div>
-              <div>
-                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-blue-400 to-purple-400">
+              <div className="min-w-0">
+                <h1 className="bg-gradient-to-r from-indigo-400 via-blue-400 to-purple-400 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-4xl lg:text-5xl">
                   {t('dashboard')}, {user?.name?.split(' ')[0] || 'Bem-vindo'}!
                 </h1>
-                <p className="text-zinc-400 mt-2 text-lg">
+                <p className="mt-1 text-sm text-zinc-400 sm:mt-2 sm:text-lg">
                   {t('bemVindoMensagem') || 'Aqui está o panorama completo da sua operação'}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-zinc-300 bg-zinc-900/50 px-5 py-3 rounded-xl border border-zinc-800">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-300 sm:px-5">
               <TrendingUp className="h-5 w-5 text-green-400" />
               <span>{metrics.concluida} {t('concluidasEstaSemana') || 'concluídas esta semana'}</span>
               <span className="hidden sm:inline">•</span>
@@ -217,39 +225,39 @@ export default function Dashboard() {
           </div>
 
           {/* Métricas principais - 5 cards premium */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 gap-2 sm:gap-6 lg:grid-cols-5">
             <Tooltip content={t('totalDemandasDesc') || 'Total de demandas criadas no sistema'}>
               <Card className="bg-gradient-to-br from-indigo-950/50 to-zinc-950 border-indigo-900/40 hover:border-indigo-700/60 transition-all duration-300 group shadow-xl hover:shadow-indigo-500/20">
-                <div className="p-6 flex flex-col">
+                <div className="flex flex-col">
                   <div className="flex items-center justify-between mb-4">
-                    <p className="text-lg font-semibold text-indigo-300">{t('totalDemandas')}</p>
-                    <ListTodo className="h-7 w-7 text-indigo-400 group-hover:rotate-12 transition-transform" />
+                    <p className="text-sm font-semibold sm:text-lg text-indigo-300">{t('totalDemandas')}</p>
+                    <ListTodo className="h-5 w-5 sm:h-7 sm:w-7 text-indigo-400 group-hover:rotate-12 transition-transform" />
                   </div>
-                  <p className="text-5xl font-extrabold text-white">{metrics.total}</p>
+                  <p className="text-3xl font-extrabold text-white sm:text-5xl">{metrics.total}</p>
                 </div>
               </Card>
             </Tooltip>
 
             <Tooltip content={t('emProgressoDesc') || 'Demandas atualmente em execução'}>
               <Card className="bg-gradient-to-br from-emerald-950/50 to-zinc-950 border-emerald-900/40 hover:border-emerald-700/60 transition-all duration-300 group shadow-xl hover:shadow-emerald-500/20">
-                <div className="p-6 flex flex-col">
+                <div className="flex flex-col">
                   <div className="flex items-center justify-between mb-4">
-                    <p className="text-lg font-semibold text-emerald-300">{t('emProgresso')}</p>
-                    <Clock className="h-7 w-7 text-emerald-400 group-hover:rotate-12 transition-transform" />
+                    <p className="text-sm font-semibold sm:text-lg text-emerald-300">{t('emProgresso')}</p>
+                    <Clock className="h-5 w-5 sm:h-7 sm:w-7 text-emerald-400 group-hover:rotate-12 transition-transform" />
                   </div>
-                  <p className="text-5xl font-extrabold text-white">{metrics.emProgresso}</p>
+                  <p className="text-3xl font-extrabold text-white sm:text-5xl">{metrics.emProgresso}</p>
                 </div>
               </Card>
             </Tooltip>
 
             <Tooltip content={t('concluidasDesc') || 'Demandas finalizadas com sucesso'}>
               <Card className="bg-gradient-to-br from-blue-950/50 to-zinc-950 border-blue-900/40 hover:border-blue-700/60 transition-all duration-300 group shadow-xl hover:shadow-blue-500/20">
-                <div className="p-6 flex flex-col">
+                <div className="flex flex-col">
                   <div className="flex items-center justify-between mb-4">
-                    <p className="text-lg font-semibold text-blue-300">{t('concluidas')}</p>
-                    <CheckCircle className="h-7 w-7 text-blue-400 group-hover:rotate-12 transition-transform" />
+                    <p className="text-sm font-semibold sm:text-lg text-blue-300">{t('concluidas')}</p>
+                    <CheckCircle className="h-5 w-5 sm:h-7 sm:w-7 text-blue-400 group-hover:rotate-12 transition-transform" />
                   </div>
-                  <p className="text-5xl font-extrabold text-white">{metrics.concluida}</p>
+                  <p className="text-3xl font-extrabold text-white sm:text-5xl">{metrics.concluida}</p>
                 </div>
               </Card>
             </Tooltip>
@@ -259,16 +267,16 @@ export default function Dashboard() {
                 'bg-gradient-to-br from-red-950/50 to-zinc-950 border-red-900/40 transition-all duration-300 group shadow-xl',
                 metrics.atrasadas > 0 ? 'hover:border-red-700/60 hover:shadow-red-500/20' : 'hover:border-zinc-700/60'
               )}>
-                <div className="p-6 flex flex-col">
+                <div className="flex flex-col">
                   <div className="flex items-center justify-between mb-4">
-                    <p className="text-lg font-semibold text-red-300">{t('atrasadas')}</p>
+                    <p className="text-sm font-semibold sm:text-lg text-red-300">{t('atrasadas')}</p>
                     <AlertTriangle className={cn(
-                      'h-7 w-7 group-hover:rotate-12 transition-transform',
+                      'h-5 w-5 sm:h-7 sm:w-7 group-hover:rotate-12 transition-transform',
                       metrics.atrasadas > 0 ? 'text-red-400' : 'text-zinc-400'
                     )} />
                   </div>
                   <p className={cn(
-                    'text-5xl font-extrabold mt-2',
+                    'mt-2 text-3xl font-extrabold sm:text-5xl',
                     metrics.atrasadas > 0 ? 'text-red-300' : 'text-white'
                   )}>
                     {metrics.atrasadas}
@@ -278,13 +286,13 @@ export default function Dashboard() {
             </Tooltip>
 
             <Tooltip content={t('bloqueadasDesc') || 'Demandas bloqueadas por dependências ou impedimentos'}>
-              <Card className="bg-gradient-to-br from-amber-950/50 to-zinc-950 border-amber-900/40 hover:border-amber-700/60 transition-all duration-300 group shadow-xl hover:shadow-amber-500/20">
-                <div className="p-6 flex flex-col">
+              <Card className="col-span-2 bg-gradient-to-br from-amber-950/50 to-zinc-950 border-amber-900/40 hover:border-amber-700/60 transition-all duration-300 group shadow-xl hover:shadow-amber-500/20 lg:col-span-1">
+                <div className="flex flex-col">
                   <div className="flex items-center justify-between mb-4">
-                    <p className="text-lg font-semibold text-amber-300">{t('bloqueadas')}</p>
-                    <AlertTriangle className="h-7 w-7 text-amber-400 group-hover:rotate-12 transition-transform" />
+                    <p className="text-sm font-semibold sm:text-lg text-amber-300">{t('bloqueadas')}</p>
+                    <AlertTriangle className="h-5 w-5 sm:h-7 sm:w-7 text-amber-400 group-hover:rotate-12 transition-transform" />
                   </div>
-                  <p className="text-5xl font-extrabold text-white">{metrics.bloqueada}</p>
+                  <p className="text-3xl font-extrabold text-white sm:text-5xl">{metrics.bloqueada}</p>
                 </div>
               </Card>
             </Tooltip>
@@ -294,18 +302,18 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Pizza de status */}
             <Card title={t('distribuicaoStatus')} description={t('visaoGeralStatuses')} className="shadow-2xl border-zinc-800">
-              <div className="h-[28rem] p-6">
+              <div className="h-64 p-1 sm:h-[28rem] sm:p-6">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={statusData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={80}
-                      outerRadius={130}
+                      innerRadius={compact ? 42 : 80}
+                      outerRadius={compact ? 68 : 130}
                       paddingAngle={4}
                       dataKey="value"
-                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                      label={compact ? false : ({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                       labelLine={false}
                       animationDuration={1200}
                       animationBegin={300}
@@ -337,12 +345,12 @@ export default function Dashboard() {
 
             {/* Barras de progresso */}
             <Card title={t('progressoDemandas')} description={t('evolucaoPorStatus')} className="shadow-2xl border-zinc-800">
-              <div className="h-[28rem] p-6">
+              <div className="h-64 p-1 sm:h-[28rem] sm:p-6">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statusData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                  <BarChart data={statusData} margin={{ top: compact ? 8 : 20, right: compact ? 8 : 30, left: 0, bottom: compact ? 8 : 20 }}>
                     <CartesianGrid strokeDasharray="4 4" stroke="#27272a" />
-                    <XAxis dataKey="name" stroke="#9ca3af" tick={{ fontSize: 13 }} />
-                    <YAxis stroke="#9ca3af" tick={{ fontSize: 13 }} />
+                    <XAxis dataKey="name" stroke="#9ca3af" tick={{ fontSize: compact ? 10 : 13 }} interval={0} />
+                    <YAxis stroke="#9ca3af" tick={{ fontSize: compact ? 10 : 13 }} width={compact ? 28 : 40} />
                     <RechartsTooltip
                       contentStyle={{
                         backgroundColor: '#18181b',
@@ -385,7 +393,7 @@ export default function Dashboard() {
                     >
                       <div className="flex flex-col gap-4">
                         <div className="flex items-start justify-between gap-4">
-                          <p className="font-semibold text-xl text-white group-hover:text-indigo-300 transition-colors line-clamp-2 flex-1">
+                          <p className="line-clamp-2 flex-1 text-base font-semibold text-white transition-colors group-hover:text-indigo-300 sm:text-xl">
                             {d.title || 'Sem título'}
                           </p>
                           <ArrowUpRight className="h-6 w-6 text-zinc-500 group-hover:text-indigo-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform flex-shrink-0" />
@@ -445,7 +453,7 @@ export default function Dashboard() {
                       >
                         <div className="flex flex-col gap-4">
                           <div className="flex items-start justify-between gap-4">
-                            <p className="font-semibold text-xl text-white group-hover:text-indigo-300 transition-colors line-clamp-2 flex-1">
+                            <p className="line-clamp-2 flex-1 text-base font-semibold text-white transition-colors group-hover:text-indigo-300 sm:text-xl">
                               {d.title || 'Sem título'}
                             </p>
                             <ArrowUpRight className="h-6 w-6 text-zinc-500 group-hover:text-indigo-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform flex-shrink-0" />

@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && gh-pages -d dist",
+    "deploy": "GITHUB_PAGES=true npm run build && gh-pages -d dist",
     "scan:i18n": "node scripts/scan-i18n.cjs",
     "check:i18n": "node scripts/check-i18n.cjs"
   },

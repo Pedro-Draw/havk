@@ -14,7 +14,14 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { auth } from '../lib/firebase';
-import { signOut as firebaseSignOut } from 'firebase/auth';
+import {
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  signOut as firebaseSignOut,
+  updatePassword,
+  updateProfile,
+} from 'firebase/auth';
+import { mapAuthError } from '../lib/authSession';
 
 export default function Configuracoes() {
   const { t, i18n } = useTranslation();
@@ -76,24 +83,21 @@ export default function Configuracoes() {
   })();
 
   useEffect(() => {
-    if (user) {
-      setFormData({
-        name: user.name || '',
-        username: user.username || '',
-        bio: user.bio || '',
-        email: user.email || '',
-        role: user.role || '',
-        website: user.website || '',
-        instagram: user.instagram || '',
-        linkedin: user.linkedin || '',
-        github: user.github || '',
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      });
-      setPreviewAvatar(user.avatar || '');
-    }
-  }, [user]);
+    if (!user) return;
+    setFormData((prev) => ({
+      ...prev,
+      name: user.name || '',
+      username: user.username || '',
+      bio: user.bio || '',
+      email: user.email || '',
+      role: user.role || '',
+      website: user.website || '',
+      instagram: user.instagram || '',
+      linkedin: user.linkedin || '',
+      github: user.github || '',
+    }));
+    setPreviewAvatar(user.avatar || '');
+  }, [user?.id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -149,14 +153,17 @@ export default function Configuracoes() {
     setIsSavingProfile(true);
     try {
       const updatedUser = {
-  ...user,
-  id: user.id,
-  name: formData.name.trim(),
-  email: formData.email.trim(),
-  username: formData.username?.trim(),
-  bio: formData.bio?.trim(),
-  role: formData.role?.trim(),
-};
+        ...user,
+        id: user.id,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        username: formData.username?.trim(),
+        bio: formData.bio?.trim(),
+        role: formData.role?.trim(),
+      };
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: updatedUser.name });
+      }
       await setUser(updatedUser);
       toast.success('Perfil salvo com sucesso');
     } catch (err) {
@@ -219,9 +226,22 @@ export default function Configuracoes() {
       toast.error('Senha muito fraca. Use maiúsculas, números e símbolos.');
       return;
     }
-    await new Promise(r => setTimeout(r, 1400)); // simulação
-    toast.success('Senha alterada com sucesso (simulado)');
-    setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+
+    const current = auth.currentUser;
+    if (!current?.email) {
+      toast.error('Entre com e-mail e senha para alterar a senha.');
+      return;
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(current.email, formData.currentPassword);
+      await reauthenticateWithCredential(current, credential);
+      await updatePassword(current, formData.newPassword);
+      toast.success('Senha alterada com sucesso');
+      setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+    } catch (err: any) {
+      toast.error(mapAuthError(err));
+    }
   };
 
   const handleExportData = () => {
@@ -269,8 +289,9 @@ export default function Configuracoes() {
             onClick={async () => {
               toast.dismiss(toastId.id);
               try {
+                sessionStorage.removeItem('havk-dev-session');
                 await firebaseSignOut(auth);
-              } catch (e) {
+              } catch {
                 // ignora erro do firebase, faz logout local de qualquer forma
               }
               await logout();
@@ -323,17 +344,17 @@ export default function Configuracoes() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100 pb-24">
-      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8">
+      <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-4 mb-12"
+            className="mb-6 flex items-center gap-3 sm:mb-8"
           >
-            <div className="p-4 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-2xl shadow-lg">
-              <Settings className="w-12 h-12 text-indigo-400" />
+            <div className="rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 p-2.5 shadow-lg sm:p-4">
+              <Settings className="h-5 w-5 text-indigo-400 sm:h-8 sm:w-8" />
             </div>
-            <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold text-white sm:text-3xl">
               {t('configuracoes')}
             </h1>
           </motion.div>
@@ -343,32 +364,33 @@ export default function Configuracoes() {
             <motion.div
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              className="lg:col-span-3 lg:sticky lg:top-24 h-fit"
+              className="h-fit lg:sticky lg:top-24 lg:col-span-3"
             >
               <Card className="border-zinc-800 shadow-xl">
-                <nav className="p-4 space-y-2">
+                <nav className="flex gap-2 overflow-x-auto p-2 lg:flex-col lg:overflow-visible lg:p-3">
                   {sidebarItems.map(item => (
                     <button
                       key={item.id}
                       onClick={() => setActiveSection(item.id as any)}
-                      className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl transition-all duration-200 ${
+                      className={`flex w-auto shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 lg:w-full ${
                         activeSection === item.id
                           ? 'bg-gradient-to-r from-indigo-600/30 to-purple-600/20 border-l-4 border-indigo-500 text-white shadow-md'
                           : 'hover:bg-zinc-800/70 text-zinc-300'
                       }`}
                     >
-                      <item.icon className="w-6 h-6 flex-shrink-0" />
-                      <span className="font-medium text-lg truncate">{item.label}</span>
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate font-medium">{item.label}</span>
                     </button>
                   ))}
+                </nav>
 
-                  <div className="pt-10 px-2 border-t border-zinc-800 mt-8 space-y-4">
+                  <div className="space-y-2 border-t border-zinc-800 px-3 py-3">
                     <Button
                       variant="outline"
                       fullWidth
                       icon={<Download className="w-5 h-5" />}
                       onClick={handleExportData}
-                      className="justify-start py-4 text-base"
+                      className="justify-start"
                     >
                       Exportar meus dados
                     </Button>
@@ -377,7 +399,7 @@ export default function Configuracoes() {
                       fullWidth
                       icon={<Trash2 className="w-5 h-5" />}
                       onClick={handleDeleteAccount}
-                      className="justify-start py-4 text-base"
+                      className="justify-start"
                     >
                       Excluir conta
                     </Button>
@@ -386,12 +408,11 @@ export default function Configuracoes() {
                       fullWidth
                       icon={<LogOut className="w-5 h-5" />}
                       onClick={handleLogout}
-                      className="justify-start py-4 text-rose-400 hover:text-rose-300"
+                      className="justify-start text-rose-400 hover:text-rose-300"
                     >
                       Sair
                     </Button>
                   </div>
-                </nav>
               </Card>
             </motion.div>
 
@@ -413,19 +434,19 @@ export default function Configuracoes() {
                           <img
                             src={previewAvatar}
                             alt="Foto de perfil"
-                            className="w-44 h-44 md:w-52 md:h-52 rounded-2xl object-cover border-4 border-zinc-700 shadow-2xl transition-all duration-300 group-hover:scale-105"
+                            className="h-28 w-28 rounded-2xl border-4 border-zinc-700 object-cover shadow-2xl transition-all duration-300 group-hover:scale-105 sm:h-44 sm:w-44 md:h-52 md:w-52"
                           />
                         ) : (
-                          <div className="w-44 h-44 md:w-52 md:h-52 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center text-8xl text-zinc-500 border-4 border-zinc-700">
+                          <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-zinc-700 bg-gradient-to-br from-zinc-800 to-zinc-950 text-5xl text-zinc-500 sm:h-44 sm:w-44 sm:text-8xl md:h-52 md:w-52">
                             {formData.name?.charAt(0)?.toUpperCase() || '?'}
                           </div>
                         )}
                         <button
                           onClick={() => fileInputRef.current?.click()}
-                          className="absolute -bottom-5 -right-5 bg-gradient-to-r from-indigo-600 to-purple-600 p-5 rounded-full shadow-2xl hover:scale-110 transition-all ring-4 ring-zinc-900"
+                          className="absolute -bottom-3 -right-3 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 p-3 shadow-2xl ring-4 ring-zinc-900 transition-all hover:scale-110 sm:-bottom-5 sm:-right-5 sm:p-5"
                           aria-label="Alterar foto de perfil"
                         >
-                          <Camera className="w-8 h-8 text-white" />
+                          <Camera className="h-5 w-5 text-white sm:h-8 sm:w-8" />
                         </button>
                         <input
                           type="file"
@@ -436,7 +457,7 @@ export default function Configuracoes() {
                         />
                       </div>
                       <div className="text-center md:text-left space-y-3">
-                        <h3 className="text-3xl font-bold">{formData.name || 'Seu nome'}</h3>
+                        <h3 className="text-xl font-bold sm:text-3xl">{formData.name || 'Seu nome'}</h3>
                         {formData.username && <p className="text-xl text-indigo-400">@{formData.username}</p>}
                         {formData.role && (
                           <p className="text-lg text-zinc-300 flex items-center gap-2">
@@ -456,14 +477,14 @@ export default function Configuracoes() {
                         value={formData.name}
                         onChange={handleChange}
                         required
-                        className="text-lg py-4"
+                        className="text-base"
                       />
                       <Input
                         label="Username (@handle)"
                         name="username"
                         value={formData.username}
                         onChange={handleChange}
-                        className="text-lg py-4"
+                        className="text-base"
                       />
                       <Input
                         label="Cargo / Função / Profissão"
@@ -471,7 +492,7 @@ export default function Configuracoes() {
                         value={formData.role}
                         onChange={handleChange}
                         placeholder="Ex: Desenvolvedor Full-Stack"
-                        className="text-lg py-4"
+                        className="text-base"
                       />
                       <Input
                         label={t('email')}
@@ -479,7 +500,7 @@ export default function Configuracoes() {
                         type="email"
                         value={formData.email}
                         onChange={handleChange}
-                        className="text-lg py-4"
+                        className="text-base"
                       />
 
                       <div className="md:col-span-2">
@@ -525,7 +546,7 @@ export default function Configuracoes() {
                         value={formData.website}
                         onChange={handleChange}
                         placeholder="https://meusite.com"
-                        className="text-lg py-4"
+                        className="text-base"
                       />
                       <Input
                         label="Instagram"
@@ -533,7 +554,7 @@ export default function Configuracoes() {
                         value={formData.instagram}
                         onChange={handleChange}
                         placeholder="@seuusuario"
-                        className="text-lg py-4"
+                        className="text-base"
                       />
                       <Input
                         label="LinkedIn"
@@ -541,7 +562,7 @@ export default function Configuracoes() {
                         value={formData.linkedin}
                         onChange={handleChange}
                         placeholder="linkedin.com/in/seunome ou @seunome"
-                        className="text-lg py-4"
+                        className="text-base"
                       />
                       <Input
                         label="GitHub"
@@ -549,7 +570,7 @@ export default function Configuracoes() {
                         value={formData.github}
                         onChange={handleChange}
                         placeholder="@seuusuario"
-                        className="text-lg py-4"
+                        className="text-base"
                       />
                     </div>
 
@@ -625,7 +646,7 @@ export default function Configuracoes() {
               {/* TEMA */}
               {activeSection === 'tema' && (
                 <Card title="Aparência da aplicação" className="border-zinc-800 shadow-xl">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
                     {[
                       { value: 'light', label: 'Claro', icon: Sun },
                       { value: 'dark', label: 'Escuro', icon: Moon },
@@ -636,14 +657,14 @@ export default function Configuracoes() {
                         key={option.value}
                         whileHover={{ scale: 1.05 }}
                         onClick={() => setTheme(option.value as any)}
-                        className={`relative p-8 rounded-2xl border-2 flex flex-col items-center gap-5 transition-all ${
+                        className={`relative flex flex-col items-center gap-3 rounded-2xl border-2 p-4 transition-all sm:gap-5 sm:p-8 ${
                           theme === option.value
                             ? 'border-indigo-500 bg-zinc-800/60 shadow-indigo-500/30'
                             : 'border-zinc-800 hover:border-zinc-600 hover:shadow-xl'
                         }`}
                       >
-                        <div className="w-24 h-24 rounded-xl bg-zinc-950 border border-zinc-700 flex items-center justify-center">
-                          <option.icon className="w-10 h-10" />
+                        <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-950 sm:h-24 sm:w-24">
+                          <option.icon className="h-6 w-6 sm:h-10 sm:w-10" />
                         </div>
                         <p className="font-semibold text-lg">{option.label}</p>
                         {theme === option.value && (
@@ -667,15 +688,15 @@ export default function Configuracoes() {
                         key={lang.code}
                         whileHover={{ scale: 1.03 }}
                         onClick={() => handleChangeLanguage(lang.code as any)}
-                        className={`w-full p-7 rounded-2xl border-2 flex items-center gap-6 transition-all ${
+                        className={`flex w-full items-center gap-4 rounded-2xl border-2 p-4 transition-all sm:gap-6 sm:p-7 ${
                           language === lang.code
                             ? 'border-indigo-500 bg-indigo-950/20 shadow-md'
                             : 'border-zinc-800 hover:border-zinc-600'
                         }`}
                       >
-                        <span className="text-6xl">{lang.flag}</span>
+                        <span className="text-4xl sm:text-6xl">{lang.flag}</span>
                         <div className="flex-1">
-                          <p className="font-semibold text-2xl">{lang.name}</p>
+                          <p className="text-lg font-semibold sm:text-2xl">{lang.name}</p>
                           <p className="text-zinc-400">{lang.code}</p>
                         </div>
                         {language === lang.code && (
@@ -728,7 +749,7 @@ export default function Configuracoes() {
                     <div className="p-8 bg-zinc-900/60 rounded-2xl border border-zinc-800">
                       <div className="flex items-center gap-5 mb-8">
                         <Lock className="w-10 h-10 text-indigo-400" />
-                        <h3 className="text-3xl font-semibold">Alterar senha</h3>
+                        <h3 className="text-xl font-semibold sm:text-3xl">Alterar senha</h3>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <Input
@@ -792,7 +813,7 @@ export default function Configuracoes() {
                     <div className="p-8 bg-zinc-900/60 rounded-2xl border border-zinc-800">
                       <div className="flex items-center gap-5 mb-6">
                         <Shield className="w-10 h-10 text-green-400" />
-                        <h3 className="text-3xl font-semibold">Autenticação de dois fatores</h3>
+                        <h3 className="text-xl font-semibold sm:text-3xl">Autenticação de dois fatores</h3>
                       </div>
                       <p className="text-lg text-zinc-300 mb-8">
                         Ative a 2FA para maior segurança (em breve disponível)

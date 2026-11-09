@@ -22,6 +22,7 @@ import {
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useAppStore } from '../../store/useAppStore';
+import { MOBILE_MENU_EVENT, setMobileMenuOpen } from '../../lib/mobileNav';
 
 export default function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -40,15 +41,17 @@ export default function MobileMenu() {
   ===================================================== */
 
   useEffect(() => {
-    const handleToggle = () => {
-      setIsOpen(prev => !prev);
+    const onState = (event: Event) => {
+      setIsOpen(Boolean((event as CustomEvent<boolean>).detail));
     };
 
-    window.addEventListener('toggle-mobile-menu', handleToggle);
-
-    return () =>
-      window.removeEventListener('toggle-mobile-menu', handleToggle);
+    window.addEventListener(MOBILE_MENU_EVENT, onState);
+    return () => window.removeEventListener(MOBILE_MENU_EVENT, onState);
   }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   /* =====================================================
      🔒 BLOQUEIA SCROLL DO BODY
@@ -70,21 +73,6 @@ export default function MobileMenu() {
      🖱️ FECHA AO CLICAR FORA
   ===================================================== */
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () =>
-      document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
-
   /* =====================================================
      ⌨️ FECHA COM ESC
   ===================================================== */
@@ -92,7 +80,7 @@ export default function MobileMenu() {
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setIsOpen(false);
+        setMobileMenuOpen(false);
       }
     };
 
@@ -114,8 +102,8 @@ export default function MobileMenu() {
       const endX = e.changedTouches[0].clientX;
       const diff = endX - touchStartX.current;
 
-      if (diff > 80) {
-        setIsOpen(true);
+      if (touchStartX.current < 24 && diff > 80) {
+        setMobileMenuOpen(true);
       }
     };
 
@@ -141,7 +129,7 @@ export default function MobileMenu() {
     const diff = endX - touchStartX.current;
 
     if (diff < -50) {
-      setIsOpen(false);
+      setMobileMenuOpen(false);
     }
   };
 
@@ -197,13 +185,13 @@ export default function MobileMenu() {
         aria-modal="true"
         onTouchStart={handleTouchStartMenu}
         onTouchMove={handleTouchMoveMenu}
-        className={`fixed inset-y-0 left-0 w-[85vw] max-w-sm bg-zinc-900 border-r border-zinc-800 z-50 overflow-y-auto transform transition-all duration-300 ease-out lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-[70] w-[min(82vw,18rem)] max-w-sm overflow-y-auto border-r border-zinc-800 bg-zinc-900 transform transition-all duration-300 ease-out lg:hidden ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
 
         {/* HEADER */}
-        <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-zinc-800 p-4">
 
           <div className="flex items-center gap-3">
 
@@ -211,10 +199,10 @@ export default function MobileMenu() {
               <img
                 src={user.avatar}
                 alt="Perfil"
-                className="w-12 h-12 rounded-full object-cover border-2 border-zinc-700"
+                className="h-9 w-9 rounded-full border-2 border-zinc-700 object-cover"
               />
             ) : (
-              <div className="w-12 h-12 rounded-full bg-zinc-700 flex items-center justify-center text-sm font-semibold text-zinc-300">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-700 text-xs font-semibold text-zinc-300">
                 {getInitials()}
               </div>
             )}
@@ -232,17 +220,17 @@ export default function MobileMenu() {
           </div>
 
           <button
-            onClick={() => setIsOpen(false)}
+            onClick={() => setMobileMenuOpen(false)}
             className="text-zinc-400 hover:text-white"
             aria-label={t('mobileMenu.fecharMenu')}
           >
-            <X className="w-7 h-7" />
+            <X className="h-5 w-5" />
           </button>
 
         </div>
 
         {/* MENU */}
-        <nav className="p-4 space-y-1">
+        <nav className="space-y-0.5 p-2">
 
           {menuItems.map(item => {
             const isActive =
@@ -253,14 +241,15 @@ export default function MobileMenu() {
               <NavLink
                 key={item.path}
                 to={item.path}
-                onClick={() => setIsOpen(false)}
-                className={`flex items-center gap-4 px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
+                end={item.path === '/'}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
                   isActive
                     ? 'bg-zinc-800 text-white border-l-2 border-blue-500'
                     : 'text-zinc-300 hover:bg-zinc-800 hover:translate-x-1'
                 }`}
               >
-                <item.icon className="w-6 h-6" />
+                <item.icon className="h-4 w-4" />
 
                 {item.label}
               </NavLink>
@@ -271,12 +260,12 @@ export default function MobileMenu() {
 
           <button
             onClick={() => {
-              setIsOpen(false);
+              setMobileMenuOpen(false);
               navigate('/demandas/nova');
             }}
-            className="w-full mt-6 flex items-center gap-4 px-4 py-3 rounded-xl bg-zinc-100 text-zinc-900 font-medium hover:bg-white transition-all"
+            className="mt-3 flex w-full items-center gap-3 rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 transition-all hover:bg-white"
           >
-            <Plus className="w-6 h-6" />
+            <Plus className="h-4 w-4" />
 
             {t('novaDemanda')}
           </button>
@@ -289,8 +278,8 @@ export default function MobileMenu() {
       {isOpen && (
         <div
           aria-hidden="true"
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity"
-          onClick={() => setIsOpen(false)}
+          className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm transition-opacity lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
         />
       )}
     </>

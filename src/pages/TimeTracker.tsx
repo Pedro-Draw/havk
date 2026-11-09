@@ -145,7 +145,7 @@ export default function TimeTracker() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
+      <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div className="mx-auto max-w-7xl pb-20 space-y-10">
           {/* Cabeçalho */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -154,10 +154,10 @@ export default function TimeTracker() {
                 <Clock className="w-10 h-10 text-indigo-400" />
               </div>
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white">
+                <h1 className="text-2xl font-bold text-white sm:text-3xl md:text-4xl">
                   {t('timeTracker') || 'Rastreador de Tempo'}
                 </h1>
-                <p className="text-zinc-400 mt-2 text-lg">
+                <p className="mt-1 text-sm text-zinc-400 sm:mt-2 sm:text-lg">
                   Registre o tempo gasto em tarefas e acompanhe sua produtividade
                 </p>
               </div>
@@ -166,8 +166,8 @@ export default function TimeTracker() {
 
           {/* TIMER PRINCIPAL */}
           <Card title={t('timeTrackerTitle')} className="border-zinc-800 shadow-2xl">
-            <div className="text-center py-12 md:py-16 space-y-8">
-              <div className="text-7xl md:text-9xl font-mono font-bold text-zinc-100 tracking-tight drop-shadow-lg">
+              <div className="space-y-6 py-6 text-center sm:py-12 md:py-16">
+              <div className="font-mono text-[2.15rem] font-bold tracking-tight text-zinc-100 drop-shadow-lg sm:text-7xl md:text-9xl">
                 {formatTime(time)}
               </div>
 
@@ -175,7 +175,7 @@ export default function TimeTracker() {
                 value={taskName}
                 onChange={(e) => setTaskName(e.target.value)}
                 placeholder={t('taskNamePlaceholder') || 'Nome da tarefa atual...'}
-                className="max-w-lg mx-auto text-xl py-5"
+                className="mx-auto max-w-lg text-base"
               />
 
               <div className="flex flex-wrap justify-center gap-5">
@@ -185,7 +185,7 @@ export default function TimeTracker() {
                   icon={isRunning ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
                   onClick={handleStartPause}
                   disabled={!taskName.trim()}
-                  className="min-w-[160px] py-6 text-lg"
+                  className="min-w-[8.5rem] py-3 text-base sm:min-w-[160px] sm:py-6 sm:text-lg"
                 >
                   {isRunning ? t('pause') : t('start')}
                 </Button>
@@ -196,7 +196,7 @@ export default function TimeTracker() {
                   icon={<Square className="w-6 h-6" />}
                   onClick={handleStop}
                   disabled={time === 0 || !isRunning}
-                  className="min-w-[160px] py-6 text-lg"
+                  className="min-w-[8.5rem] py-3 text-base sm:min-w-[160px] sm:py-6 sm:text-lg"
                 >
                   {t('stop')}
                 </Button>
@@ -207,7 +207,7 @@ export default function TimeTracker() {
                   icon={<RotateCcw className="w-6 h-6" />}
                   onClick={handleReset}
                   disabled={time === 0}
-                  className="min-w-[160px] py-6 text-lg"
+                  className="min-w-[8.5rem] py-3 text-base sm:min-w-[160px] sm:py-6 sm:text-lg"
                 >
                   {t('reset')}
                 </Button>
@@ -221,14 +221,14 @@ export default function TimeTracker() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
                 <div className="space-y-6">
                   <div className="text-center">
-                    <p className="text-5xl md:text-6xl font-bold text-indigo-400 mb-2">
+                    <p className="mb-2 text-3xl font-bold text-indigo-400 sm:text-5xl md:text-6xl">
                       {formatTime(totalTime)}
                     </p>
                     <p className="text-lg text-zinc-400">{t('totalTrackedTime')}</p>
                   </div>
 
                   <div className="text-center">
-                    <p className="text-4xl md:text-5xl font-bold text-zinc-100 mb-2">
+                    <p className="mb-2 text-3xl font-bold text-zinc-100 sm:text-4xl md:text-5xl">
                       {timeEntries.length}
                     </p>
                     <p className="text-lg text-zinc-400">{t('totalSessions')}</p>

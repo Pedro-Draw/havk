@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import { useTranslation } from '../../i18n/useTranslation';
 import {
   LayoutDashboard,
@@ -35,21 +35,14 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="
-        hidden lg:flex
-        w-64
-        pt-16
-        flex-col
-        bg-zinc-950
-        border-r border-zinc-800
-        fixed
-        top-0
-        left-0
-        h-screen
-        z-40
-      "
+      className="fixed top-0 left-0 z-40 hidden h-screen w-64 flex-col border-r border-zinc-800 bg-zinc-950 lg:flex"
       aria-label="Sidebar"
     >
+      <div className="flex h-16 shrink-0 items-center border-b border-zinc-800 px-6">
+        <Link to="/" className="text-xl font-bold tracking-tight text-white">
+          Havk
+        </Link>
+      </div>
       <div
         className="
           flex-1
@@ -63,7 +56,7 @@ export default function Sidebar() {
       >
         <nav className="flex flex-col gap-1 mt-4">
 
-          <NavLink to="/" className={getClass}>
+          <NavLink to="/" end className={getClass}>
             <LayoutDashboard size={18} />
             {t('sidebar.dashboard') || 'Dashboard'}
           </NavLink>

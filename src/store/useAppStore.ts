@@ -241,7 +241,7 @@ export const useAppStore = create<AppState>()(
       isAuthLoading: true,
       isLoading: false,
 
-      theme: 'system',
+      theme: 'dark',
       language: 'pt-BR',
 
       demandas: [],
@@ -272,21 +272,25 @@ export const useAppStore = create<AppState>()(
 
       /* AUTH & CONFIG */
       setUser: async (user) => {
-  set({ user, isAuthenticated: !!user });
+        set({ user, isAuthenticated: !!user, isAuthLoading: false });
 
-  if (!user) return;
+        if (!user) return;
 
-  try {
-    await updateItem('user', user); // atualiza
-  } catch {
-    // se não existir ainda
-    await addItem('user', user);
-  }
+        try {
+          await updateItem('user', user);
+        } catch (err) {
+          console.error('Falha ao salvar usuário localmente:', err);
+        }
 
-  set({ isLoading: true });
-  await get().loadAll();
-  set({ isLoading: false });
-},
+        try {
+          set({ isLoading: true });
+          await get().loadAll();
+        } catch (err) {
+          console.error('Falha ao carregar dados após login:', err);
+        } finally {
+          set({ isLoading: false });
+        }
+      },
 
       login: async (email, _password) => {
   // TODO: trocar por API real quando tiver backend
@@ -307,6 +311,11 @@ export const useAppStore = create<AppState>()(
 },
 
       logout: async () => {
+        try {
+          sessionStorage.removeItem('havk-dev-session');
+        } catch {
+          /* sessão indisponível */
+        }
         set({
           user: null,
           isAuthenticated: false,
@@ -836,13 +845,18 @@ clearNotifications: async () => {
     }),
     {
       name: 'havk-storage',
+      version: 2,
       storage: createJSONStorage(() => localStorage),
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== 'object') return persistedState as never;
+        const next = { ...(persistedState as Record<string, unknown>) };
+        delete next.user;
+        return next as never;
+      },
       partialize: (state) => ({
-        user: state.user,
         theme: state.theme,
         language: state.language,
         notificationPreferences: state.notificationPreferences,
-        // As listas grandes são salvas no IndexedDB pelas actions, não no localStorage
       }),
     }
   )
@@ -872,36 +886,4 @@ if (typeof window !== 'undefined') {
   useAppStore.subscribe((state) => {
     applyTheme(state.theme);
   });
-}
-
-/* =====================================================
-   🔄 RESTORE USER SESSION ON START
-===================================================== */
-
-if (typeof window !== 'undefined') {
-  const restoreSession = async () => {
-    try {
-      const users = await getAll<User>('user');
-      const user = users?.[0] || null;
-
-      if (user) {
-        useAppStore.setState({
-          user,
-          isAuthenticated: true
-        });
-
-        // IMPORTANTE: carrega todos os dados salvos
-        await useAppStore.getState().loadAll();
-      }
-
-    } catch (err) {
-      console.error('Erro ao restaurar sessão:', err);
-    } finally {
-      useAppStore.setState({
-        isAuthLoading: false
-      });
-    }
-  };
-
-  restoreSession();
 }

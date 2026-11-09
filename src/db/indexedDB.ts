@@ -261,8 +261,5 @@ export const initDevAccount = async () => {
     };
 
     await addItem('user', devUser);
-    console.log('Conta DEV criada automaticamente');
   }
 };
-
-initDevAccount().catch(console.error);

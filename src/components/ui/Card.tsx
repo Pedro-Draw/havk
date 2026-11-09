@@ -27,16 +27,16 @@ export default function Card({
       {...props}
     >
       {(title || description) && (
-        <div className="p-6 border-b border-zinc-800">
-          {title && <h3 className="text-lg font-semibold text-white">{title}</h3>}
+        <div className="border-b border-zinc-800 p-3 sm:p-6">
+          {title && <h3 className="text-sm font-semibold text-white sm:text-lg">{title}</h3>}
           {description && <p className="mt-1 text-sm text-zinc-400">{description}</p>}
         </div>
       )}
 
-      <div className="p-6">{children}</div>
+      <div className="p-3 sm:p-6">{children}</div>
 
       {footer && (
-        <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-950/50">
+        <div className="border-t border-zinc-800 bg-zinc-950/50 px-4 py-3 sm:px-6 sm:py-4">
           {footer}
         </div>
       )}

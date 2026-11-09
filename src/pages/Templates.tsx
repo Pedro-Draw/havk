@@ -174,7 +174,7 @@ export default function Templates() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
+      <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div className="mx-auto max-w-7xl pb-20">
           {/* Cabeçalho */}
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-12">
@@ -183,7 +183,7 @@ export default function Templates() {
                 <CopyPlus className="w-10 h-10 text-indigo-400" />
               </div>
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white">
+                <h1 className="text-2xl font-bold text-white sm:text-3xl md:text-4xl">
                   {t('templates') || 'Templates'}
                 </h1>
                 <p className="text-zinc-400 mt-2 text-lg">

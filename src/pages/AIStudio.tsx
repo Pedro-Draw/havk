@@ -244,7 +244,7 @@ Responda com "criar demanda", "criar projeto", "detalhar plano" ou continue a co
   ===================================================== */
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
-      <div className="pt-20 lg:pl-64 px-4 sm:px-6 lg:px-8 transition-all duration-300">
+      <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div className="mx-auto max-w-7xl pb-16">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* LEFT TOOLBAR */}
