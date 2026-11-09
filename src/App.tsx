@@ -117,6 +117,28 @@ function AppLayout() {
     }
   }, [isAuthenticated, user, loadAll]);
 
+  useEffect(() => {
+    const blockScroll = (event: Event) => {
+      const floating = document.querySelector('[data-float-panel]');
+      const overlay = document.querySelector('[data-havk-overlay]');
+      if (!floating && !overlay) return;
+      const target = event.target as HTMLElement | null;
+      if (floating) {
+        if (target?.closest('[data-float-panel]')) return;
+        event.preventDefault();
+        return;
+      }
+      if (target?.closest('[role="dialog"], .mobile-drawer.is-open, .overlay-scroll')) return;
+      event.preventDefault();
+    };
+    document.addEventListener('wheel', blockScroll, { passive: false, capture: true });
+    document.addEventListener('touchmove', blockScroll, { passive: false, capture: true });
+    return () => {
+      document.removeEventListener('wheel', blockScroll, true);
+      document.removeEventListener('touchmove', blockScroll, true);
+    };
+  }, []);
+
   return (
     <div className="app-shell">
       <Sidebar />

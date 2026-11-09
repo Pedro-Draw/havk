@@ -6,7 +6,7 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   children: ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'wide';
   showCloseButton?: boolean;
   onConfirm?: () => void;
   confirmLabel?: string;
@@ -38,6 +38,7 @@ export default function Modal({
     md: 'sm:max-w-md',
     lg: 'sm:max-w-lg',
     xl: 'sm:max-w-2xl',
+    wide: 'sm:max-w-5xl',
   };
 
   return (
@@ -58,7 +59,7 @@ export default function Modal({
         {(title || showCloseButton) && (
           <div className="glass-bar sticky top-0 z-10 flex items-center justify-between gap-4 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pt-4">
             {title && (
-              <h2 id="modal-title" className="text-lg font-semibold text-white sm:text-xl">
+              <h2 id="modal-title" className="truncate text-lg font-semibold sm:text-xl" style={{ color: 'var(--text)' }}>
                 {title}
               </h2>
             )}

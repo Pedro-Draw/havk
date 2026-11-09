@@ -20,10 +20,11 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { Check, KanbanSquare, Play, Plus } from 'lucide-react';
+import { KanbanSquare, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SortableCard from '../components/kanban/SortableCard';
 import ResponsavelField from '../components/demandas/ResponsavelField';
+import DemandaSheet from '../components/demandas/DemandaSheet';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import PageHeader from '../components/layout/PageHeader';
@@ -184,8 +185,6 @@ export default function Kanban() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [view, setView] = useState<'kanban' | 'lista'>('kanban');
   const [editing, setEditing] = useState(false);
-  const [subtaskTitle, setSubtaskTitle] = useState('');
-  const [subtaskNote, setSubtaskNote] = useState('');
   const [query, setQuery] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [current, setCurrent] = useState<BoardTask | null>(null);
@@ -497,16 +496,12 @@ export default function Kanban() {
         <TaskFields value={form} onChange={setForm} />
       </Modal>
 
-      <Modal isOpen={!!current} title={current?.title || 'Demanda'} size="xl" onClose={() => { setCurrent(null); setEditing(false); }}>
+      <Modal isOpen={!!current} title={current?.title || 'Demanda'} size="wide" onClose={() => { setCurrent(null); setEditing(false); }}>
         {current && (
           <DemandaPanel
             task={labeled(current)}
             editing={editing}
             subtasks={demandas.filter((item) => item.parentId === current.id)}
-            subtaskTitle={subtaskTitle}
-            subtaskNote={subtaskNote}
-            onSubtaskTitle={setSubtaskTitle}
-            onSubtaskNote={setSubtaskNote}
             onEdit={() => setEditing(true)}
             onCancelEdit={() => setEditing(false)}
             onChange={(value) => setCurrent({ ...current, ...value })}
@@ -522,11 +517,12 @@ export default function Kanban() {
               await updateDemanda(current.id, { seguidores: next });
             }}
             following={Boolean(user && current.seguidores?.includes(user.id))}
-            onAddSubtask={async () => {
-              if (!subtaskTitle.trim()) return;
+            onAddSubtask={async (title, note) => {
+              const nextTitle = (title || '').trim();
+              if (!nextTitle) return;
               await addDemanda({
-                title: subtaskTitle.trim(),
-                description: subtaskNote.trim(),
+                title: nextTitle,
+                description: (note || '').trim(),
                 priority: 'media',
                 status: 'aberta',
                 boardColumn: 'afazer',
@@ -534,8 +530,6 @@ export default function Kanban() {
                 parentId: current.id,
                 createdBy: user?.name || user?.email || 'Você',
               });
-              setSubtaskTitle('');
-              setSubtaskNote('');
             }}
             onCompleteSubtask={(id) => updateDemanda(id, { status: 'concluida', progresso: 100, boardColumn: 'concluida' })}
           />
@@ -545,19 +539,10 @@ export default function Kanban() {
   );
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  aberta: 'Aguardando',
-  'em-progresso': 'Em andamento',
-  concluida: 'Concluída',
-  bloqueada: 'Bloqueada',
-};
-
 function DemandaPanel({
   task,
   editing,
   subtasks,
-  subtaskTitle,
-  subtaskNote,
   following,
   onEdit,
   onCancelEdit,
@@ -565,16 +550,12 @@ function DemandaPanel({
   onSave,
   onRemove,
   onFollow,
-  onSubtaskTitle,
-  onSubtaskNote,
   onAddSubtask,
   onCompleteSubtask,
 }: {
   task: BoardTask;
   editing: boolean;
   subtasks: Array<{ id: string; title?: string; description?: string; tipo?: string; status?: string }>;
-  subtaskTitle: string;
-  subtaskNote: string;
   following: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
@@ -582,13 +563,9 @@ function DemandaPanel({
   onSave: () => void;
   onRemove: () => void;
   onFollow: () => void;
-  onSubtaskTitle: (value: string) => void;
-  onSubtaskNote: (value: string) => void;
-  onAddSubtask: () => void;
+  onAddSubtask: (title?: string, note?: string) => void;
   onCompleteSubtask: (id: string) => void;
 }) {
-  const created = task.createdAt ? new Date(task.createdAt).toLocaleDateString('pt-BR') : 'Sem data';
-  const initial = (task.createdBy || 'H').slice(0, 1).toUpperCase();
 
   if (editing) {
     return (
@@ -606,74 +583,15 @@ function DemandaPanel({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {task.creatorAvatar ? (
-            <img src={task.creatorAvatar} alt="" className="h-9 w-9 rounded-full object-cover" />
-          ) : (
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--hover)] text-sm font-semibold">{initial}</span>
-          )}
-          <span className="text-sm text-[var(--text-secondary)]">{task.createdBy || 'Sem autor'}</span>
-        </div>
-        <button type="button" className="rounded-full border px-3 py-1 text-sm" style={{ borderColor: 'var(--border)' }} onClick={onFollow}>
-          {following ? 'Seguindo' : 'Seguir'}
-        </button>
-      </div>
-      <p className="text-sm text-[var(--text-muted)]">{created}</p>
-      <div className="whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6" style={{ background: 'var(--field)' }}>
-        {task.description || 'Sem descrição.'}
-      </div>
-      <div className="flex flex-wrap gap-2 text-xs">
-        <span className="rounded-full bg-amber-500/15 px-2 py-1 font-medium capitalize text-amber-700">{task.priority}</span>
-        {task.empresaName && <span className="rounded-full bg-[var(--hover)] px-2 py-1">{task.empresaName}</span>}
-        <span
-          className="rounded-full px-2 py-1 font-medium text-white"
-          style={{ background: KANBAN_COLUMNS.find((column) => column.id === task.columnId)?.accent }}
-        >
-          {columnTitle(task.columnId)}
-        </span>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold">Tarefas</h3>
-        <Button variant="secondary" onClick={onEdit}>Editar</Button>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <input className="havk-field px-3 py-2.5 text-sm" placeholder="O que precisa ser feito" value={subtaskTitle} onChange={(event) => onSubtaskTitle(event.target.value)} />
-        <Button onClick={onAddSubtask}>Nova tarefa</Button>
-      </div>
-      <textarea className="havk-field min-h-16 px-3 py-2.5 text-sm" placeholder="Detalhe para concluir" value={subtaskNote} onChange={(event) => onSubtaskNote(event.target.value)} />
-
-      <div className="space-y-3">
-        {subtasks.length === 0 && <p className="text-sm text-[var(--text-muted)]">Nenhuma tarefa nesta demanda.</p>}
-        {subtasks.map((item) => {
-          const done = item.status === 'concluida';
-          return (
-            <article key={item.id} className="flex items-start gap-3 rounded-2xl border p-3" style={{ borderColor: 'var(--border)' }}>
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--hover)] text-sm">{(item.title || 'T').slice(0, 1).toUpperCase()}</span>
-              <div className="min-w-0 flex-1">
-                <p className="font-medium">{item.title}</p>
-                <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
-                  <span className="rounded-md border px-1.5 py-0.5" style={{ borderColor: 'var(--border)' }}>Tipo: {item.tipo || 'feature'}</span>
-                  <span className="rounded-md border px-1.5 py-0.5" style={{ borderColor: 'var(--border)' }}>Status: {STATUS_LABEL[item.status || 'aberta'] || item.status}</span>
-                </div>
-                {item.description && <p className="mt-2 text-sm text-[var(--text-secondary)]">{item.description}</p>}
-              </div>
-              <button
-                type="button"
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white"
-                style={{ background: done ? '#16a34a' : '#f43f5e' }}
-                aria-label={done ? 'Tarefa concluída' : 'Concluir tarefa'}
-                onClick={() => { if (!done) onCompleteSubtask(item.id); }}
-              >
-                {done ? <Check size={18} /> : <Play size={18} />}
-              </button>
-            </article>
-          );
-        })}
-      </div>
-    </div>
+    <DemandaSheet
+      task={task}
+      subtasks={subtasks}
+      following={following}
+      onFollow={onFollow}
+      onEdit={onEdit}
+      onAddSubtask={onAddSubtask}
+      onCompleteSubtask={onCompleteSubtask}
+    />
   );
 }
 

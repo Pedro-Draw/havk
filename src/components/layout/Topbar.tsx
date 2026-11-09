@@ -8,6 +8,7 @@ import { MOBILE_MENU_EVENT, PRIMARY_ROUTES, screenParent, setMobileMenuOpen } fr
 import { openCommandPalette } from '../../lib/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import CompanySwitch from './CompanySwitch';
+import FloatLock from '../ui/FloatLock';
 
 export default function Topbar() {
   const navigate = useNavigate();
@@ -130,8 +131,11 @@ export default function Topbar() {
 
           {/* Dropdown de notificações */}
           {showNotifications && (
+            <>
+            <FloatLock onClose={() => setShowNotifications(false)} />
             <div
               ref={notificationRef}
+              data-float-panel
               className="glass-popover overlay-scroll absolute right-0 z-50 mt-3 max-h-[70vh] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl"
             >
               <div className="sticky top-0 z-10 flex items-center justify-between border-b px-4 py-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
@@ -194,6 +198,7 @@ export default function Topbar() {
                 </button>
               </div>
             </div>
+            </>
           )}
         </div>
 
@@ -214,7 +219,9 @@ export default function Topbar() {
           )}
         </button>
         {showProfile && (
-          <div className="glass-popover absolute right-0 z-50 mt-2 w-48 rounded-xl p-1">
+          <>
+          <FloatLock onClose={() => setShowProfile(false)} />
+          <div data-float-panel className="glass-popover absolute right-0 z-50 mt-2 w-48 rounded-xl p-1">
             <Link to="/configuracoes" className="block rounded-lg px-3 py-2 text-sm hover:bg-[var(--hover)]" onClick={() => setShowProfile(false)}>
               Configurações
             </Link>
@@ -222,6 +229,7 @@ export default function Topbar() {
               Sair
             </button>
           </div>
+          </>
         )}
         </div>
       </div>

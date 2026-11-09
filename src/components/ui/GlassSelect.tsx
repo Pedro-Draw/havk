@@ -105,6 +105,7 @@ export default function GlassSelect({ label, value, options, onChange, placehold
           ref={listRef}
           id={`${listId}-list`}
           role="listbox"
+          data-float-panel
           className="glass-popover z-[80] max-h-56 overflow-y-auto rounded-2xl p-1.5"
           style={{ position: 'fixed', top: place.top, left: place.left, width: place.width }}
         >

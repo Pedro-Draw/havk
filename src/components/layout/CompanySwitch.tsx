@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Check, ChevronsUpDown, Pin } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { GERAL_EMPRESA_ID } from '../../lib/workspace';
+import FloatLock from '../ui/FloatLock';
 
 export default function CompanySwitch() {
   const navigate = useNavigate();
@@ -38,7 +39,9 @@ export default function CompanySwitch() {
         <ChevronsUpDown className="h-3.5 w-3.5 text-[var(--text-muted)]" />
       </button>
       {open && (
-        <div className="glass-popover absolute left-0 z-50 mt-2 w-64 rounded-2xl p-2" role="listbox">
+        <>
+        <FloatLock onClose={() => setOpen(false)} />
+        <div data-float-panel className="glass-popover absolute left-0 z-50 mt-2 w-64 rounded-2xl p-2" role="listbox">
           <button
             type="button"
             className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-[var(--hover)]"
@@ -84,6 +87,7 @@ export default function CompanySwitch() {
             Gerenciar empresas
           </button>
         </div>
+        </>
       )}
     </div>
   );
