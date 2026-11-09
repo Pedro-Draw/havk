@@ -390,7 +390,7 @@ export default function Kanban() {
             className="havk-field max-w-md px-3 py-2.5 text-sm"
           />
           <p className="hidden text-xs text-[var(--text-muted)] sm:block">
-            Em andamento acima de 5 itens fica apertado. Bloqueadas saem do fluxo até o impedimento acabar.
+            Bloqueada fica antes de Em andamento. Uma coluna com muitos cards pode ser rolada na horizontal.
           </p>
         </div>
 

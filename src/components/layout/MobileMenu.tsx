@@ -7,7 +7,6 @@ import { MOBILE_MENU_EVENT, setMobileMenuOpen } from '../../lib/mobileNav';
 import { useVisibleNav } from '../../hooks/useVisibleNav';
 import { openCommandPalette } from '../../lib/navigation';
 import { isFavorite, toggleFavorite } from '../../lib/places';
-import ThemeToggle from '../common/ThemeToggle';
 
 export default function MobileMenu() {
   const [open, setOpen] = useState(false);
@@ -153,17 +152,15 @@ export default function MobileMenu() {
                       <span className="truncate">{item.label}</span>
                     </NavLink>
                   );
-                })}
-              </nav>
-            </div>
-          ))}
-        </div>
+              })}
+            </nav>
+          </div>
+        ))}
 
-        <div className="drawer-foot shrink-0 space-y-3 border-t px-3 py-3" style={{ borderColor: 'var(--border)' }}>
-          <div className="flex items-center justify-between gap-2">
+          <div className="mt-4 space-y-1 border-t px-1 pt-3" style={{ borderColor: 'var(--border)' }}>
             <button
               type="button"
-              className="sidebar-link min-w-0 flex-1"
+              className="sidebar-link w-full"
               aria-pressed={favorite}
               onClick={() => {
                 toggleFavorite(location.pathname);
@@ -173,32 +170,29 @@ export default function MobileMenu() {
               <Star size={18} className={favorite ? 'fill-current' : ''} />
               <span className="truncate">{favorite ? 'Nos favoritos' : 'Favoritar página'}</span>
             </button>
-            <ThemeToggle />
-          </div>
-
-          <div className="flex items-center gap-3 px-2">
-            {user?.avatar ? (
-              <img src={user.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
-            ) : (
-              <span className="company-mark">{initials}</span>
-            )}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{user?.name || 'Conta'}</p>
-              <p className="truncate text-xs text-[var(--text-muted)]">{user?.email}</p>
+            <button
+              type="button"
+              className="sidebar-link w-full"
+              onClick={() => {
+                close();
+                navigate('/demandas/nova');
+              }}
+            >
+              <Plus size={18} />
+              <span className="truncate">{t('novaDemanda')}</span>
+            </button>
+            <div className="flex items-center gap-3 px-2.5 py-2">
+              {user?.avatar ? (
+                <img src={user.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <span className="company-mark">{initials}</span>
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{user?.name || 'Conta'}</p>
+                <p className="truncate text-xs text-[var(--text-muted)]">{user?.email}</p>
+              </div>
             </div>
           </div>
-
-          <button
-            type="button"
-            className="glass-button glass-button-primary flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium"
-            onClick={() => {
-              close();
-              navigate('/demandas/nova');
-            }}
-          >
-            <Plus size={16} />
-            {t('novaDemanda')}
-          </button>
         </div>
       </div>
 

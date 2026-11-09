@@ -11,9 +11,9 @@ export interface KanbanColumnDef {
 export const KANBAN_COLUMNS: KanbanColumnDef[] = [
   { id: 'backlog', title: 'Backlog', hint: 'Ainda sem compromisso', status: 'aberta', accent: '#71717A' },
   { id: 'afazer', title: 'A fazer', hint: 'Pronta para começar', status: 'aberta', accent: '#3B82F6' },
+  { id: 'bloqueada', title: 'Bloqueada', hint: 'Impedimento ativo', status: 'bloqueada', accent: '#EF4444' },
   { id: 'andamento', title: 'Em andamento', hint: 'Alguém está executando', status: 'em-progresso', accent: '#8B5CF6' },
   { id: 'teste', title: 'Em teste', hint: 'Aguardando validação', status: 'em-progresso', accent: '#F59E0B' },
-  { id: 'bloqueada', title: 'Bloqueada', hint: 'Impedimento ativo', status: 'bloqueada', accent: '#EF4444' },
   { id: 'concluida', title: 'Concluída', hint: 'Entregue', status: 'concluida', accent: '#22C55E' },
 ];
 

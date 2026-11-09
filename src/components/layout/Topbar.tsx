@@ -1,102 +1,13 @@
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { Bell, Search, Menu, ChevronRight, ChevronLeft, Command, Star, PanelLeftClose } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Bell, Search, Menu, ChevronRight, ChevronLeft, PanelLeftClose } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useTranslation } from '../../i18n/useTranslation';
-import ThemeToggle from '../common/ThemeToggle';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import clsx from 'clsx';
 import { MOBILE_MENU_EVENT, PRIMARY_ROUTES, screenParent, setMobileMenuOpen } from '../../lib/mobileNav';
 import { openCommandPalette } from '../../lib/navigation';
-import { PLACES_EVENT, isFavorite, toggleFavorite } from '../../lib/places';
 import { useAuth } from '../../hooks/useAuth';
 import CompanySwitch from './CompanySwitch';
-
-function QuickSearch() {
-  const navigate = useNavigate();
-  const demandas = useAppStore((state) => state.demandas);
-  const projetos = useAppStore((state) => state.projetos);
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
-  const boxRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (boxRef.current && !boxRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const results = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return [];
-
-    const demandaResults = demandas
-      .filter((item) => (item.title || '').toLowerCase().includes(term))
-      .slice(0, 5)
-      .map((item) => ({
-        id: `demanda-${item.id}`,
-        label: item.title,
-        hint: 'Demanda',
-        path: `/demandas/${item.id}`,
-      }));
-
-    const projetoResults = projetos
-      .filter((item) => (item.name || '').toLowerCase().includes(term))
-      .slice(0, 3)
-      .map((item) => ({
-        id: `projeto-${item.id}`,
-        label: item.name,
-        hint: 'Projeto',
-        path: '/projetos',
-      }));
-
-    return [...demandaResults, ...projetoResults];
-  }, [demandas, projetos, query]);
-
-  return (
-    <div ref={boxRef} className="relative w-full">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-      <input
-        type="search"
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        placeholder="Buscar demandas e projetos"
-        className="havk-field rounded-full py-1.5 pl-9 pr-3 text-base sm:py-2 sm:pl-10 sm:pr-4 sm:text-sm"
-      />
-      {open && query.trim() && (
-        <div className="glass-popover overlay-scroll absolute left-0 right-0 z-50 mt-2 max-h-80 overflow-y-auto rounded-xl">
-          {results.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-zinc-500">Nenhum resultado</p>
-          ) : (
-            results.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setQuery('');
-                  setOpen(false);
-                  navigate(item.path);
-                }}
-                className="flex w-full flex-col px-4 py-3 text-left hover:bg-zinc-800"
-              >
-                <span className="text-sm font-medium text-zinc-100">{item.label}</span>
-                <span className="text-xs text-zinc-500">{item.hint}</span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function Topbar() {
   const navigate = useNavigate();
@@ -113,7 +24,6 @@ export default function Topbar() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [favorite, setFavorite] = useState(() => isFavorite(location.pathname));
 
   const notificationRef = useRef<HTMLDivElement | null>(null);
 
@@ -130,13 +40,6 @@ export default function Topbar() {
   }, []);
 
   useEffect(() => {
-    const sync = () => setFavorite(isFavorite(location.pathname));
-    sync();
-    window.addEventListener(PLACES_EVENT, sync);
-    return () => window.removeEventListener(PLACES_EVENT, sync);
-  }, [location.pathname]);
-
-  useEffect(() => {
     const onState = (event: Event) => {
       setShowMobileMenu(Boolean((event as CustomEvent<boolean>).detail));
     };
@@ -146,10 +49,6 @@ export default function Topbar() {
 
   const handleLeadingButton = () => {
     setMobileMenuOpen(!showMobileMenu);
-  };
-
-  const handleNovaDemanda = () => {
-    navigate('/kanban');
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -192,32 +91,21 @@ export default function Topbar() {
       </div>
 
       <div className="hidden min-w-0 justify-center lg:flex">
-        <div className="w-full max-w-xl">
-          <QuickSearch />
-        </div>
+        <button
+          type="button"
+          className="havk-field flex w-full max-w-xl items-center gap-2 rounded-full px-4 py-2 text-left text-sm text-[var(--text-muted)]"
+          onClick={openCommandPalette}
+        >
+          <Search size={16} />
+          <span className="flex-1">Buscar</span>
+          <span className="text-xs">⌘K</span>
+        </button>
       </div>
 
       <div className="flex items-center justify-end gap-1.5 lg:gap-2">
-
         <div className="hidden lg:block">
           <CompanySwitch />
         </div>
-        <div className="hidden shrink-0 lg:block">
-          <ThemeToggle />
-        </div>
-
-        <button
-          type="button"
-          className="glass-icon hidden lg:inline-flex"
-          aria-label={favorite ? 'Remover dos favoritos' : 'Favoritar esta página'}
-          aria-pressed={favorite}
-          onClick={() => toggleFavorite(location.pathname)}
-        >
-          <Star className={`h-4 w-4 ${favorite ? 'fill-current' : ''}`} />
-        </button>
-        <button type="button" className="glass-icon hidden lg:inline-flex" aria-label="Busca global" onClick={openCommandPalette}>
-          <Command className="h-4 w-4" />
-        </button>
 
         <div className="relative">
           <button
@@ -225,7 +113,7 @@ export default function Topbar() {
             className="glass-icon relative"
             aria-label="Notificações"
           >
-            <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-zinc-300" />
+            <Bell size={18} />
 
             {unreadCount > 0 && (
               <span className="
@@ -245,12 +133,10 @@ export default function Topbar() {
               ref={notificationRef}
               className="glass-popover overlay-scroll absolute right-0 z-50 mt-3 max-h-[70vh] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl"
             >
-              <div className="sticky top-0 bg-zinc-900 border-b border-zinc-700 px-4 py-3 flex items-center justify-between z-10">
-                <h3 className="font-semibold text-base sm:text-lg text-zinc-100">
-                  Notificações
-                </h3>
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b px-4 py-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                <h3 className="text-base font-semibold">Notificações</h3>
                 {unreadCount > 0 && (
-                  <span className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  <span className="text-xs text-[var(--text-muted)]">
                     {unreadCount} não lida{unreadCount !== 1 ? 's' : ''}
                   </span>
                 )}
@@ -270,21 +156,11 @@ export default function Topbar() {
                           }
                           setShowNotifications(false);
                         }}
-                        className={clsx(
-                          "p-3 rounded-lg cursor-pointer transition-colors duration-150",
-                          !n.read
-                            ? "bg-indigo-950/40 border-l-4 border-indigo-500"
-                            : "hover:bg-zinc-800/70",
-                          "text-sm"
-                        )}
+                        className={`cursor-pointer rounded-lg p-3 text-sm ${n.read ? 'hover:bg-[var(--hover)]' : 'border-l-4 border-violet-500 bg-[var(--hover)]'}`}
                       >
-                        <div className="font-medium text-zinc-100">
-                          {n.title || 'Notificação'}
-                        </div>
-                        <p className="text-zinc-300 mt-0.5 line-clamp-2">
-                          {n.message}
-                        </p>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 block">
+                        <div className="font-medium">{n.title || 'Notificação'}</div>
+                        <p className="mt-0.5 line-clamp-2 text-[var(--text-secondary)]">{n.message}</p>
+                        <span className="mt-1.5 block text-xs text-[var(--text-muted)]">
                           {n.createdAt
                             ? new Date(n.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
                             : new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -292,26 +168,20 @@ export default function Topbar() {
                       </div>
                     ))
                 ) : (
-                  <div className="py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
+                  <div className="py-8 text-center text-sm text-[var(--text-muted)]">
                     Nenhuma notificação no momento
                   </div>
                 )}
               </div>
 
               {/* Rodapé com link para Inbox */}
-              <div className="border-t border-zinc-700 p-3">
+              <div className="border-t p-3" style={{ borderColor: 'var(--border)' }}>
                 <button
                   onClick={() => {
                     setShowNotifications(false);
                     navigate('/inbox');
                   }}
-                  className="
-                    w-full flex items-center justify-center gap-2
-                    py-2.5 text-sm font-medium
-                    text-indigo-400
-                    hover:bg-indigo-950/30
-                    rounded-lg transition-colors
-                  "
+                  className="flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-[var(--primary)] hover:bg-[var(--hover)]"
                 >
                   Ver todas as notificações
                   <ChevronRight size={16} />
@@ -336,34 +206,22 @@ export default function Topbar() {
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover ring-2 ring-zinc-700"
             />
           ) : (
-            <div className="
-              w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center
-              bg-zinc-800 text-zinc-100
-              text-lg sm:text-xl font-medium
-            ">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--hover)] text-sm font-medium">
               {user?.name?.charAt(0) || 'U'}
-            </div>
+            </span>
           )}
         </button>
         {showProfile && (
           <div className="glass-popover absolute right-0 z-50 mt-2 w-48 rounded-xl p-1">
-            <Link to="/configuracoes" className="block rounded-lg px-3 py-2 text-sm hover:bg-white/10" onClick={() => setShowProfile(false)}>
+            <Link to="/configuracoes" className="block rounded-lg px-3 py-2 text-sm hover:bg-[var(--hover)]" onClick={() => setShowProfile(false)}>
               Configurações
             </Link>
-            <button type="button" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-white/10" onClick={() => signOut()}>
+            <button type="button" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[var(--hover)]" onClick={() => signOut()}>
               Sair
             </button>
           </div>
         )}
         </div>
-
-        {/* Botão Nova Demanda */}
-        <button
-          onClick={handleNovaDemanda}
-          className="glass-button glass-button-primary hidden rounded-xl px-4 py-2 text-sm font-medium lg:flex"
-        >
-          + {t('novaDemanda')}
-        </button>
       </div>
       </div>
     </header>

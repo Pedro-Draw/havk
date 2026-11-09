@@ -1,17 +1,14 @@
-// pages/Configuracoes.tsx
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '../i18n/useTranslation';
 import {
-  Settings, User, Palette, Bell, Shield, LogOut, Camera, Mail, Lock,
-  Globe, Moon, Sun, Monitor, Trash2, CheckCircle, AlertTriangle,
-  Download, Eye, EyeOff, Smartphone, Briefcase, Link as LinkIcon,
-  Instagram, Linkedin, Github, Globe as WebIcon,
+  Settings, Camera, Mail, Lock, Globe, Moon, Sun, Monitor,
+  Trash2, Check, Download, Eye, EyeOff, LogOut,
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
+import PageHeader from '../components/layout/PageHeader';
 import toast from 'react-hot-toast';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { auth } from '../lib/firebase';
 import {
@@ -22,26 +19,39 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { mapAuthError } from '../lib/authSession';
-import { devicePermission, requestDevicePermission } from '../lib/deviceNotify';
+import { devicePermission, requestDevicePermission, showDeviceNotification } from '../lib/deviceNotify';
 import { confirmAction } from '../lib/confirm';
+import { readSquareImage } from '../lib/images';
+import { useTheme } from '../hooks/useTheme';
+
+const THEMES = [
+  { value: 'light', label: 'Claro', icon: Sun, bg: '#f4f4f5', side: '#ffffff', card: '#ffffff' },
+  { value: 'dark', label: 'Escuro', icon: Moon, bg: '#09090b', side: '#0c0c0f', card: '#141418' },
+  { value: 'gray', label: 'Cinza', icon: Monitor, bg: '#121417', side: '#171a1f', card: '#1c2026' },
+  { value: 'system', label: 'Sistema', icon: Monitor, bg: 'linear-gradient(135deg, #f4f4f5 50%, #09090b 50%)', side: '#e4e4e7', card: '#18181b' },
+] as const;
+
+const NOTICES = [
+  { key: 'device', title: 'Notificações do dispositivo', desc: 'Mostrar os avisos da Havk fora do aplicativo' },
+  { key: 'newDemanda', title: 'Novas demandas', desc: 'Avisar quando uma demanda for criada' },
+  { key: 'chat', title: 'Mensagens no chat', desc: 'Avisar quando chegar uma mensagem' },
+  { key: 'prazos', title: 'Prazos próximos', desc: 'Lembrar quando um prazo estiver perto' },
+  { key: 'system', title: 'Atualizações do sistema', desc: 'Novidades da plataforma' },
+  { key: 'emailMarketing', title: 'E-mails promocionais', desc: 'Novidades e dicas da Havk' },
+] as const;
 
 export default function Configuracoes() {
   const { t, i18n } = useTranslation();
   const {
     user,
     setUser,
-    theme,
-    setTheme,
     language,
     setLanguage,
     logout,
     notificationPreferences,
     setNotificationPref,
   } = useAppStore();
-
-  const [activeSection, setActiveSection] = useState<
-    'perfil' | 'links' | 'tema' | 'idioma' | 'notificacoes' | 'seguranca' | 'dispositivos'
-  >('perfil');
+  const { theme, setTheme } = useTheme();
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -57,22 +67,14 @@ export default function Configuracoes() {
     newPassword: '',
     confirmPassword: '',
   });
-
-  const [showPasswords, setShowPasswords] = useState({
-    current: false,
-    new: false,
-    confirm: false,
-  });
-
+  const [showPasswords, setShowPasswords] = useState({ current: false, new: false, confirm: false });
   const [previewAvatar, setPreviewAvatar] = useState(user?.avatar || '');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingLinks, setIsSavingLinks] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Força da senha visual
   const passwordStrength = (() => {
     const pass = formData.newPassword;
     if (!pass) return 0;
@@ -101,41 +103,27 @@ export default function Configuracoes() {
     setPreviewAvatar(user.avatar || '');
   }, [user?.id]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
   };
 
-  const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
-    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !user) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Arquivo muito grande (máx. 5MB)');
+      return;
+    }
+    try {
+      const base64 = await readSquareImage(file, 256);
+      setPreviewAvatar(base64);
+      await setUser({ ...user, id: user.id, avatar: base64 });
+      toast.success('Foto de perfil atualizada');
+    } catch {
+      toast.error('Não foi possível usar essa imagem');
+    }
   };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file || !user) return;
-
-  if (file.size > 5 * 1024 * 1024) {
-    toast.error('Arquivo muito grande (máx. 5MB)');
-    return;
-  }
-
-  const reader = new FileReader();
-
-  reader.onload = async event => {
-    const base64 = event.target?.result as string;
-
-    setPreviewAvatar(base64);
-
-    await setUser({
-  ...user,
-  id: user.id,
-  avatar: base64,
-});
-
-    toast.success('Foto de perfil atualizada');
-  };
-
-  reader.readAsDataURL(file);
-};
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -178,19 +166,17 @@ export default function Configuracoes() {
 
   const handleSaveSocialLinks = async () => {
     if (!user) return;
-
     setIsSavingLinks(true);
     try {
-      const updatedUser = {
-  ...user,
-  id: user.id,
-  website: formData.website?.trim(),
-  instagram: formData.instagram?.trim().replace(/^@/, ''),
-  linkedin: formData.linkedin?.trim(),
-  github: formData.github?.trim().replace(/^@/, ''),
-};
-      await setUser(updatedUser);
-      toast.success('Links sociais salvos com sucesso');
+      await setUser({
+        ...user,
+        id: user.id,
+        website: formData.website?.trim(),
+        instagram: formData.instagram?.trim().replace(/^@/, ''),
+        linkedin: formData.linkedin?.trim(),
+        github: formData.github?.trim().replace(/^@/, ''),
+      });
+      toast.success('Links salvos com sucesso');
     } catch (err) {
       console.error(err);
       toast.error('Erro ao salvar links');
@@ -199,16 +185,13 @@ export default function Configuracoes() {
     }
   };
 
-  const getSocialUrl = (type: 'instagram' | 'linkedin' | 'github' | 'website') => {
-    const val = formData[type]?.trim();
-    if (!val) return '#';
-
-    if (type === 'instagram') return `https://instagram.com/${val.replace(/^@/, '')}`;
-    if (type === 'github')     return `https://github.com/${val.replace(/^@/, '')}`;
-    if (type === 'linkedin')   return val.startsWith('http') ? val : `https://www.linkedin.com/in/${val}`;
-    if (type === 'website')    return val.startsWith('http') ? val : `https://${val}`;
-
-    return '#';
+  const linkHref = (type: 'instagram' | 'linkedin' | 'github' | 'website') => {
+    const value = formData[type]?.trim();
+    if (!value) return '';
+    if (type === 'instagram') return `https://instagram.com/${value.replace(/^@/, '')}`;
+    if (type === 'github') return `https://github.com/${value.replace(/^@/, '')}`;
+    if (type === 'linkedin') return value.startsWith('http') ? value : `https://www.linkedin.com/in/${value}`;
+    return value.startsWith('http') ? value : `https://${value}`;
   };
 
   const handleChangePassword = async () => {
@@ -228,21 +211,19 @@ export default function Configuracoes() {
       toast.error('Senha muito fraca. Use maiúsculas, números e símbolos.');
       return;
     }
-
     const current = auth.currentUser;
     if (!current?.email) {
       toast.error('Entre com e-mail e senha para alterar a senha.');
       return;
     }
-
     try {
       const credential = EmailAuthProvider.credential(current.email, formData.currentPassword);
       await reauthenticateWithCredential(current, credential);
       await updatePassword(current, formData.newPassword);
       toast.success('Senha alterada com sucesso');
-      setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
-    } catch (err: any) {
-      toast.error(mapAuthError(err));
+      setFormData((prev) => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+    } catch (err: unknown) {
+      toast.error(mapAuthError(err as { code?: string; message?: string }));
     }
   };
 
@@ -259,10 +240,10 @@ export default function Configuracoes() {
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `havk-dados-${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `havk-dados-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
     URL.revokeObjectURL(url);
     toast.success('Dados exportados com sucesso');
   };
@@ -285,12 +266,8 @@ export default function Configuracoes() {
   };
 
   const handleDeleteAccount = () => {
-    if (!deleteConfirmOpen) {
-      setDeleteConfirmOpen(true);
-      return;
-    }
     if (deleteReason.trim().length < 5) {
-      toast.error('Por favor, informe o motivo (mínimo 5 caracteres)');
+      toast.error('Informe o motivo com pelo menos 5 caracteres');
       return;
     }
     toast.success('Conta excluída permanentemente (simulado)');
@@ -301,631 +278,233 @@ export default function Configuracoes() {
   const handleChangeLanguage = (newLang: 'pt-BR' | 'en') => {
     setLanguage(newLang);
     i18n.changeLanguage(newLang);
-    toast.success(`Idioma alterado para ${newLang === 'pt-BR' ? 'Português' : 'Inglês'}`);
     setTimeout(() => window.location.reload(), 700);
   };
 
-  const mockDevices = [
-    { id: 1, name: 'iPhone 14 – Brasília', lastActive: 'Agora', current: true },
-    { id: 2, name: 'Chrome – Windows 11', lastActive: '2 horas atrás' },
-    { id: 3, name: 'Safari – MacBook Pro', lastActive: 'Ontem às 14:30' },
-  ];
-
-  const sidebarItems = [
-    { id: 'perfil', label: t('perfil'), icon: User },
-    { id: 'links', label: 'Links & Redes', icon: LinkIcon },
-    { id: 'tema', label: t('tema'), icon: Palette },
-    { id: 'idioma', label: t('idioma'), icon: Globe },
-    { id: 'notificacoes', label: t('notificacoes'), icon: Bell },
-    { id: 'seguranca', label: t('seguranca'), icon: Shield },
-    { id: 'dispositivos', label: 'Dispositivos', icon: Smartphone },
-  ];
+  const initial = formData.name?.charAt(0)?.toUpperCase() || '?';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100 pb-24">
-      <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 flex items-center gap-3 sm:mb-8"
-          >
-            <div className="rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 p-2.5 shadow-lg sm:p-4">
-              <Settings className="h-5 w-5 text-indigo-400 sm:h-8 sm:w-8" />
+    <div className="mx-auto w-full min-w-0 max-w-3xl px-3 py-4 sm:px-6 sm:py-8">
+      <PageHeader
+        icon={<Settings size={18} />}
+        title={t('configuracoes') || 'Configurações'}
+        description="Conta, aparência e avisos deste aparelho."
+      />
+
+      <div className="space-y-4">
+        <Card title="Perfil" description="Nome, foto e como você aparece no workspace.">
+          <div className="flex items-center gap-4">
+            <button type="button" className="profile-photo" aria-label="Alterar foto de perfil" onClick={() => fileInputRef.current?.click()}>
+              {previewAvatar ? <img src={previewAvatar} alt="" /> : <span>{initial}</span>}
+              <span className="profile-photo-edit"><Camera size={14} /></span>
+            </button>
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold">{formData.name || 'Seu nome'}</p>
+              <p className="truncate text-sm text-[var(--text-muted)]">{formData.email}</p>
+              {formData.role && <p className="truncate text-sm text-[var(--text-secondary)]">{formData.role}</p>}
             </div>
-            <h1 className="text-2xl font-bold text-white sm:text-3xl">
-              {t('configuracoes')}
-            </h1>
-          </motion.div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Sidebar */}
-            <motion.div
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              className="h-fit lg:sticky lg:top-24 lg:col-span-3"
-            >
-              <Card className="border-zinc-800 shadow-xl">
-                <nav className="flex gap-2 overflow-x-auto p-2 lg:flex-col lg:overflow-visible lg:p-3">
-                  {sidebarItems.map(item => (
-                    <button
-                      key={item.id}
-                      onClick={() => setActiveSection(item.id as any)}
-                      className={`flex w-auto shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 lg:w-full ${
-                        activeSection === item.id
-                          ? 'bg-gradient-to-r from-indigo-600/30 to-purple-600/20 border-l-4 border-indigo-500 text-white shadow-md'
-                          : 'hover:bg-zinc-800/70 text-zinc-300'
-                      }`}
-                    >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      <span className="truncate font-medium">{item.label}</span>
-                    </button>
-                  ))}
-                </nav>
-
-                  <div className="space-y-2 border-t border-zinc-800 px-3 py-3">
-                    <Button
-                      variant="outline"
-                      fullWidth
-                      icon={<Download className="w-5 h-5" />}
-                      onClick={handleExportData}
-                      className="justify-start"
-                    >
-                      Exportar meus dados
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      fullWidth
-                      icon={<Trash2 className="w-5 h-5" />}
-                      onClick={handleDeleteAccount}
-                      className="justify-start"
-                    >
-                      Excluir conta
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      fullWidth
-                      icon={<LogOut className="w-5 h-5" />}
-                      onClick={handleLogout}
-                      className="justify-start text-rose-400 hover:text-rose-300"
-                    >
-                      Sair
-                    </Button>
-                  </div>
-              </Card>
-            </motion.div>
-
-            {/* Conteúdo principal */}
-            <motion.div
-              key={activeSection}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4 }}
-              className="lg:col-span-9 space-y-10"
-            >
-              {/* PERFIL */}
-              {activeSection === 'perfil' && (
-                <Card title={t('informacoesPessoais')} className="border-zinc-800 shadow-xl">
-                  <div className="space-y-12">
-                    <div className="flex flex-col md:flex-row items-center md:items-start gap-10">
-                      <div className="relative group">
-                        {previewAvatar ? (
-                          <img
-                            src={previewAvatar}
-                            alt="Foto de perfil"
-                            className="h-28 w-28 rounded-2xl border-4 border-zinc-700 object-cover shadow-2xl transition-all duration-300 group-hover:scale-105 sm:h-44 sm:w-44 md:h-52 md:w-52"
-                          />
-                        ) : (
-                          <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-zinc-700 bg-gradient-to-br from-zinc-800 to-zinc-950 text-5xl text-zinc-500 sm:h-44 sm:w-44 sm:text-8xl md:h-52 md:w-52">
-                            {formData.name?.charAt(0)?.toUpperCase() || '?'}
-                          </div>
-                        )}
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="absolute -bottom-3 -right-3 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 p-3 shadow-2xl ring-4 ring-zinc-900 transition-all hover:scale-110 sm:-bottom-5 sm:-right-5 sm:p-5"
-                          aria-label="Alterar foto de perfil"
-                        >
-                          <Camera className="h-5 w-5 text-white sm:h-8 sm:w-8" />
-                        </button>
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          className="hidden"
-                        />
-                      </div>
-                      <div className="text-center md:text-left space-y-3">
-                        <h3 className="text-xl font-bold sm:text-3xl">{formData.name || 'Seu nome'}</h3>
-                        {formData.username && <p className="text-xl text-indigo-400">@{formData.username}</p>}
-                        {formData.role && (
-                          <p className="text-lg text-zinc-300 flex items-center gap-2">
-                            <Briefcase className="w-5 h-5" /> {formData.role}
-                          </p>
-                        )}
-                        <p className="text-lg text-zinc-400 flex items-center gap-3 justify-center md:justify-start">
-                          <Mail className="w-6 h-6" /> {formData.email}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <Input
-                        label={t('nomeCompleto')}
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                        className="text-base"
-                      />
-                      <Input
-                        label="Username (@handle)"
-                        name="username"
-                        value={formData.username}
-                        onChange={handleChange}
-                        className="text-base"
-                      />
-                      <Input
-                        label="Cargo / Função / Profissão"
-                        name="role"
-                        value={formData.role}
-                        onChange={handleChange}
-                        placeholder="Ex: Desenvolvedor Full-Stack"
-                        className="text-base"
-                      />
-                      <Input
-                        label={t('email')}
-                        name="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="text-base"
-                      />
-
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium mb-2 text-zinc-300">
-                          Biografia (máx. 160 caracteres)
-                        </label>
-                        <textarea
-                          name="bio"
-                          value={formData.bio}
-                          onChange={handleChange}
-                          maxLength={160}
-                          className="w-full h-28 px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-xl focus:outline-none focus:border-indigo-500 resize-none text-base"
-                        />
-                        <p className="text-xs text-zinc-500 mt-1 text-right">
-                          {formData.bio.length}/160
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end pt-6">
-                      <Button
-                        variant="primary"
-                        size="lg"
-                        onClick={handleSaveProfile}
-                        loading={isSavingProfile}
-                        disabled={isSavingProfile}
-                      >
-                        Salvar alterações
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              )}
-
-              {/* LINKS & REDES SOCIAIS – Nova seção */}
-              {activeSection === 'links' && (
-                <Card title="Links e Redes Sociais" className="border-zinc-800 shadow-xl">
-                  <div className="space-y-10">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <Input
-                        label="Site / Portfólio"
-                        name="website"
-                        value={formData.website}
-                        onChange={handleChange}
-                        placeholder="https://meusite.com"
-                        className="text-base"
-                      />
-                      <Input
-                        label="Instagram"
-                        name="instagram"
-                        value={formData.instagram}
-                        onChange={handleChange}
-                        placeholder="@seuusuario"
-                        className="text-base"
-                      />
-                      <Input
-                        label="LinkedIn"
-                        name="linkedin"
-                        value={formData.linkedin}
-                        onChange={handleChange}
-                        placeholder="linkedin.com/in/seunome ou @seunome"
-                        className="text-base"
-                      />
-                      <Input
-                        label="GitHub"
-                        name="github"
-                        value={formData.github}
-                        onChange={handleChange}
-                        placeholder="@seuusuario"
-                        className="text-base"
-                      />
-                    </div>
-
-                    {/* Preview dos links (clicáveis) */}
-                    <div className="pt-6 border-t border-zinc-800">
-                      <p className="text-lg font-medium mb-4 text-zinc-300">Seus links (clique para visitar):</p>
-                      <div className="flex flex-wrap gap-4">
-                        {formData.website && (
-                          <a
-                            href={getSocialUrl('website')}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 px-5 py-3 bg-zinc-900 rounded-xl border border-zinc-700 hover:border-indigo-500/50 transition-colors"
-                          >
-                            <WebIcon className="w-5 h-5" />
-                            Site
-                          </a>
-                        )}
-                        {formData.instagram && (
-                          <a
-                            href={getSocialUrl('instagram')}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 px-5 py-3 bg-zinc-900 rounded-xl border border-zinc-700 hover:border-pink-500/50 transition-colors"
-                          >
-                            <Instagram className="w-5 h-5 text-pink-400" />
-                            @{formData.instagram.replace(/^@/, '')}
-                          </a>
-                        )}
-                        {formData.linkedin && (
-                          <a
-                            href={getSocialUrl('linkedin')}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 px-5 py-3 bg-zinc-900 rounded-xl border border-zinc-700 hover:border-blue-500/50 transition-colors"
-                          >
-                            <Linkedin className="w-5 h-5 text-blue-400" />
-                            LinkedIn
-                          </a>
-                        )}
-                        {formData.github && (
-                          <a
-                            href={getSocialUrl('github')}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 px-5 py-3 bg-zinc-900 rounded-xl border border-zinc-700 hover:border-zinc-300 transition-colors"
-                          >
-                            <Github className="w-5 h-5" />
-                            @{formData.github.replace(/^@/, '')}
-                          </a>
-                        )}
-                        {!formData.website && !formData.instagram && !formData.linkedin && !formData.github && (
-                          <p className="text-zinc-500 italic">Nenhum link adicionado ainda</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end pt-6">
-                      <Button
-                        variant="primary"
-                        size="lg"
-                        onClick={handleSaveSocialLinks}
-                        loading={isSavingLinks}
-                        disabled={isSavingLinks}
-                      >
-                        Salvar links
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              )}
-
-              {/* TEMA */}
-              {activeSection === 'tema' && (
-                <Card title="Aparência da aplicação" className="border-zinc-800 shadow-xl">
-                  <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
-                    {[
-                      { value: 'light', label: 'Claro', icon: Sun },
-                      { value: 'dark', label: 'Escuro', icon: Moon },
-                      { value: 'system', label: 'Sistema', icon: Monitor },
-                      { value: 'gray', label: 'Cinza', icon: Monitor },
-                    ].map(option => (
-                      <motion.button
-                        key={option.value}
-                        whileHover={{ scale: 1.05 }}
-                        onClick={() => setTheme(option.value as any)}
-                        className={`relative flex flex-col items-center gap-3 rounded-2xl border-2 p-4 transition-all sm:gap-5 sm:p-8 ${
-                          theme === option.value
-                            ? 'border-indigo-500 bg-zinc-800/60 shadow-indigo-500/30'
-                            : 'border-zinc-800 hover:border-zinc-600 hover:shadow-xl'
-                        }`}
-                      >
-                        <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-950 sm:h-24 sm:w-24">
-                          <option.icon className="h-6 w-6 sm:h-10 sm:w-10" />
-                        </div>
-                        <p className="font-semibold text-lg">{option.label}</p>
-                        {theme === option.value && (
-                          <CheckCircle className="w-7 h-7 text-indigo-400 absolute top-4 right-4" />
-                        )}
-                      </motion.button>
-                    ))}
-                  </div>
-                </Card>
-              )}
-
-              {/* IDIOMA */}
-              {activeSection === 'idioma' && (
-                <Card title={t('idiomaDaInterface')} className="border-zinc-800 shadow-xl">
-                  <div className="space-y-6 max-w-lg">
-                    {[
-                      { code: 'pt-BR', name: 'Português (Brasil)', flag: '🇧🇷' },
-                      { code: 'en', name: 'English', flag: '🇺🇸' },
-                    ].map(lang => (
-                      <motion.button
-                        key={lang.code}
-                        whileHover={{ scale: 1.03 }}
-                        onClick={() => handleChangeLanguage(lang.code as any)}
-                        className={`flex w-full items-center gap-4 rounded-2xl border-2 p-4 transition-all sm:gap-6 sm:p-7 ${
-                          language === lang.code
-                            ? 'border-indigo-500 bg-indigo-950/20 shadow-md'
-                            : 'border-zinc-800 hover:border-zinc-600'
-                        }`}
-                      >
-                        <span className="text-4xl sm:text-6xl">{lang.flag}</span>
-                        <div className="flex-1">
-                          <p className="text-lg font-semibold sm:text-2xl">{lang.name}</p>
-                          <p className="text-zinc-400">{lang.code}</p>
-                        </div>
-                        {language === lang.code && (
-                          <CheckCircle className="w-10 h-10 text-indigo-400" />
-                        )}
-                      </motion.button>
-                    ))}
-                  </div>
-                </Card>
-              )}
-
-              {/* NOTIFICAÇÕES */}
-              {activeSection === 'notificacoes' && (
-                <Card title={t('preferenciasDeNotificacoes')} className="border-zinc-800 shadow-xl">
-                  <div className="space-y-5">
-                    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6">
-                      <p className="text-xl font-medium">Central do dispositivo</p>
-                      <p className="mt-1 text-base text-zinc-400">Avisos com a logo da Havk e a mensagem da ação, na central de notificações deste aparelho.</p>
-                      <div className="mt-4 flex flex-wrap gap-3">
-                        <Button
-                          variant="primary"
-                          onClick={async () => {
-                            const result = await requestDevicePermission();
-                            if (result !== 'granted') {
-                              toast.error('Libere as notificações da Havk nas configurações do sistema.');
-                              return;
-                            }
-                            setNotificationPref('device', true);
-                            toast.success('A Havk vai avisar neste dispositivo, com a logo e a mensagem.');
-                          }}
-                        >
-                          {devicePermission() === 'granted' ? 'Enviar teste' : 'Ativar neste dispositivo'}
-                        </Button>
-                      </div>
-                    </div>
-                    {[
-                      { key: 'device', title: 'Notificações do dispositivo', desc: 'Mostrar os avisos da Havk fora do aplicativo' },
-                      { key: 'newDemanda', title: 'Novas demandas', desc: 'Receber quando uma nova demanda for criada' },
-                      { key: 'chat', title: 'Mensagens no chat', desc: 'Notificações de novas mensagens' },
-                      { key: 'prazos', title: 'Prazos próximos', desc: 'Lembretes de prazos se aproximando' },
-                      { key: 'system', title: 'Atualizações do sistema', desc: 'Novidades e anúncios da plataforma' },
-                      { key: 'emailMarketing', title: 'E-mails promocionais', desc: 'Receber novidades e dicas da Havk' },
-                    ].map(item => (
-                      <div
-                        key={item.key}
-                        className="flex items-center justify-between p-6 bg-zinc-900/50 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors"
-                      >
-                        <div>
-                          <p className="font-medium text-xl">{item.title}</p>
-                          <p className="text-base text-zinc-400 mt-1">{item.desc}</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={notificationPreferences?.[item.key as keyof typeof notificationPreferences] ?? true}
-                            onChange={() => setNotificationPref(item.key as any, !notificationPreferences?.[item.key as keyof typeof notificationPreferences])}
-                            className="sr-only peer"
-                          />
-                          <div className="w-14 h-7 bg-zinc-700 rounded-full peer peer-checked:bg-indigo-600 after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-7"></div>
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )}
-
-              {/* SEGURANÇA */}
-              {activeSection === 'seguranca' && (
-                <Card title={t('segurancaDaConta')} className="border-zinc-800 shadow-xl">
-                  <div className="space-y-12">
-                    <div className="p-8 bg-zinc-900/60 rounded-2xl border border-zinc-800">
-                      <div className="flex items-center gap-5 mb-8">
-                        <Lock className="w-10 h-10 text-indigo-400" />
-                        <h3 className="text-xl font-semibold sm:text-3xl">Alterar senha</h3>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <Input
-                          label="Senha atual"
-                          name="currentPassword"
-                          type={showPasswords.current ? 'text' : 'password'}
-                          value={formData.currentPassword}
-                          onChange={handleChange}
-                          trailingIcon={
-                            <button type="button" onClick={() => togglePasswordVisibility('current')} className="text-zinc-400 hover:text-zinc-200">
-                              {showPasswords.current ? <EyeOff size={18} /> : <Eye size={18} />}
-                            </button>
-                          }
-                        />
-                        <div className="relative">
-                          <Input
-                            label="Nova senha"
-                            name="newPassword"
-                            type={showPasswords.new ? 'text' : 'password'}
-                            value={formData.newPassword}
-                            onChange={handleChange}
-                            trailingIcon={
-                              <button type="button" onClick={() => togglePasswordVisibility('new')} className="text-zinc-400 hover:text-zinc-200">
-                                {showPasswords.new ? <EyeOff size={18} /> : <Eye size={18} />}
-                              </button>
-                            }
-                          />
-                          {formData.newPassword && (
-                            <div className="mt-2 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full transition-all duration-300 ${
-                                  passwordStrength <= 1 ? 'bg-red-600 w-1/4' :
-                                  passwordStrength === 2 ? 'bg-orange-500 w-2/4' :
-                                  passwordStrength === 3 ? 'bg-yellow-500 w-3/4' :
-                                  'bg-green-500 w-full'
-                                }`}
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <Input
-                          label="Confirmar nova senha"
-                          name="confirmPassword"
-                          type={showPasswords.confirm ? 'text' : 'password'}
-                          value={formData.confirmPassword}
-                          onChange={handleChange}
-                          trailingIcon={
-                            <button type="button" onClick={() => togglePasswordVisibility('confirm')} className="text-zinc-400 hover:text-zinc-200">
-                              {showPasswords.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
-                            </button>
-                          }
-                        />
-                      </div>
-                      <div className="mt-10 flex justify-end">
-                        <Button variant="primary" onClick={handleChangePassword}>
-                          Atualizar senha
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="p-8 bg-zinc-900/60 rounded-2xl border border-zinc-800">
-                      <div className="flex items-center gap-5 mb-6">
-                        <Shield className="w-10 h-10 text-green-400" />
-                        <h3 className="text-xl font-semibold sm:text-3xl">Autenticação de dois fatores</h3>
-                      </div>
-                      <p className="text-lg text-zinc-300 mb-8">
-                        Ative a 2FA para maior segurança (em breve disponível)
-                      </p>
-                      <Button variant="outline" disabled>
-                        Ativar 2FA
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              )}
-
-              {/* DISPOSITIVOS */}
-              {activeSection === 'dispositivos' && (
-                <Card title="Sessões ativas e dispositivos" className="border-zinc-800 shadow-xl">
-                  <div className="space-y-5">
-                    {mockDevices.map(device => (
-                      <div
-                        key={device.id}
-                        className="flex items-center justify-between p-6 bg-zinc-900/60 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          <Smartphone className="w-8 h-8 text-zinc-400" />
-                          <div>
-                            <p className="font-medium">{device.name}</p>
-                            <p className="text-sm text-zinc-500">Última atividade: {device.lastActive}</p>
-                          </div>
-                        </div>
-                        {device.current ? (
-                          <span className="px-4 py-1.5 bg-green-900/60 text-green-400 text-sm rounded-full border border-green-800/50">
-                            Este dispositivo
-                          </span>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-rose-400 hover:text-rose-300"
-                            onClick={() => toast.success(`Sessão "${device.name}" encerrada (simulado)`)}
-                          >
-                            Encerrar sessão
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    <div className="pt-6">
-                      <Button
-                        variant="destructive"
-                        fullWidth
-                        onClick={() => toast.success('Todas as outras sessões foram encerradas (simulado)')}
-                      >
-                        Encerrar todas as outras sessões
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </motion.div>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
           </div>
-        </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input label={t('nomeCompleto') || 'Nome completo'} name="name" value={formData.name} onChange={handleChange} required />
+            <Input label="Username" name="username" value={formData.username} onChange={handleChange} placeholder="seu_nome" />
+            <Input label="Cargo" name="role" value={formData.role} onChange={handleChange} placeholder="Ex: Desenvolvedor" />
+            <Input label={t('email') || 'E-mail'} name="email" type="email" value={formData.email} onChange={handleChange} leadingIcon={<Mail size={16} />} />
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">Biografia</label>
+              <textarea name="bio" value={formData.bio} onChange={handleChange} maxLength={160} className="havk-field h-24 resize-none px-3 py-2.5 text-sm" />
+              <p className="mt-1 text-right text-xs text-[var(--text-muted)]">{formData.bio.length}/160</p>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button variant="primary" onClick={handleSaveProfile} loading={isSavingProfile} disabled={isSavingProfile}>
+              Salvar perfil
+            </Button>
+          </div>
+        </Card>
+
+        <Card title="Links" description="Site e redes. Só aparecem os que estiverem preenchidos.">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input label="Site" name="website" value={formData.website} onChange={handleChange} placeholder="https://meusite.com" />
+            <Input label="Instagram" name="instagram" value={formData.instagram} onChange={handleChange} placeholder="@usuario" />
+            <Input label="LinkedIn" name="linkedin" value={formData.linkedin} onChange={handleChange} placeholder="seunome" />
+            <Input label="GitHub" name="github" value={formData.github} onChange={handleChange} placeholder="@usuario" />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(['website', 'instagram', 'linkedin', 'github'] as const).map((type) => {
+              const href = linkHref(type);
+              if (!href) return null;
+              const label = type === 'website' ? 'Site' : type === 'instagram' ? 'Instagram' : type === 'linkedin' ? 'LinkedIn' : 'GitHub';
+              return (
+                <a key={type} href={href} target="_blank" rel="noopener noreferrer" className="rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--border)' }}>
+                  {label}
+                </a>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button variant="primary" onClick={handleSaveSocialLinks} loading={isSavingLinks} disabled={isSavingLinks}>
+              Salvar links
+            </Button>
+          </div>
+        </Card>
+
+        <Card title="Aparência" description="O tema vale para todo o aplicativo e fica salvo neste aparelho.">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {THEMES.map((option) => {
+              const Icon = option.icon;
+              const active = theme === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`theme-choice ${active ? 'is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => setTheme(option.value)}
+                >
+                  <span className="theme-preview" style={{ background: option.bg }}>
+                    <span style={{ background: option.side }} />
+                    <span style={{ background: option.card }} />
+                  </span>
+                  <span className="flex items-center justify-between gap-2 text-sm font-medium">
+                    <span className="inline-flex items-center gap-1.5"><Icon size={14} /> {option.label}</span>
+                    {active && <Check size={14} />}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card title={t('idiomaDaInterface') || 'Idioma'} description="A página recarrega para aplicar o idioma.">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {[
+              { code: 'pt-BR' as const, name: 'Português (Brasil)' },
+              { code: 'en' as const, name: 'English' },
+            ].map((lang) => {
+              const active = language === lang.code;
+              return (
+                <button
+                  key={lang.code}
+                  type="button"
+                  className={`theme-choice ${active ? 'is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => handleChangeLanguage(lang.code)}
+                >
+                  <span className="flex items-center justify-between text-sm font-medium">
+                    <span className="inline-flex items-center gap-2"><Globe size={14} /> {lang.name}</span>
+                    {active && <Check size={14} />}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card title="Notificações" description="Avisos dentro da Havk e na central deste aparelho.">
+          <div className="mb-3 rounded-2xl border p-4" style={{ borderColor: 'var(--border)' }}>
+            <p className="text-sm font-medium">Central do dispositivo</p>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">A logo da Havk acompanha a mensagem na central de notificações.</p>
+            <Button
+              className="mt-3"
+              variant="primary"
+              onClick={async () => {
+                const result = await requestDevicePermission();
+                if (result !== 'granted') {
+                  toast.error('Libere as notificações da Havk nas configurações do sistema.');
+                  return;
+                }
+                setNotificationPref('device', true);
+                await showDeviceNotification('A Havk está pronta para avisar neste dispositivo.');
+                toast.success('A Havk vai avisar neste dispositivo.');
+              }}
+            >
+              {devicePermission() === 'granted' ? 'Enviar teste' : 'Ativar neste dispositivo'}
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {NOTICES.map((item) => (
+              <label key={item.key} className="settings-row">
+                <span>
+                  <span className="block text-sm font-medium">{item.title}</span>
+                  <span className="mt-0.5 block text-sm text-[var(--text-muted)]">{item.desc}</span>
+                </span>
+                <span className="settings-switch">
+                  <input
+                    type="checkbox"
+                    checked={notificationPreferences?.[item.key] ?? true}
+                    onChange={() => setNotificationPref(item.key, !(notificationPreferences?.[item.key] ?? true))}
+                  />
+                  <i />
+                </span>
+              </label>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Segurança" description="A troca de senha pede a senha atual.">
+          <div className="grid grid-cols-1 gap-4">
+            {([
+              ['current', 'currentPassword', 'Senha atual'],
+              ['new', 'newPassword', 'Nova senha'],
+              ['confirm', 'confirmPassword', 'Confirmar nova senha'],
+            ] as const).map(([field, name, label]) => (
+              <Input
+                key={name}
+                label={label}
+                name={name}
+                type={showPasswords[field] ? 'text' : 'password'}
+                value={formData[name]}
+                onChange={handleChange}
+                leadingIcon={<Lock size={16} />}
+                trailingIcon={
+                  <button type="button" className="text-[var(--text-muted)]" onClick={() => setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }))} aria-label={showPasswords[field] ? 'Ocultar senha' : 'Mostrar senha'}>
+                    {showPasswords[field] ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                }
+              />
+            ))}
+          </div>
+          {formData.newPassword && (
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--hover)' }}>
+              <div
+                className={`h-full ${passwordStrength <= 1 ? 'w-1/4 bg-red-500' : passwordStrength === 2 ? 'w-1/2 bg-orange-500' : passwordStrength === 3 ? 'w-3/4 bg-yellow-500' : 'w-full bg-green-500'}`}
+              />
+            </div>
+          )}
+          <div className="mt-4 flex justify-end">
+            <Button variant="primary" onClick={handleChangePassword}>Atualizar senha</Button>
+          </div>
+        </Card>
+
+        <Card title="Conta">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button variant="outline" icon={<Download size={16} />} onClick={handleExportData}>Exportar meus dados</Button>
+            <Button variant="ghost" icon={<LogOut size={16} />} onClick={handleLogout}>Sair</Button>
+            <Button variant="destructive" icon={<Trash2 size={16} />} onClick={() => setDeleteConfirmOpen(true)}>Excluir conta</Button>
+          </div>
+        </Card>
       </div>
 
-      {/* Modal exclusão */}
-      <AnimatePresence>
-        {deleteConfirmOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-zinc-900 border border-zinc-700 rounded-2xl p-8 max-w-lg w-full shadow-2xl"
-            >
-              <div className="flex items-start gap-5 mb-6 text-rose-400">
-                <AlertTriangle className="w-12 h-12 flex-shrink-0 mt-1" />
-                <div>
-                  <h2 className="text-2xl font-bold">Excluir conta permanentemente?</h2>
-                  <p className="text-zinc-300 mt-3">
-                    Esta ação não pode ser desfeita. Todos os seus dados serão apagados do sistema.
-                  </p>
-                </div>
-              </div>
-              <div className="mb-8">
-                <label className="block text-sm font-medium mb-3 text-zinc-300">
-                  Por favor, nos conte o motivo (ajuda muito a melhorar o Havk)
-                </label>
-                <textarea
-                  value={deleteReason}
-                  onChange={e => setDeleteReason(e.target.value)}
-                  placeholder="Ex: Mudei de ferramenta, não uso mais, outro motivo..."
-                  className="w-full h-32 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl focus:outline-none focus:border-rose-500 resize-none text-base"
-                />
-              </div>
-              <div className="flex gap-4 justify-end">
-                <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleDeleteAccount}
-                  disabled={deleteReason.trim().length < 5}
-                >
-                  Excluir minha conta
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {deleteConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="havk-card w-full max-w-lg rounded-2xl border p-5 shadow-xl">
+            <h2 className="text-lg font-semibold">Excluir conta</h2>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">Conte o motivo. Esta ação está marcada como simulada e encerra a sessão neste aparelho.</p>
+            <textarea
+              value={deleteReason}
+              onChange={(event) => setDeleteReason(event.target.value)}
+              placeholder="Motivo"
+              className="havk-field mt-4 h-28 resize-none px-3 py-2.5 text-sm"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancelar</Button>
+              <Button variant="destructive" onClick={handleDeleteAccount} disabled={deleteReason.trim().length < 5}>Excluir minha conta</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

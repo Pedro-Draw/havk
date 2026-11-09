@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../store/useAppStore';
 import { NAV_ITEMS, OPEN_COMMAND_EVENT } from '../../lib/navigation';
 import { useVisibleNav } from '../../hooks/useVisibleNav';
-import { PLACES_EVENT, favorites, recents } from '../../lib/places';
+import { PLACES_EVENT, favorites, recents, toggleFavorite } from '../../lib/places';
 
 interface CommandItem {
   id: string;
   label: string;
   hint: string;
-  path: string;
+  path?: string;
+  run?: () => void;
 }
 
 export default function CommandPalette() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [places, setPlaces] = useState({ favorite: favorites(), recent: recents() });
@@ -60,7 +62,9 @@ export default function CommandPalette() {
       hint: 'Página',
       path: item.to,
     }));
+    const favorite = places.favorite.includes(location.pathname);
     const actions: CommandItem[] = [
+      { id: 'fav-page', label: favorite ? 'Remover dos favoritos' : 'Favoritar esta página', hint: 'Ação', run: () => toggleFavorite(location.pathname) },
       { id: 'new-demanda', label: 'Criar demanda', hint: 'Ação', path: '/demandas/nova' },
       { id: 'new-projeto', label: 'Criar projeto', hint: 'Ação', path: '/projetos' },
       { id: 'new-nota', label: 'Criar nota', hint: 'Ação', path: '/notas' },
@@ -77,7 +81,7 @@ export default function CommandPalette() {
     return [...pinned, ...actions, ...pages, ...records]
       .filter((item) => !term || `${item.label} ${item.hint}`.toLowerCase().includes(term))
       .slice(0, 12);
-  }, [demandas, empresas, membros, notas, pagesNav, places.favorite, places.recent, projetos, query, templates]);
+  }, [demandas, empresas, location.pathname, membros, notas, pagesNav, places.favorite, places.recent, projetos, query, templates]);
 
   if (!open) return null;
 
@@ -105,11 +109,12 @@ export default function CommandPalette() {
               <button
                 key={item.id}
                 type="button"
-                className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left hover:bg-white/10"
+                className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left hover:bg-[var(--hover)]"
                 onClick={() => {
                   setOpen(false);
                   setQuery('');
-                  navigate(item.path);
+                  if (item.run) item.run();
+                  else if (item.path) navigate(item.path);
                 }}
               >
                 <span className="truncate text-sm">{item.label}</span>
