@@ -5,7 +5,7 @@ export default function ConfirmDialog() {
   if (!request) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/55 p-4 sm:items-center" role="presentation" onClick={() => settleConfirm(false)}>
+    <div data-havk-overlay className="fixed inset-0 z-[90] flex items-end justify-center bg-black/55 p-4 sm:items-center" role="presentation" onClick={() => settleConfirm(false)}>
       <div
         role="dialog"
         aria-modal="true"

@@ -10,7 +10,7 @@ import { EMPRESA_ESTADOS, EMPRESA_PORTES, EMPRESA_SETORES, EMPRESA_TIPOS, withCu
 import { confirmAction } from '../lib/confirm';
 import { readSquareImage } from '../lib/images';
 import Button from '../components/ui/Button';
-import Select from '../components/ui/Select';
+import GlassSelect from '../components/ui/GlassSelect';
 
 const emptyForm = {
   name: '',
@@ -75,14 +75,14 @@ function CompanyCard({
             <button type="button" className="min-w-0 text-left" onClick={onOpen}>
               <span className="flex items-center gap-1.5">
                 <span className="truncate text-base font-semibold">{empresa.name}</span>
-                {empresa.pinned && <Pin size={14} className="shrink-0 text-violet-500" />}
+                {empresa.pinned && <Pin size={14} className="shrink-0" style={{ color: 'var(--primary)' }} />}
               </span>
               <span className="mt-0.5 block truncate text-sm text-[var(--text-muted)]">{[empresa.kind, empresa.segment, empresa.size].filter(Boolean).join(' · ') || 'Sem setor'}</span>
             </button>
             <button
               type="button"
-              className={`shrink-0 rounded-full border px-2.5 py-1 text-xs ${empresa.pinned ? 'border-violet-500 text-violet-600' : 'text-[var(--text-muted)]'}`}
-              style={{ borderColor: empresa.pinned ? undefined : 'var(--border)' }}
+              className={`shrink-0 rounded-full border px-2.5 py-1 text-xs ${empresa.pinned ? '' : 'text-[var(--text-muted)]'}`}
+              style={{ borderColor: empresa.pinned ? 'var(--primary)' : 'var(--border)', color: empresa.pinned ? 'var(--primary)' : undefined }}
               aria-pressed={Boolean(empresa.pinned)}
               onClick={onPin}
             >
@@ -264,7 +264,7 @@ export default function Empresas() {
       <button
         type="button"
         className="mb-4 flex w-full items-center gap-3 rounded-3xl border p-4 text-left"
-        style={{ borderColor: geral ? '#8b5cf6' : 'var(--border)', background: 'var(--card)' }}
+        style={{ borderColor: geral ? 'var(--primary)' : 'var(--border)', background: 'var(--card)' }}
         onClick={() => void setActiveEmpresa(GERAL_EMPRESA_ID)}
       >
         <span className="company-mark"><Layers size={16} /></span>
@@ -300,7 +300,7 @@ export default function Empresas() {
       />
 
       {selectedId && (
-        <div className="fixed inset-0 z-50 flex bg-black/70 sm:items-center sm:justify-center sm:p-4" onClick={() => setSelectedId(null)}>
+        <div data-havk-overlay className="fixed inset-0 z-50 flex bg-black/70 sm:items-center sm:justify-center sm:p-4" onClick={() => setSelectedId(null)}>
           <div
             className="h-[100dvh] w-full overflow-y-auto border pb-[env(safe-area-inset-bottom)] sm:h-auto sm:max-h-[92vh] sm:max-w-2xl sm:rounded-3xl"
             style={{ borderColor: 'var(--border)', background: 'var(--card-elevated)' }}
@@ -320,27 +320,27 @@ export default function Empresas() {
             <div className="grid gap-4 p-5 sm:grid-cols-2">
               <label className="block text-sm sm:col-span-2">
                 <span className="mb-1.5 block text-[var(--text-secondary)]">Nome</span>
-                <input value={form.name} placeholder="Nome da empresa" onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="havk-field w-full rounded-2xl px-3 py-3" />
+                <input autoComplete="organization" value={form.name} placeholder="Nome da empresa" onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="havk-field w-full rounded-2xl px-3 py-3" />
               </label>
-              <Select className="w-full rounded-2xl" label="Tipo" value={form.kind} onChange={(event) => setForm((current) => ({ ...current, kind: event.target.value }))} options={selectOptions(EMPRESA_TIPOS, form.kind)} />
-              <Select className="w-full rounded-2xl" label="Setor" value={form.segment} onChange={(event) => setForm((current) => ({ ...current, segment: event.target.value }))} options={selectOptions(EMPRESA_SETORES, form.segment)} />
-              <Select className="w-full rounded-2xl" label="Porte" value={form.size} onChange={(event) => setForm((current) => ({ ...current, size: event.target.value }))} options={selectOptions(EMPRESA_PORTES, form.size)} />
-              <Select className="w-full rounded-2xl" label="Estado" value={form.state} onChange={(event) => setForm((current) => ({ ...current, state: event.target.value }))} options={selectOptions(EMPRESA_ESTADOS, form.state)} />
+              <GlassSelect label="Tipo" value={form.kind} onChange={(kind) => setForm((current) => ({ ...current, kind }))} options={selectOptions(EMPRESA_TIPOS, form.kind)} />
+              <GlassSelect label="Setor" value={form.segment} onChange={(segment) => setForm((current) => ({ ...current, segment }))} options={selectOptions(EMPRESA_SETORES, form.segment)} />
+              <GlassSelect label="Porte" value={form.size} onChange={(size) => setForm((current) => ({ ...current, size }))} options={selectOptions(EMPRESA_PORTES, form.size)} />
+              <GlassSelect label="Estado" value={form.state} onChange={(state) => setForm((current) => ({ ...current, state }))} options={selectOptions(EMPRESA_ESTADOS, form.state)} />
               <label className="block text-sm">
                 <span className="mb-1.5 block text-[var(--text-secondary)]">Cidade</span>
-                <input value={form.city} placeholder="Cidade" onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} className="havk-field w-full rounded-2xl px-3 py-3" />
+                <input autoComplete="address-level2" value={form.city} placeholder="Cidade" onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} className="havk-field w-full rounded-2xl px-3 py-3" />
               </label>
               <label className="block text-sm">
                 <span className="mb-1.5 block text-[var(--text-secondary)]">E-mail</span>
-                <input value={form.email} placeholder="contato@empresa.com" onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} className="havk-field w-full rounded-2xl px-3 py-3" />
+                <input autoComplete="email" value={form.email} placeholder="contato@empresa.com" onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} className="havk-field w-full rounded-2xl px-3 py-3" />
               </label>
               <label className="block text-sm">
                 <span className="mb-1.5 block text-[var(--text-secondary)]">Telefone</span>
-                <input value={form.phone} placeholder="(11) 90000-0000" onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} className="havk-field w-full rounded-2xl px-3 py-3" />
+                <input autoComplete="tel" value={form.phone} placeholder="(11) 90000-0000" onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} className="havk-field w-full rounded-2xl px-3 py-3" />
               </label>
               <label className="block text-sm sm:col-span-2">
                 <span className="mb-1.5 block text-[var(--text-secondary)]">Site</span>
-                <input value={form.website} placeholder="https://" onChange={(event) => setForm((current) => ({ ...current, website: event.target.value }))} className="havk-field w-full rounded-2xl px-3 py-3" />
+                <input autoComplete="url" value={form.website} placeholder="https://" onChange={(event) => setForm((current) => ({ ...current, website: event.target.value }))} className="havk-field w-full rounded-2xl px-3 py-3" />
               </label>
               <label className="block text-sm sm:col-span-2">
                 <span className="mb-1.5 block text-[var(--text-secondary)]">Sobre</span>

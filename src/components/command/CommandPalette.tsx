@@ -86,7 +86,7 @@ export default function CommandPalette() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-start justify-center bg-black/50 px-4 pt-[12vh]" onClick={() => setOpen(false)}>
+    <div data-havk-overlay className="fixed inset-0 z-[80] flex items-start justify-center bg-black/50 px-4 pt-[12vh]" onClick={() => setOpen(false)}>
       <div
         className="glass-popover w-full max-w-xl overflow-hidden rounded-2xl"
         role="dialog"

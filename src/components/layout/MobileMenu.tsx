@@ -48,13 +48,6 @@ export default function MobileMenu() {
   }, [location.pathname]);
 
   useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : '';
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [open]);
-
-  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setMobileMenuOpen(false);
     };
@@ -109,7 +102,8 @@ export default function MobileMenu() {
           <div className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
             <button
               type="button"
-              className={`company-mark shrink-0 ${geral ? 'ring-2 ring-violet-400' : ''}`}
+              className="company-mark shrink-0"
+              style={geral ? { boxShadow: '0 0 0 2px var(--primary)' } : undefined}
               aria-label="Geral"
               onClick={() => {
                 if (!geral) void setActiveEmpresa(GERAL_EMPRESA_ID);
@@ -121,7 +115,8 @@ export default function MobileMenu() {
                 <button
                   key={empresa.id}
                   type="button"
-                  className={`company-mark shrink-0 ${empresa.id === activeEmpresa?.id ? 'ring-2 ring-violet-400' : ''}`}
+                  className="company-mark shrink-0"
+                  style={empresa.id === activeEmpresa?.id ? { boxShadow: '0 0 0 2px var(--primary)' } : undefined}
                   aria-label={empresa.name}
                   onClick={() => {
                     if (empresa.id !== activeEmpresa?.id) void setActiveEmpresa(empresa.id);
@@ -210,6 +205,7 @@ export default function MobileMenu() {
         <button
           type="button"
           aria-label="Recolher menu"
+          data-havk-overlay
           className="fixed inset-0 z-[60] bg-black/45 backdrop-blur-[2px] lg:hidden"
           onClick={close}
         />

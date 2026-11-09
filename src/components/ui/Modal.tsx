@@ -24,15 +24,6 @@ export default function Modal({
 }: ModalProps) {
   useEffect(() => {
     if (!isOpen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
@@ -50,7 +41,7 @@ export default function Modal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/70 p-0 sm:items-center sm:p-4">
+    <div data-havk-overlay className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/70 p-0 sm:items-center sm:p-4">
       <button
         type="button"
         aria-label="Fechar"

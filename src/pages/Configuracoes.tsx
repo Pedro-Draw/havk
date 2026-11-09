@@ -23,6 +23,7 @@ import { devicePermission, requestDevicePermission, showDeviceNotification } fro
 import { confirmAction } from '../lib/confirm';
 import { readSquareImage } from '../lib/images';
 import { useTheme } from '../hooks/useTheme';
+import { ACCENTS, readAccent, saveAccent, type AccentId } from '../lib/accent';
 
 const THEMES = [
   { value: 'light', label: 'Claro', icon: Sun, bg: '#f4f4f5', side: '#ffffff', card: '#ffffff' },
@@ -52,6 +53,7 @@ export default function Configuracoes() {
     setNotificationPref,
   } = useAppStore();
   const { theme, setTheme } = useTheme();
+  const [accent, setAccent] = useState<AccentId>(readAccent);
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -375,6 +377,35 @@ export default function Configuracoes() {
               );
             })}
           </div>
+          <div className="mt-6">
+            <p className="text-sm font-medium">Cor de destaque</p>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">A cor dos botões, do menu ativo e dos campos em foco.</p>
+            <div className="accent-grid mt-3">
+              {ACCENTS.map((option) => {
+                const active = accent === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`accent-swatch ${active ? 'is-active' : ''}`}
+                    aria-pressed={active}
+                    onClick={() => {
+                      saveAccent(option.id);
+                      setAccent(option.id);
+                    }}
+                  >
+                    <span
+                      className="accent-orb"
+                      style={{ background: `linear-gradient(180deg, color-mix(in srgb, ${option.color} 55%, white), ${option.color})` }}
+                    >
+                      {active && <Check size={16} />}
+                    </span>
+                    <span>{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </Card>
 
         <Card title={t('idiomaDaInterface') || 'Idioma'} description="A página recarrega para aplicar o idioma.">
@@ -488,7 +519,7 @@ export default function Configuracoes() {
       </div>
 
       {deleteConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div data-havk-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="havk-card w-full max-w-lg rounded-2xl border p-5 shadow-xl">
             <h2 className="text-lg font-semibold">Excluir conta</h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">Conte o motivo. Esta ação está marcada como simulada e encerra a sessão neste aparelho.</p>

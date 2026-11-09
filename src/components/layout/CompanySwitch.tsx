@@ -66,7 +66,7 @@ export default function CompanySwitch() {
             >
               {empresa.logo ? <img src={empresa.logo} alt="" className="company-mark" /> : <span className="company-mark">{empresa.name.slice(0, 1).toUpperCase()}</span>}
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1 truncate text-sm font-medium">{empresa.name}{empresa.pinned && <Pin size={12} className="text-violet-500" />}</span>
+                <span className="flex items-center gap-1 truncate text-sm font-medium">{empresa.name}{empresa.pinned && <Pin size={12} style={{ color: 'var(--primary)' }} />}</span>
                 <span className="block truncate text-xs text-[var(--text-muted)]">{empresa.segment || 'Empresa'}</span>
               </span>
               {empresa.id === active?.id && <Check className="h-4 w-4 text-emerald-400" />}
@@ -74,7 +74,8 @@ export default function CompanySwitch() {
           ))}
           <button
             type="button"
-            className="mt-1 w-full rounded-xl px-3 py-2 text-left text-sm text-violet-300 hover:bg-[var(--hover)]"
+            className="mt-1 w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-[var(--hover)]"
+            style={{ color: 'var(--primary)' }}
             onClick={() => {
               setOpen(false);
               navigate('/empresas');

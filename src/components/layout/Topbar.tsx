@@ -156,7 +156,8 @@ export default function Topbar() {
                           }
                           setShowNotifications(false);
                         }}
-                        className={`cursor-pointer rounded-lg p-3 text-sm ${n.read ? 'hover:bg-[var(--hover)]' : 'border-l-4 border-violet-500 bg-[var(--hover)]'}`}
+                        className={`cursor-pointer rounded-lg p-3 text-sm ${n.read ? 'hover:bg-[var(--hover)]' : 'border-l-4 bg-[var(--hover)]'}`}
+                        style={n.read ? undefined : { borderColor: 'var(--primary)' }}
                       >
                         <div className="font-medium">{n.title || 'Notificação'}</div>
                         <p className="mt-0.5 line-clamp-2 text-[var(--text-secondary)]">{n.message}</p>
