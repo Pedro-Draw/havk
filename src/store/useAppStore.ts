@@ -9,6 +9,29 @@ import { ensureCompanyDemandas } from '../lib/seedDemandas';
 
 let demandaWrite: Promise<unknown> = Promise.resolve();
 
+async function collapseNotifications(items: Notification[]) {
+  const kept = new Map<string, Notification>();
+  const remove: string[] = [];
+  items.forEach((item) => {
+    const key = item.demandaId ? `${item.demandaId}:${item.type}:${item.title}` : item.id;
+    const previous = kept.get(key);
+    if (!previous) {
+      kept.set(key, item);
+      return;
+    }
+    const previousTime = new Date(previous.createdAt || 0).getTime();
+    const nextTime = new Date(item.createdAt || 0).getTime();
+    if (nextTime >= previousTime) {
+      remove.push(previous.id);
+      kept.set(key, item);
+    } else {
+      remove.push(item.id);
+    }
+  });
+  await Promise.all(remove.map((id) => deleteItem('notifications', id)));
+  return [...kept.values()];
+}
+
 function enqueueDemanda<T>(job: () => Promise<T>): Promise<T> {
   const run = demandaWrite.then(job, job);
   demandaWrite = run.then(
@@ -476,11 +499,19 @@ export const useAppStore = create<AppState>()(
             getAll<ChatMensagem>('chatMensagens'),
             getAll<Projeto>('projetos'),
             getAll<Objetivo>('objetivos'),
-            getAll<Notification>('notifications'),
+            getAll<Notification>('notifications').then(collapseNotifications),
             getAll<Membro>('membros'),
             getAll<Template>('templates'),
             getAll<TimeEntry>('timeEntries'),
           ]);
+
+          const author = get().user?.name || get().user?.email;
+          if (author) {
+            await Promise.all(demandas.filter((item) => !item.createdBy).map((item) => {
+              item.createdBy = author;
+              return updateItem('demandas', item);
+            }));
+          }
 
           set({
             empresas: sortEmpresas(empresas),

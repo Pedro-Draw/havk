@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, ChevronsUpDown, Layers, Pin } from 'lucide-react';
+import { Check, ChevronsUpDown, Pin } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { GERAL_EMPRESA_ID } from '../../lib/workspace';
 
@@ -25,7 +25,7 @@ export default function CompanySwitch() {
   if (!geral && !active && empresas.length === 0) return null;
 
   const mark = geral || !active
-    ? <span className="company-mark"><Layers size={16} /></span>
+    ? <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="company-mark geral-mark" />
     : active.logo
       ? <img src={active.logo} alt="" className="company-mark" />
       : <span className="company-mark">{active.name.slice(0, 1).toUpperCase()}</span>;
@@ -47,7 +47,7 @@ export default function CompanySwitch() {
               if (!geral) void setActiveEmpresa(GERAL_EMPRESA_ID);
             }}
           >
-            <span className="company-mark"><Layers size={16} /></span>
+            <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="company-mark geral-mark" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">Geral</span>
               <span className="block truncate text-xs text-[var(--text-muted)]">Todas as empresas</span>

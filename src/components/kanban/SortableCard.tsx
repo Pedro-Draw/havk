@@ -33,7 +33,10 @@ function formatCreated(value?: string) {
 }
 
 export default function SortableCard({ id, item, onOpen }: SortableCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({
+    id,
+    transition: { duration: 420, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+  });
   const pointer = useRef<{ x: number; y: number } | null>(null);
   const priority = item.priority?.toLowerCase() || 'media';
   const initial = (item.createdBy || '?').slice(0, 1).toUpperCase();
@@ -43,9 +46,9 @@ export default function SortableCard({ id, item, onOpen }: SortableCardProps) {
       ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
-        transition,
+        transition: isDragging ? undefined : 'transform 420ms cubic-bezier(0.22, 1, 0.36, 1)',
       }}
-      className={`kanban-card rounded-2xl border p-3 shadow-sm ${isDragging ? 'z-10 opacity-80 ring-2 ring-violet-400' : ''}`}
+      className={`kanban-card rounded-2xl p-3 ${isDragging ? 'z-10 opacity-90' : ''}`}
       onPointerDown={(event) => {
         pointer.current = { x: event.clientX, y: event.clientY };
       }}

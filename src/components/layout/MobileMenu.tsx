@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Layers, PanelLeftClose, Plus, Search, Star } from 'lucide-react';
+import { PanelLeftClose, Plus, Search, Star } from 'lucide-react';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useAppStore } from '../../store/useAppStore';
 import { MOBILE_MENU_EVENT, setMobileMenuOpen } from '../../lib/mobileNav';
@@ -90,7 +90,7 @@ export default function MobileMenu() {
             }}
           >
             {geral || !activeEmpresa ? (
-              <span className="company-mark"><Layers size={16} /></span>
+              <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="company-mark geral-mark" />
             ) : activeEmpresa.logo ? (
               <img src={activeEmpresa.logo} alt="" className="company-mark" />
             ) : (
@@ -109,7 +109,7 @@ export default function MobileMenu() {
                 if (!geral) void setActiveEmpresa(GERAL_EMPRESA_ID);
               }}
             >
-              <Layers size={16} />
+              <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-full w-full object-cover" />
             </button>
             {empresas.map((empresa) => (
                 <button

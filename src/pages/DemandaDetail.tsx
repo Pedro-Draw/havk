@@ -17,7 +17,6 @@ import {
   ListTodo,
   Plus,
   Paperclip,
-  User,
   Calendar,
   Search,
 } from 'lucide-react';
@@ -613,9 +612,13 @@ export default function DemandaDetail() {
 
                         <div className="space-y-4 mt-auto">
                           <div className="flex items-center gap-3 text-sm text-zinc-300">
-                            <User size={18} className="text-zinc-400" />
+                            {(!dem.createdBy || dem.createdBy === user?.name || dem.createdBy === user?.email) && user?.avatar ? (
+                              <img src={user.avatar} alt="" className="h-7 w-7 rounded-full object-cover" />
+                            ) : (
+                              <span className="grid h-7 w-7 place-items-center rounded-full bg-[var(--field)] text-xs font-semibold">{(dem.createdBy || user?.name || 'H').slice(0, 1).toUpperCase()}</span>
+                            )}
                             <span className="font-medium">
-                              {dem.responsavel || 'Criador desconhecido'}
+                              {dem.createdBy || user?.name || 'Sem autor'}
                             </span>
                           </div>
 
@@ -872,8 +875,11 @@ export default function DemandaDetail() {
                     {translateUserContent(demanda.title || 'Sem título')}
                   </h1>
                 )}
-                <div className="mt-3 flex flex-wrap gap-6 text-sm text-zinc-300">
-                  <div>Criado por: <span className="text-zinc-100">{demanda.createdBy || '—'}</span></div>
+                <div className="mt-3 flex flex-wrap items-center gap-6 text-sm text-zinc-300">
+                  <div className="flex items-center gap-2">
+                    {(!demanda.createdBy || demanda.createdBy === user?.name || demanda.createdBy === user?.email) && user?.avatar ? <img src={user.avatar} alt="" className="h-7 w-7 rounded-full object-cover" /> : <span className="grid h-7 w-7 place-items-center rounded-full bg-[var(--field)] text-xs font-semibold">{(demanda.createdBy || user?.name || 'H').slice(0, 1).toUpperCase()}</span>}
+                    Criado por: <span className="text-zinc-100">{demanda.createdBy || user?.name || '—'}</span>
+                  </div>
                   <div>Responsável: <span className="text-zinc-100">{demanda.responsavel || 'Não atribuído'}</span></div>
                 </div>
               </div>

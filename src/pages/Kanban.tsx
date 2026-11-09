@@ -195,7 +195,7 @@ export default function Kanban() {
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 10 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -356,8 +356,7 @@ export default function Kanban() {
 
   const creatorAvatar = (name?: string) => {
     const key = (name || '').trim().toLowerCase();
-    if (!key) return null;
-    if (user && (user.name?.toLowerCase() === key || user.email?.toLowerCase() === key)) return user.avatar || null;
+    if (!key || (user && (user.name?.toLowerCase() === key || user.email?.toLowerCase() === key))) return user?.avatar || null;
     return membros.find((member) => member.name?.toLowerCase() === key || member.email?.toLowerCase() === key)?.avatar || null;
   };
   const labeled = (task: BoardTask) => ({
@@ -435,6 +434,7 @@ export default function Kanban() {
         <DndContext
           sensors={sensors}
           collisionDetection={collisionDetection}
+          autoScroll={{ acceleration: 1, threshold: { x: 0.3, y: 0.22 } }}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
@@ -443,7 +443,7 @@ export default function Kanban() {
             setDraft(null);
           }}
         >
-          <div className="kanban-scroll flex gap-3 overflow-x-auto pb-4">
+          <div className={`kanban-scroll flex gap-3 overflow-x-auto pb-4${activeId ? ' is-panning' : ''}`}>
             {KANBAN_COLUMNS.map((column) => {
               const tasks = visible(board[column.id] || []).map(labeled);
               const crowded = column.id === 'andamento' && board[column.id].length > 5;

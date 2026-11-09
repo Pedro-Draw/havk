@@ -1,5 +1,5 @@
 // pages/Inbox.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../i18n/useTranslation';
 import {
@@ -75,82 +75,56 @@ export default function Inbox() {
     }
   }, []);
 
-  const sendDeviceNotification = (title: string, message: string) => {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body: message, icon: '/image/splash.png' });
-    }
-  };
+  const notificationsRef = useRef(notifications);
+  notificationsRef.current = notifications;
 
-  // Geração de notificações (mantida como estava na sua última versão)
+  // Uma notificação por demanda e tipo. Sem toast: o aviso antigo reabria a cada atualização e empilhava na tela.
   useEffect(() => {
+    let stopped = false;
     const syncNotifications = async () => {
       const now = new Date();
-      const hasNotificationOfType = new Map<string, Set<NotificationType>>();
+      const seen = new Set(notificationsRef.current.map((item) => `${item.demandaId}:${item.type}`));
+      const created: Omit<AppNotification, 'id'>[] = [];
 
-      notifications.forEach((n) => {
-        if (n.demandaId) {
-          if (!hasNotificationOfType.has(n.demandaId)) {
-            hasNotificationOfType.set(n.demandaId, new Set());
-          }
-          hasNotificationOfType.get(n.demandaId)!.add(n.type);
-        }
-      });
-
-      const newNotifications: Omit<AppNotification, 'id'>[] = [];
-
-      for (const d of demandas) {
-        if (!d.prazo) continue;
-        const prazo = new Date(d.prazo);
-        const diffDays = (prazo.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-        const existingTypes = hasNotificationOfType.get(d.id) || new Set();
-
-        if (d.status === 'concluida') {
-          if (!existingTypes.has('success')) {
-            newNotifications.push({
-              demandaId: d.id,
-              type: 'success',
-              title: 'Demanda concluída',
-              message: `${d.title} foi finalizada com sucesso.`,
-              createdAt: new Date().toISOString(),
-              read: false,
-            });
-          }
-        } else if (diffDays > 0 && diffDays <= 2) {
-          if (!existingTypes.has('warning')) {
-            newNotifications.push({
-              demandaId: d.id,
-              type: 'warning',
-              title: 'Prazo próximo',
-              message: `${d.title} vence em ${Math.ceil(diffDays)} dias.`,
-              createdAt: new Date().toISOString(),
-              read: false,
-            });
-          }
-        } else if (diffDays <= 0) {
-          if (!existingTypes.has('error')) {
-            newNotifications.push({
-              demandaId: d.id,
-              type: 'error',
-              title: 'Demanda atrasada',
-              message: `${d.title} está atrasada há ${Math.abs(Math.floor(diffDays))} dias.`,
-              createdAt: new Date().toISOString(),
-              read: false,
-            });
-          }
-        }
+      for (const demanda of demandas) {
+        if (!demanda.prazo || stopped) continue;
+        const diffDays = (new Date(demanda.prazo).getTime() - now.getTime()) / 86400000;
+        const type: NotificationType | null = demanda.status === 'concluida'
+          ? 'success'
+          : diffDays <= 2 && diffDays > 0
+            ? 'warning'
+            : diffDays <= 0
+              ? 'error'
+              : null;
+        if (!type || seen.has(`${demanda.id}:${type}`)) continue;
+        seen.add(`${demanda.id}:${type}`);
+        created.push({
+          demandaId: demanda.id,
+          type,
+          title: type === 'success' ? 'Demanda concluída' : type === 'warning' ? 'Prazo próximo' : 'Demanda atrasada',
+          message: type === 'success'
+            ? `${demanda.title} foi finalizada com sucesso.`
+            : type === 'warning'
+              ? `${demanda.title} vence em ${Math.ceil(diffDays)} dias.`
+              : `${demanda.title} está atrasada há ${Math.abs(Math.floor(diffDays))} dias.`,
+          createdAt: now.toISOString(),
+          read: false,
+        });
       }
 
-      for (const notif of newNotifications) {
+      for (const notif of created) {
+        if (stopped) return;
         await addNotification(notif);
-        toast(notif.title, { icon: '🔔' });
-        sendDeviceNotification(notif.title, notif.message);
       }
     };
 
-    syncNotifications();
-    const interval = setInterval(syncNotifications, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [demandas, notifications, addNotification]);
+    void syncNotifications();
+    const interval = setInterval(() => void syncNotifications(), 5 * 60 * 1000);
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, [demandas, addNotification]);
 
   // Processamento das notificações + novo filtro "read"
   const processedNotifications = useMemo(() => {

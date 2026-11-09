@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Camera, GripVertical, Layers, Pin, Trash2 } from 'lucide-react';
+import { Camera, GripVertical, Pin, Trash2 } from 'lucide-react';
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -282,7 +282,7 @@ export default function Empresas() {
         style={{ borderColor: geral ? 'var(--primary)' : 'var(--border)', background: 'var(--card)' }}
         onClick={() => void setActiveEmpresa(GERAL_EMPRESA_ID)}
       >
-        <span className="company-mark"><Layers size={16} /></span>
+        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="company-mark geral-mark" />
         <span className="min-w-0 flex-1">
           <span className="block text-base font-semibold">Geral</span>
           <span className="block text-sm text-[var(--text-muted)]">Tudo junto, sem entrar em uma empresa.</span>

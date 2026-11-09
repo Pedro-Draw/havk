@@ -116,18 +116,18 @@ body {
 
 .mobile-drawer {
   position: fixed;
-  top: 0.625rem;
-  bottom: auto;
-  left: 0.5rem;
+  top: 0;
+  bottom: 0;
+  left: 0;
   z-index: 70;
   display: flex;
-  width: min(20.5rem, calc(100% - 4.75rem));
-  height: calc(100dvh - 1.25rem);
+  width: min(22rem, calc(100% - 3.25rem));
+  height: 100dvh;
   flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: 22px;
+  border: 0;
+  border-radius: 0 24px 24px 0;
   background: #0c0c0f;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  box-shadow: 16px 0 40px rgba(24, 24, 27, 0.18);
   transform: translateX(calc(-100% - 1rem));
   pointer-events: none;
   transition: transform 220ms ease;
@@ -262,17 +262,19 @@ html.light header.glass-bar {
   max-width: 100%;
   overflow-x: auto;
   overflow-y: clip;
-  scroll-snap-type: x mandatory;
+  scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
 }
 
+.kanban-scroll.is-panning {
+  scroll-snap-type: none;
+}
+
 .kanban-column {
-  background: color-mix(in srgb, var(--card) 62%, transparent);
-  border: 1px solid var(--glass-stroke);
-  backdrop-filter: blur(18px) saturate(1.5);
-  -webkit-backdrop-filter: blur(18px) saturate(1.5);
-  box-shadow: inset 0 1px 0 var(--glass-shine);
+  background: var(--card);
+  border: 0;
+  box-shadow: 0 12px 32px rgba(24, 24, 27, 0.08);
 }
 
 .mobile-drawer,
@@ -612,12 +614,43 @@ main h1 {
 }
 
 .kanban-card {
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  background: var(--card);
+  border: 0;
+  box-shadow: 0 8px 22px rgba(24, 24, 27, 0.08);
+  transition: box-shadow 220ms ease, transform 220ms ease;
 }
 
 .kanban-card:hover {
-  border-color: rgba(167, 139, 250, 0.7);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 14px 32px rgba(24, 24, 27, 0.12);
+}
+
+.company-mark.geral-mark {
+  background: transparent;
+  box-shadow: 0 6px 16px rgba(24, 24, 27, 0.12);
+}
+
+html.light .app-content [class*="bg-zinc-9"],
+html.light .app-content [class*="bg-zinc-8"],
+html.light .app-content [class*="bg-zinc-950"] {
+  background-color: #ffffff !important;
+  color: var(--text) !important;
+  border-color: transparent !important;
+  box-shadow: 0 10px 28px rgba(24, 24, 27, 0.07);
+}
+
+html.light .app-content [class*="min-h-screen"] {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--text) !important;
+}
+
+html.light .app-content [class*="bg-zinc-9"] [class*="text-white"]:not(button):not(a),
+html.light .app-content [class*="bg-zinc-8"] [class*="text-white"]:not(button):not(a),
+html.light .app-content [class*="bg-zinc-9"] [class*="text-zinc-"]:not(button):not(a),
+html.light .app-content [class*="bg-zinc-8"] [class*="text-zinc-"]:not(button):not(a),
+html.light .app-content [class*="bg-zinc-950"] [class*="text-white"]:not(button):not(a),
+html.light .app-content [class*="bg-zinc-950"] [class*="text-zinc-"]:not(button):not(a) {
+  color: var(--text) !important;
 }
 
 @media (pointer: coarse) {
@@ -678,7 +711,7 @@ main h1 {
   overflow: hidden;
   border-radius: 999px;
   object-fit: cover;
-  background: #18181b;
+  background: var(--field);
 }
 
 .company-mark {
