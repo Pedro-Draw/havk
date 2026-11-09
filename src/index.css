@@ -95,6 +95,7 @@ body {
 }
 
 .app-main {
+  position: relative;
   display: flex;
   min-width: 0;
   flex: 1;
@@ -108,6 +109,7 @@ body {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  padding-top: 4.85rem;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -207,6 +209,7 @@ html.gray .drawer-foot {
   }
 
   .app-content {
+    padding-top: 5.6rem;
     padding-bottom: 0;
   }
 }
@@ -231,6 +234,42 @@ html.gray .drawer-foot {
   background: var(--glass-bg);
   border-bottom: 1px solid var(--glass-stroke);
   box-shadow: inset 0 1px 0 var(--glass-shine);
+}
+
+header.glass-bar {
+  position: absolute;
+  z-index: 40;
+  top: 0.55rem;
+  right: 0.55rem;
+  left: 0.55rem;
+  width: auto;
+  border: 1px solid var(--glass-stroke);
+  border-bottom: 1px solid var(--glass-stroke);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--glass-bg) 68%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-shine), 0 16px 40px rgba(0, 0, 0, 0.22);
+}
+
+html.light header.glass-bar {
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 12px 32px rgba(24, 24, 27, 0.08);
+}
+
+.kanban-scroll {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 1024px) {
+  .kanban-scroll {
+    scroll-snap-type: none;
+  }
+
+  header.glass-bar {
+    top: 0.75rem;
+    right: 0.85rem;
+    left: 0.85rem;
+  }
 }
 
 .glass-button {
@@ -427,17 +466,22 @@ html.light .glass-field {
   backdrop-filter: blur(16px) saturate(1.6);
 }
 
-.view-switch a {
+.view-switch a,
+.view-switch button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  border: 0;
   border-radius: 10px;
+  background: transparent;
   padding: 6px 10px;
   font-size: 13px;
   color: var(--text-secondary);
+  cursor: pointer;
 }
 
-.view-switch a.is-active {
+.view-switch a.is-active,
+.view-switch button.is-active {
   background: color-mix(in srgb, var(--primary) 28%, transparent);
   color: white;
 }
@@ -447,7 +491,8 @@ html.light .view-switch {
   border-color: var(--border);
 }
 
-html.light .view-switch a.is-active {
+html.light .view-switch a.is-active,
+html.light .view-switch button.is-active {
   background: color-mix(in srgb, var(--primary) 16%, white);
   color: var(--primary-ink);
 }
@@ -483,6 +528,19 @@ html.light .glass-popover {
 html[data-sidebar='collapsed'] .sidebar-link {
   justify-content: center;
   padding-inline: 0;
+}
+
+html[data-sidebar='collapsed'] .mobile-drawer .sidebar-link,
+.mobile-drawer .sidebar-link {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  padding-inline: 10px;
+  text-align: left;
+}
+
+.mobile-drawer .nav-group-label {
+  text-align: left;
 }
 
 .nav-group-label {
@@ -540,9 +598,16 @@ main h1 {
   .glass-icon,
   .sidebar-link,
   .view-switch a,
+  .view-switch button,
   .touch-target {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  .mobile-drawer .sidebar-link {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
   }
 
   .glass-icon {
@@ -682,6 +747,27 @@ main h1 {
   color: var(--text);
 }
 
+.company-logo-static {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 16%, var(--card));
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.company-logo-static img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .company-logo-button {
   display: grid;
   width: 64px;
@@ -705,8 +791,37 @@ main h1 {
 }
 
 .company-logo-button-lg {
+  position: relative;
   width: 84px;
   height: 84px;
+  overflow: visible;
+}
+
+.company-logo-button-lg img,
+.company-logo-button-lg > span {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.company-logo-button-lg > span {
+  display: grid;
+  place-items: center;
+}
+
+.company-logo-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
 }
 
 .profile-photo {

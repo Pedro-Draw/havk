@@ -60,7 +60,7 @@ export default function Topbar() {
   };
 
   return (
-    <header className="glass-bar z-30 w-full shrink-0">
+    <header className="glass-bar z-30">
       <div className="grid h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 lg:h-16 lg:gap-3 lg:px-5">
       <div className="flex items-center gap-1.5">
         <button

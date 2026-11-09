@@ -28,6 +28,7 @@ import Modal from '../components/ui/Modal';
 import PageHeader from '../components/layout/PageHeader';
 import ViewSwitch from '../components/demandas/ViewSwitch';
 import { useAppStore } from '../store/useAppStore';
+import { GERAL_EMPRESA_ID } from '../lib/workspace';
 import { confirmAction } from '../lib/confirm';
 import {
   KANBAN_COLUMNS,
@@ -50,6 +51,8 @@ interface BoardTask {
   esforcoEstimado?: number;
   columnId: string;
   boardOrder: number;
+  empresaId?: string;
+  empresaName?: string;
 }
 
 type Board = Record<string, BoardTask[]>;
@@ -90,6 +93,7 @@ function buildBoard(demandas: Array<Record<string, any>>): Board {
       esforcoEstimado: demanda.esforcoEstimado,
       columnId,
       boardOrder: typeof demanda.boardOrder === 'number' ? demanda.boardOrder : board[columnId].length,
+      empresaId: demanda.empresaId,
     });
   });
 
@@ -114,7 +118,6 @@ function KanbanColumn({
   count,
   accent,
   tasks,
-  mobileActive,
   onMoveAll,
   children,
 }: {
@@ -124,7 +127,6 @@ function KanbanColumn({
   count: number;
   accent: string;
   tasks: BoardTask[];
-  mobileActive: boolean;
   onMoveAll: (columnId: string) => void;
   children: ReactNode;
 }) {
@@ -132,9 +134,9 @@ function KanbanColumn({
 
   return (
     <section
-      className={`w-full shrink-0 flex-col rounded-2xl border p-3 lg:flex lg:w-80 ${
-        mobileActive ? 'flex' : 'hidden'
-      } ${isOver ? 'ring-2 ring-violet-400/70' : ''}`}
+      className={`flex w-[min(84vw,20rem)] shrink-0 snap-start flex-col rounded-2xl border p-3 lg:w-80 ${
+        isOver ? 'ring-2 ring-violet-400/70' : ''
+      }`}
       style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
     >
       <header className="mb-3 flex items-start justify-between gap-3">
@@ -181,6 +183,8 @@ function KanbanColumn({
 
 export default function Kanban() {
   const demandas = useAppStore((state) => state.demandas);
+  const empresas = useAppStore((state) => state.empresas);
+  const activeEmpresaId = useAppStore((state) => state.activeEmpresaId);
   const isLoading = useAppStore((state) => state.isLoading);
   const user = useAppStore((state) => state.user);
   const addDemanda = useAppStore((state) => state.addDemanda);
@@ -192,7 +196,7 @@ export default function Kanban() {
   const savedBoard = useMemo(() => buildBoard(demandas), [demandas]);
   const [draft, setDraft] = useState<Board | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [mobileColumn, setMobileColumn] = useState('backlog');
+  const [view, setView] = useState<'kanban' | 'lista'>('kanban');
   const [query, setQuery] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [current, setCurrent] = useState<BoardTask | null>(null);
@@ -203,22 +207,28 @@ export default function Kanban() {
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 10 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const moveToColumn = async (taskId: string, columnId: string) => {
     await moveDemandaOnBoard(taskId, columnId, Number.MAX_SAFE_INTEGER);
-    setMobileColumn(columnId);
     toast.success(`Movida para ${columnTitle(columnId)}`);
   };
 
   const moveColumn = async (fromColumn: string, toColumn: string) => {
     const moved = await moveColumnDemandas(fromColumn, toColumn);
     if (!moved) return;
-    setMobileColumn(toColumn);
     toast.success(`${moved} ${moved === 1 ? 'demanda movida' : 'demandas movidas'} para ${columnTitle(toColumn)}`);
   };
+
+  const showCompany = !activeEmpresaId || activeEmpresaId === GERAL_EMPRESA_ID;
+  const withCompany = (task: BoardTask): BoardTask => ({
+    ...task,
+    empresaName: !task.empresaId || task.empresaId === GERAL_EMPRESA_ID
+      ? 'Geral'
+      : empresas.find((empresa) => empresa.id === task.empresaId)?.name || 'Empresa',
+  });
 
   const visible = (tasks: BoardTask[]) => {
     const term = query.trim().toLowerCase();
@@ -293,7 +303,6 @@ export default function Kanban() {
 
     try {
       await moveDemandaOnBoard(activeKey, targetId, index);
-      setMobileColumn(targetId);
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível mover a demanda');
@@ -320,7 +329,6 @@ export default function Kanban() {
       esforcoEstimado: form.esforcoEstimado || 0,
       createdBy: user?.name || user?.email || 'Você',
     });
-    setMobileColumn(form.columnId);
     setForm(emptyTask);
     setShowNew(false);
   };
@@ -358,6 +366,9 @@ export default function Kanban() {
     setCurrent(null);
   };
 
+  const labeled = (task: BoardTask) => (showCompany ? withCompany(task) : task);
+  const listed = KANBAN_COLUMNS.flatMap((column) => visible(board[column.id] || []).map(labeled));
+
   const activeTask = activeId
     ? Object.values(board).flat().find((task) => task.id === activeId)
     : undefined;
@@ -372,11 +383,13 @@ export default function Kanban() {
         <PageHeader
           icon={<KanbanSquare size={18} />}
           title="Kanban"
-          description="Arraste as demandas entre as etapas. A coluna fica salva e não volta sozinha."
+          description={showCompany
+            ? 'No Geral o quadro junta as demandas de todas as empresas. Arraste o card para a coluna ao lado.'
+            : 'Arraste as demandas entre as etapas. No celular, as colunas ficam lado a lado para você soltar o card na próxima.'}
           meta={`${demandas.length} demanda${demandas.length === 1 ? '' : 's'}`}
           actions={
             <>
-              <ViewSwitch />
+              <ViewSwitch mode={view} onMode={setView} />
               <Button icon={<Plus size={16} />} onClick={() => setShowNew(true)}>Nova demanda</Button>
             </>
           }
@@ -390,25 +403,32 @@ export default function Kanban() {
             className="havk-field max-w-md px-3 py-2.5 text-sm"
           />
           <p className="hidden text-xs text-[var(--text-muted)] sm:block">
-            Bloqueada fica antes de Em andamento. Uma coluna com muitos cards pode ser rolada na horizontal.
+            Segure o card e solte na coluna ao lado. A lista mostra as mesmas demandas, uma embaixo da outra.
           </p>
         </div>
 
-        <div className="mb-3 flex gap-2 overflow-x-auto lg:hidden">
-          {KANBAN_COLUMNS.map((column) => (
-            <button
-              key={column.id}
-              type="button"
-              onClick={() => setMobileColumn(column.id)}
-              className={`glass-button shrink-0 rounded-full px-3 py-1.5 text-xs ${
-                mobileColumn === column.id ? 'glass-button-primary' : 'glass-button-secondary'
-              }`}
-            >
-              {column.title} {board[column.id].length}
-            </button>
-          ))}
-        </div>
-
+        {view === 'lista' ? (
+          <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+            {listed.length === 0 && (
+              <p className="px-4 py-8 text-sm text-[var(--text-muted)]">Nenhuma demanda neste espaço.</p>
+            )}
+            {listed.map((task) => (
+              <button
+                key={task.id}
+                type="button"
+                onClick={() => setCurrent(task)}
+                className="flex w-full items-center gap-3 border-b px-4 py-3 text-left last:border-b-0"
+                style={{ borderColor: 'var(--border)' }}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{task.title || 'Sem título'}</span>
+                  {showCompany && <span className="mt-0.5 block truncate text-xs text-[var(--text-muted)]">{task.empresaName}</span>}
+                </span>
+                <span className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">{columnTitle(task.columnId)}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
         <DndContext
           sensors={sensors}
           collisionDetection={collisionDetection}
@@ -422,7 +442,7 @@ export default function Kanban() {
         >
           <div className="kanban-scroll flex gap-3 overflow-x-auto pb-4">
             {KANBAN_COLUMNS.map((column) => {
-              const tasks = visible(board[column.id] || []);
+              const tasks = visible(board[column.id] || []).map(labeled);
               const crowded = column.id === 'andamento' && board[column.id].length > 5;
               return (
                 <KanbanColumn
@@ -433,7 +453,6 @@ export default function Kanban() {
                   count={board[column.id].length}
                   accent={column.accent}
                   tasks={tasks}
-                  mobileActive={mobileColumn === column.id}
                   onMoveAll={(columnId) => moveColumn(column.id, columnId)}
                 >
                   <SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
@@ -455,10 +474,12 @@ export default function Kanban() {
             {activeTask ? (
               <div className="w-72 rounded-2xl border p-3 shadow-2xl" style={{ background: 'var(--card-elevated)', borderColor: 'var(--border)' }}>
                 <p className="text-sm font-medium">{activeTask.title}</p>
+                {showCompany && <p className="mt-1 text-xs text-[var(--text-muted)]">{withCompany(activeTask).empresaName}</p>}
               </div>
             ) : null}
           </DragOverlay>
         </DndContext>
+        )}
       </div>
 
       <Modal

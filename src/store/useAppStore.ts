@@ -5,6 +5,7 @@ import { getAll, addItem, updateItem, deleteItem } from '../db/indexedDB';
 import toast from 'react-hot-toast';
 import { moveColumnOnBoard, placeOnBoard, reconcileDemanda } from '../lib/kanban';
 import { GERAL_EMPRESA_ID, empresaIdForNew, ensureEmpresas, purgeEmpresa, rememberEmpresa, sortEmpresas, visibleInWorkspace, type Empresa } from '../lib/workspace';
+import { ensureCompanyDemandas } from '../lib/seedDemandas';
 
 let demandaWrite: Promise<unknown> = Promise.resolve();
 
@@ -455,6 +456,7 @@ export const useAppStore = create<AppState>()(
         set({ isLoading: true });
         try {
           const { empresas, activeId } = await ensureEmpresas();
+          await ensureCompanyDemandas(empresas);
           const [
             demandas,
             notas,

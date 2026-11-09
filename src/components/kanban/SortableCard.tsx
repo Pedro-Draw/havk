@@ -15,6 +15,7 @@ interface SortableCardProps {
     responsavel?: string;
     esforcoEstimado?: number;
     columnId?: string;
+    empresaName?: string;
   };
   onOpen: () => void;
   onMove: (columnId: string) => void;
@@ -41,6 +42,7 @@ export default function SortableCard({ id, item, onOpen, onMove }: SortableCardP
         transition,
         background: 'var(--card-elevated)',
         borderColor: 'var(--border)',
+        touchAction: 'none',
       }}
       className={`kanban-card cursor-grab touch-manipulation rounded-2xl border p-3 shadow-sm active:cursor-grabbing ${
         isDragging ? 'z-10 opacity-80 ring-2 ring-violet-400' : ''
@@ -59,6 +61,9 @@ export default function SortableCard({ id, item, onOpen, onMove }: SortableCardP
       }}
     >
       <h3 className="text-sm font-medium leading-5">{item.title || 'Sem título'}</h3>
+      {item.empresaName && (
+        <p className="mt-1 text-[11px] font-medium text-[var(--text-muted)]">{item.empresaName}</p>
+      )}
       {item.description && (
         <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">{item.description}</p>
       )}

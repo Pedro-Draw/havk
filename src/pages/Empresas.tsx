@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { Building2, GripVertical, Layers, Pin, Trash2 } from 'lucide-react';
-import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { Camera, GripVertical, Layers, Pin, Trash2 } from 'lucide-react';
+import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import toast from 'react-hot-toast';
@@ -30,20 +30,39 @@ function selectOptions(values: string[], current: string) {
   return [{ value: '', label: 'Selecione' }, ...withCurrent(values, current).map((value) => ({ value, label: value }))];
 }
 
+function CompanyFace({ empresa, inUse, lifted = false }: { empresa: Empresa; inUse: boolean; lifted?: boolean }) {
+  return (
+    <div className="flex items-start gap-3 pr-8">
+      <span className="company-logo-static" aria-hidden>
+        {empresa.logo ? <img src={empresa.logo} alt="" /> : empresa.name.slice(0, 1).toUpperCase()}
+      </span>
+      <div className="min-w-0 flex-1 text-left">
+        <span className="block truncate text-base font-semibold">{empresa.name}</span>
+        <span className="mt-0.5 block truncate text-sm text-[var(--text-muted)]">{[empresa.kind, empresa.segment, empresa.size].filter(Boolean).join(' · ') || 'Sem setor'}</span>
+        {!lifted && (
+          <span className="mt-2 block line-clamp-2 text-sm text-[var(--text-secondary)]">{empresa.description || 'Toque para completar as informações.'}</span>
+        )}
+        {inUse && <span className="mt-2 inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-600">Em uso</span>}
+      </div>
+    </div>
+  );
+}
+
 function CompanyCard({
   empresa,
   inUse,
   onOpen,
   onPin,
-  onLogo,
 }: {
   empresa: Empresa;
   inUse: boolean;
   onOpen: () => void;
   onPin: () => void;
-  onLogo: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: empresa.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: empresa.id,
+    transition: { duration: 460, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+  });
 
   return (
     <article
@@ -51,50 +70,34 @@ function CompanyCard({
       style={{
         borderColor: 'var(--border)',
         background: 'var(--card)',
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.7 : 1,
+        transform: isDragging ? undefined : CSS.Transform.toString(transform),
+        transition: isDragging ? undefined : transition || 'transform 460ms cubic-bezier(0.22, 1, 0.36, 1)',
+        opacity: isDragging ? 0.35 : 1,
       }}
-      className="rounded-3xl border p-4 text-left"
+      className="relative rounded-3xl border p-4 text-left"
     >
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          className="mt-1 cursor-grab text-[var(--text-muted)] active:cursor-grabbing"
-          aria-label={`Arrastar ${empresa.name}`}
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical size={16} />
-        </button>
-        <button type="button" className="company-logo-button" aria-label={`Imagem de ${empresa.name}`} onClick={onLogo}>
-          {empresa.logo ? <img src={empresa.logo} alt="" /> : <span>{empresa.name.slice(0, 1).toUpperCase()}</span>}
-        </button>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <button type="button" className="min-w-0 text-left" onClick={onOpen}>
-              <span className="flex items-center gap-1.5">
-                <span className="truncate text-base font-semibold">{empresa.name}</span>
-                {empresa.pinned && <Pin size={14} className="shrink-0" style={{ color: 'var(--primary)' }} />}
-              </span>
-              <span className="mt-0.5 block truncate text-sm text-[var(--text-muted)]">{[empresa.kind, empresa.segment, empresa.size].filter(Boolean).join(' · ') || 'Sem setor'}</span>
-            </button>
-            <button
-              type="button"
-              className={`shrink-0 rounded-full border px-2.5 py-1 text-xs ${empresa.pinned ? '' : 'text-[var(--text-muted)]'}`}
-              style={{ borderColor: empresa.pinned ? 'var(--primary)' : 'var(--border)', color: empresa.pinned ? 'var(--primary)' : undefined }}
-              aria-pressed={Boolean(empresa.pinned)}
-              onClick={onPin}
-            >
-              {empresa.pinned ? 'Fixada' : 'Fixar'}
-            </button>
-          </div>
-          <button type="button" className="mt-2 block w-full text-left" onClick={onOpen}>
-            <span className="line-clamp-2 text-sm text-[var(--text-secondary)]">{empresa.description || 'Toque para completar logo e informações.'}</span>
-            {inUse && <span className="mt-2 inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-600">Em uso</span>}
-          </button>
-        </div>
-      </div>
+      <button type="button" className="block w-full pt-1 pl-8 text-left" onClick={onOpen}>
+        <CompanyFace empresa={empresa} inUse={inUse} />
+      </button>
+      <button
+        type="button"
+        className="absolute top-3 left-3 z-10 grid h-8 w-8 cursor-grab place-items-center text-[var(--text-muted)] active:cursor-grabbing"
+        aria-label={`Arrastar ${empresa.name}`}
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical size={16} />
+      </button>
+      <button
+        type="button"
+        className="absolute top-3 right-3 z-10 grid h-8 w-8 place-items-center rounded-full"
+        aria-label={empresa.pinned ? 'Desafixar empresa' : 'Fixar empresa'}
+        aria-pressed={Boolean(empresa.pinned)}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={onPin}
+      >
+        <Pin size={15} className={empresa.pinned ? 'fill-current' : ''} style={{ color: empresa.pinned ? 'var(--primary)' : 'var(--text-muted)' }} />
+      </button>
     </article>
   );
 }
@@ -116,8 +119,7 @@ export default function Empresas() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const cardFileRef = useRef<HTMLInputElement>(null);
-  const cardTarget = useRef<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const selected = empresas.find((empresa) => empresa.id === selectedId) || null;
@@ -215,7 +217,8 @@ export default function Empresas() {
     setSelectedId(null);
   };
 
-  const onDragEnd = (group: Empresa[]) => (event: DragEndEvent) => {
+  const finishDrag = (group: Empresa[]) => (event: DragEndEvent) => {
+    setDraggingId(null);
     const { active: dragged, over } = event;
     if (!over || dragged.id === over.id) return;
     const oldIndex = group.findIndex((empresa) => empresa.id === dragged.id);
@@ -224,27 +227,39 @@ export default function Empresas() {
     void reorderEmpresas(arrayMove(group, oldIndex, newIndex).map((empresa) => empresa.id));
   };
 
-  const renderGroup = (group: Empresa[]) => (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd(group)}>
-      <SortableContext items={group.map((empresa) => empresa.id)} strategy={rectSortingStrategy}>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {group.map((empresa) => (
-            <CompanyCard
-              key={empresa.id}
-              empresa={empresa}
-              inUse={empresa.id === activeEmpresaId}
-              onOpen={() => open(empresa)}
-              onPin={() => void toggleEmpresaPin(empresa.id)}
-              onLogo={() => {
-                cardTarget.current = empresa.id;
-                cardFileRef.current?.click();
-              }}
-            />
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
-  );
+  const renderGroup = (group: Empresa[]) => {
+    const dragging = group.find((empresa) => empresa.id === draggingId) || null;
+    return (
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={(event: DragStartEvent) => setDraggingId(String(event.active.id))}
+        onDragCancel={() => setDraggingId(null)}
+        onDragEnd={finishDrag(group)}
+      >
+        <SortableContext items={group.map((empresa) => empresa.id)} strategy={rectSortingStrategy}>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {group.map((empresa) => (
+              <CompanyCard
+                key={empresa.id}
+                empresa={empresa}
+                inUse={empresa.id === activeEmpresaId}
+                onOpen={() => open(empresa)}
+                onPin={() => void toggleEmpresaPin(empresa.id)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+        <DragOverlay dropAnimation={{ duration: 360, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }}>
+          {dragging ? (
+            <article className="rounded-3xl border p-4 shadow-2xl" style={{ borderColor: 'var(--border)', background: 'var(--card-elevated)' }}>
+              <CompanyFace empresa={dragging} inUse={dragging.id === activeEmpresaId} lifted />
+            </article>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    );
+  };
 
   return (
     <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
@@ -287,18 +302,6 @@ export default function Empresas() {
         {renderGroup(loose)}
       </section>
 
-      <input
-        ref={cardFileRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(event) => {
-          const id = cardTarget.current || undefined;
-          void pickLogo(event.target.files?.[0], id);
-          event.target.value = '';
-        }}
-      />
-
       {selectedId && (
         <div data-havk-overlay className="fixed inset-0 z-50 flex bg-black/70 sm:items-center sm:justify-center sm:p-4" onClick={() => setSelectedId(null)}>
           <div
@@ -307,13 +310,24 @@ export default function Empresas() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start gap-4 border-b p-5" style={{ borderColor: 'var(--border)' }}>
-              <button type="button" className="company-logo-button company-logo-button-lg" onClick={() => fileRef.current?.click()} aria-label="Escolher logo">
-                {form.logo ? <img src={form.logo} alt="" /> : <Building2 />}
-              </button>
+              <div className="flex flex-col items-start gap-2">
+                <button type="button" className="company-logo-button company-logo-button-lg" onClick={() => fileRef.current?.click()} aria-label="Adicionar imagem da empresa">
+                  {form.logo ? <img src={form.logo} alt="" /> : <span>{(form.name || 'E').slice(0, 1).toUpperCase()}</span>}
+                  <span className="company-logo-badge"><Camera size={14} /></span>
+                </button>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-[var(--text-secondary)] underline-offset-2 hover:underline disabled:opacity-40"
+                  disabled={!form.logo}
+                  onClick={() => setForm((current) => ({ ...current, logo: null }))}
+                >
+                  Remover imagem
+                </button>
+              </div>
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(event) => { void pickLogo(event.target.files?.[0]); event.target.value = ''; }} />
               <div className="min-w-0 flex-1">
                 <h2 className="text-xl font-semibold">{selectedId === 'new' ? 'Nova empresa' : form.name || 'Empresa'}</h2>
-                <p className="mt-1 text-sm text-[var(--text-secondary)]">A imagem redonda é a logo deste espaço.</p>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">Toque na imagem para trocar. Sem foto, a empresa fica com a marca padrão.</p>
               </div>
             </div>
 
