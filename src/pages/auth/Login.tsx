@@ -235,7 +235,7 @@ export default function Login() {
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label="Mostrar ou ocultar senha"
-                  className="text-zinc-400 hover:text-white transition-colors"
+                  className={`password-eye${showPassword ? ' is-on' : ''}`}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>

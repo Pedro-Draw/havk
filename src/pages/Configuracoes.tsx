@@ -490,7 +490,7 @@ export default function Configuracoes() {
                 onChange={handleChange}
                 leadingIcon={<Lock size={16} />}
                 trailingIcon={
-                  <button type="button" className="text-[var(--text-muted)]" onClick={() => setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }))} aria-label={showPasswords[field] ? 'Ocultar senha' : 'Mostrar senha'}>
+                  <button type="button" className={`password-eye${showPasswords[field] ? ' is-on' : ''}`} onClick={() => setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }))} aria-label={showPasswords[field] ? 'Ocultar senha' : 'Mostrar senha'}>
                     {showPasswords[field] ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 }

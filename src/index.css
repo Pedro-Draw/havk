@@ -788,6 +788,80 @@ html.light .app-content [class*="bg-zinc-950"] [class*="text-zinc-"]:not(button)
   content: '';
 }
 
+.round-check.is-disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.select-dot {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1.5px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: white;
+  box-shadow: 0 6px 16px rgba(24, 24, 27, 0.16);
+}
+
+.select-dot.is-on {
+  border-color: transparent;
+  background: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 28%, transparent), 0 8px 18px rgba(24, 24, 27, 0.18);
+}
+
+html.light .select-dot {
+  border-color: #d4d4d8;
+  background: #fff;
+  color: #fff;
+}
+
+.company-mini {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--field);
+  object-fit: cover;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-toggle,
+.password-eye {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+}
+
+.password-toggle:hover,
+.password-toggle.is-on,
+.password-eye:hover,
+.password-eye.is-on {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
 .mobile-drawer .company-switch {
   width: calc(100% - 0.5rem);
   max-width: none;

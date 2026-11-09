@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
-import { ArrowLeft, KeyRound } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, KeyRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { auth } from '../../lib/firebase';
 import Button from '../../components/ui/Button';
@@ -19,6 +19,8 @@ export default function ResetPassword() {
   const code = params.get('oobCode') || '';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -84,8 +86,24 @@ export default function ResetPassword() {
               <h1 className="text-2xl font-bold text-white">Nova senha</h1>
               <p className="mt-2 text-sm text-zinc-400">{email}</p>
             </div>
-            <Input label="Nova senha" type="password" value={password} onChange={(event) => setPassword(event.target.value)} fullWidth required />
-            <Input label="Confirmar senha" type="password" value={confirm} onChange={(event) => setConfirm(event.target.value)} fullWidth required />
+            <Input
+              label="Nova senha"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              fullWidth
+              required
+              trailingIcon={<button type="button" className={`password-eye${showPassword ? ' is-on' : ''}`} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} onClick={() => setShowPassword((value) => !value)}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>}
+            />
+            <Input
+              label="Confirmar senha"
+              type={showConfirm ? 'text' : 'password'}
+              value={confirm}
+              onChange={(event) => setConfirm(event.target.value)}
+              fullWidth
+              required
+              trailingIcon={<button type="button" className={`password-eye${showConfirm ? ' is-on' : ''}`} aria-label={showConfirm ? 'Ocultar senha' : 'Mostrar senha'} onClick={() => setShowConfirm((value) => !value)}>{showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}</button>}
+            />
             <Button type="submit" variant="primary" size="lg" fullWidth loading={saving} disabled={saving}>
               Salvar nova senha
             </Button>

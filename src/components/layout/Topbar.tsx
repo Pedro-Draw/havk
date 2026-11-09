@@ -17,6 +17,7 @@ export default function Topbar() {
   const user = useAppStore((state) => state.user);
   const notifications = useAppStore((state) => state.notifications || []);
   const updateNotification = useAppStore((state) => state.updateNotification);
+  const clearNotifications = useAppStore((state) => state.clearNotifications);
 
   const { t } = useTranslation();
   const { signOut } = useAuth();
@@ -135,10 +136,14 @@ export default function Topbar() {
             >
               <div className="sticky top-0 z-10 flex items-center justify-between border-b px-4 py-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
                 <h3 className="text-base font-semibold">Notificações</h3>
-                {unreadCount > 0 && (
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {unreadCount} não lida{unreadCount !== 1 ? 's' : ''}
-                  </span>
+                {notifications.length > 0 && (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-red-400"
+                    onClick={() => void clearNotifications()}
+                  >
+                    Limpar
+                  </button>
                 )}
               </div>
 

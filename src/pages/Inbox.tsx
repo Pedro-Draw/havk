@@ -15,6 +15,7 @@ import {
   Undo2,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
+import SelectDot from '../components/ui/SelectDot';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import toast from 'react-hot-toast';
@@ -402,12 +403,7 @@ export default function Inbox() {
                     >
                       {selectMode && (
                         <div className="pt-1">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelect(notif.id)}
-                            className="w-4 h-4 sm:w-5 sm:h-5 rounded border-zinc-600 checked:bg-indigo-600 checked:border-indigo-500 focus:ring-indigo-500/50 bg-zinc-900/80"
-                          />
+                          <SelectDot checked={isSelected} onChange={() => toggleSelect(notif.id)} label="Selecionar aviso" />
                         </div>
                       )}
 

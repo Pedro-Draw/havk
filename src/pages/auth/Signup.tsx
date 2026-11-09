@@ -133,7 +133,7 @@ export default function Signup() {
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label="Mostrar ou ocultar senha"
-                  className="text-zinc-400 hover:text-zinc-200 focus:outline-none"
+                  className={`password-eye${showPassword ? ' is-on' : ''}`}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

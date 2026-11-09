@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, Search, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../components/ui/Button';
+import PasswordField from '../components/ui/PasswordField';
+import SelectDot from '../components/ui/SelectDot';
 import PermissionEditor from '../components/equipe/PermissionEditor';
 import { confirmAction } from '../lib/confirm';
 import { createMemberAccount } from '../lib/createMemberAccount';
+import { ALL_PERMISSION_IDS } from '../lib/permissions';
 import { getAll } from '../db/indexedDB';
 import { useAppStore } from '../store/useAppStore';
 import { GERAL_EMPRESA_ID } from '../lib/workspace';
@@ -21,8 +24,12 @@ type Person = {
   avatar?: string | null;
   status: 'ativo' | 'inativo';
   admin?: boolean;
+  master?: boolean;
   permissions?: string[];
   empresaId?: string;
+  gender?: string;
+  maritalStatus?: string;
+  age?: number;
   accountOnly?: boolean;
 };
 
@@ -41,14 +48,28 @@ const blankMember = {
   admin: false,
   permissions: [] as string[],
   empresaId: '',
+  gender: '',
+  maritalStatus: '',
+  age: '',
 };
 
 const roles = ['Admin', 'Project Manager', 'Developer', 'Designer', 'Finance', 'Support', 'Member', 'Viewer'];
+const genders = ['Feminino', 'Masculino', 'Não binário', 'Prefiro não informar'];
+const maritalStatuses = ['Solteiro(a)', 'Casado(a)', 'União estável', 'Divorciado(a)', 'Viúvo(a)', 'Prefiro não informar'];
 
 function coverColor(name: string) {
   const hues = [210, 262, 160, 28, 330, 190];
   const index = [...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % hues.length;
   return `linear-gradient(135deg, hsl(${hues[index]} 70% 46%), hsl(${(hues[index] + 28) % 360} 65% 38%))`;
+}
+
+function CompanyMini({ empresaId, empresas }: { empresaId?: string; empresas: { id: string; name: string; logo?: string | null }[] }) {
+  if (!empresaId || empresaId === GERAL_EMPRESA_ID) {
+    return <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="company-mini" />;
+  }
+  const empresa = empresas.find((item) => item.id === empresaId);
+  if (empresa?.logo) return <img src={empresa.logo} alt="" className="company-mini" />;
+  return <span className="company-mini">{(empresa?.name || '?').slice(0, 1).toUpperCase()}</span>;
 }
 
 function formatCpf(value: string) {
@@ -66,6 +87,7 @@ export default function Equipe() {
   const addMembro = useAppStore((state) => state.addMembro);
   const updateMembro = useAppStore((state) => state.updateMembro);
   const deleteMembros = useAppStore((state) => state.deleteMembros);
+  const setUser = useAppStore((state) => state.setUser);
   const isLoading = useAppStore((state) => state.isLoading);
 
   const [people, setPeople] = useState<Person[]>([]);
@@ -124,8 +146,12 @@ export default function Equipe() {
     setIsModalOpen(true);
   };
 
+  const isMasterPerson = (person: Person) => Boolean(person.master || person.accountOnly);
+
   const openPerson = (person: Person) => {
-    if (person.accountOnly) return;
+    const master = isMasterPerson(person);
+    const canEditSelf = master || person.admin || person.permissions?.includes('equipe:create') || person.permissions?.includes('equipe:edit');
+    if (person.accountOnly && !canEditSelf) return;
     setEditingMember(person);
     setForm({
       name: person.name || '',
@@ -135,13 +161,16 @@ export default function Equipe() {
       phone: person.phone || '',
       cpf: person.cpf || '',
       department: person.department || '',
-      role: person.role || 'Member',
+      role: master ? 'Admin' : person.role || 'Member',
       notes: person.notes || '',
-      avatar: person.avatar || null,
+      avatar: photoFor(person),
       status: person.status || 'ativo',
-      admin: person.admin === true || (person.admin == null && person.role === 'Admin'),
-      permissions: Array.isArray(person.permissions) ? person.permissions : [],
-      empresaId: person.empresaId || '',
+      admin: master || person.admin === true || (person.admin == null && person.role === 'Admin'),
+      permissions: master ? [...ALL_PERMISSION_IDS] : Array.isArray(person.permissions) ? person.permissions : [],
+      empresaId: person.empresaId || GERAL_EMPRESA_ID,
+      gender: person.gender || '',
+      maritalStatus: person.maritalStatus || '',
+      age: person.age ? String(person.age) : '',
     });
     setIsModalOpen(true);
   };
@@ -179,8 +208,15 @@ export default function Equipe() {
       }
     }
 
+    const age = Number(form.age);
+    if (form.age && (!Number.isInteger(age) || age < 1 || age > 120)) {
+      toast.error('Informe uma idade entre 1 e 120');
+      return;
+    }
+
     setSaving(true);
     try {
+      const master = Boolean(editingMember && isMasterPerson(editingMember));
       const payload = {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
@@ -188,19 +224,28 @@ export default function Equipe() {
         cpf: form.cpf.trim(),
         department: form.department.trim(),
         notes: form.notes.trim(),
-        role: form.admin ? 'Admin' : form.role,
+        role: master || form.admin ? 'Admin' : form.role,
         avatar: form.avatar,
         status: form.status as 'ativo' | 'inativo',
-        admin: form.admin,
-        permissions: form.permissions,
+        admin: master || form.admin,
+        master,
+        permissions: master ? [...ALL_PERMISSION_IDS] : form.permissions,
         empresaId: form.empresaId || GERAL_EMPRESA_ID,
+        gender: form.gender,
+        maritalStatus: form.maritalStatus,
+        age: form.age ? age : undefined,
       };
-      if (editingMember) {
+      if (editingMember && !editingMember.accountOnly) {
         await updateMembro(editingMember.id, payload);
-      } else {
+      } else if (!editingMember) {
         const account = await createMemberAccount(payload.name, payload.email, form.password);
         await addMembro(payload);
         if (account.alreadyExists) toast('Este e-mail já tinha conta. A pessoa entra com a senha que já usa.');
+      } else {
+        await addMembro(payload);
+      }
+      if (user && editingMember && (editingMember.accountOnly || editingMember.email?.toLowerCase() === user.email.toLowerCase())) {
+        await setUser({ ...user, name: payload.name, email: payload.email, avatar: payload.avatar });
       }
       setIsModalOpen(false);
       setEditingMember(null);
@@ -266,16 +311,19 @@ export default function Equipe() {
             return (
               <article key={person.id} className="member-card cursor-pointer" onClick={() => openPerson(person)}>
                 <div className="member-cover" style={{ background: coverColor(person.name || person.email) }} />
-                {!person.accountOnly && (
-                  <label className="absolute right-3 top-3 grid h-6 w-6 place-items-center rounded-md bg-white/80" onClick={(event) => event.stopPropagation()}>
-                    <input type="checkbox" checked={selected.includes(person.id)} onChange={() => toggleSelected(person.id)} aria-label={`Selecionar ${person.name}`} />
-                  </label>
+                {!person.accountOnly && !person.master && (
+                  <div className="absolute right-3 top-3" onClick={(event) => event.stopPropagation()}>
+                    <SelectDot checked={selected.includes(person.id)} onChange={() => toggleSelected(person.id)} label={`Selecionar ${person.name}`} />
+                  </div>
                 )}
                 <div className="px-4 pb-4">
                   {photo ? <img src={photo} alt="" className="member-photo" /> : <span className="member-photo grid place-items-center text-sm font-semibold">{(person.name || '?').slice(0, 1).toUpperCase()}</span>}
                   <p className="mt-2 truncate font-semibold">{person.name}</p>
                   <p className="truncate text-sm text-[var(--text-muted)]">{person.email}</p>
-                  <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{companyName(person.empresaId)} · {person.admin ? 'Administrador' : person.role}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+                    <CompanyMini empresaId={person.empresaId} empresas={empresas} />
+                    <span className="truncate">{companyName(person.empresaId)} · {isMasterPerson(person) ? 'Administrador principal' : person.admin ? 'Administrador' : person.role}</span>
+                  </p>
                 </div>
               </article>
             );
@@ -315,14 +363,32 @@ export default function Equipe() {
                   <>
                     <label className="block text-sm">
                       <span className="mb-1.5 block text-[var(--text-secondary)]">Senha</span>
-                      <input type="password" autoComplete="new-password" className="havk-field w-full rounded-2xl px-3 py-3" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
+                      <PasswordField value={form.password} onChange={(password) => setForm({ ...form, password })} />
                     </label>
                     <label className="block text-sm">
                       <span className="mb-1.5 block text-[var(--text-secondary)]">Confirmar senha</span>
-                      <input type="password" autoComplete="new-password" className="havk-field w-full rounded-2xl px-3 py-3" value={form.confirmPassword} onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })} />
+                      <PasswordField value={form.confirmPassword} onChange={(confirmPassword) => setForm({ ...form, confirmPassword })} />
                     </label>
                   </>
                 )}
+                <label className="block text-sm">
+                  <span className="mb-1.5 block text-[var(--text-secondary)]">Gênero</span>
+                  <select className="havk-field w-full rounded-2xl px-3 py-3" value={form.gender} onChange={(event) => setForm({ ...form, gender: event.target.value })}>
+                    <option value="">Não informado</option>
+                    {genders.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1.5 block text-[var(--text-secondary)]">Estado civil</span>
+                  <select className="havk-field w-full rounded-2xl px-3 py-3" value={form.maritalStatus} onChange={(event) => setForm({ ...form, maritalStatus: event.target.value })}>
+                    <option value="">Não informado</option>
+                    {maritalStatuses.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1.5 block text-[var(--text-secondary)]">Idade</span>
+                  <input inputMode="numeric" className="havk-field w-full rounded-2xl px-3 py-3" value={form.age} placeholder="Anos" onChange={(event) => setForm({ ...form, age: event.target.value.replace(/\D/g, '').slice(0, 3) })} />
+                </label>
                 <label className="block text-sm">
                   <span className="mb-1.5 block text-[var(--text-secondary)]">CPF</span>
                   <input inputMode="numeric" className="havk-field w-full rounded-2xl px-3 py-3" value={form.cpf} placeholder="000.000.000-00" onChange={(event) => setForm({ ...form, cpf: formatCpf(event.target.value) })} />
@@ -351,6 +417,7 @@ export default function Equipe() {
               </div>
               <PermissionEditor
                 admin={form.admin}
+                locked={Boolean(editingMember && isMasterPerson(editingMember))}
                 permissions={form.permissions}
                 onAdmin={(admin) => setForm({ ...form, admin })}
                 onPermissions={(permissions) => setForm({ ...form, permissions })}

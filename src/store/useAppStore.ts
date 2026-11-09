@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { moveColumnOnBoard, placeOnBoard, reconcileDemanda } from '../lib/kanban';
 import { GERAL_EMPRESA_ID, empresaIdForNew, ensureEmpresas, purgeEmpresa, rememberEmpresa, sortEmpresas, visibleInWorkspace, type Empresa } from '../lib/workspace';
 import { ensureCompanyDemandas } from '../lib/seedDemandas';
+import { ALL_PERMISSION_IDS } from '../lib/permissions';
 
 let demandaWrite: Promise<unknown> = Promise.resolve();
 
@@ -162,7 +163,11 @@ interface Membro extends BaseEntity {
   department?: string;
   notes?: string;
   admin?: boolean;
+  master?: boolean;
   permissions?: string[];
+  gender?: string;
+  maritalStatus?: string;
+  age?: number;
 }
 
 interface Template extends BaseEntity {
@@ -889,11 +894,21 @@ clearNotifications: async () => {
         const current = get().membros.find((m) => m.id === id) || await getItem<Membro>('membros', id);
         if (!current) return;
 
-        const updated: Membro = {
-          ...current,
-          ...data,
-          updatedAt: new Date().toISOString(),
-        };
+        const updated: Membro = current.master
+          ? {
+              ...current,
+              ...data,
+              master: true,
+              admin: true,
+              role: 'Admin',
+              permissions: [...ALL_PERMISSION_IDS],
+              updatedAt: new Date().toISOString(),
+            }
+          : {
+              ...current,
+              ...data,
+              updatedAt: new Date().toISOString(),
+            };
 
         try {
           await updateItem('membros', updated);
@@ -907,6 +922,11 @@ clearNotifications: async () => {
       },
 
       deleteMembro: async (id: string) => {
+        const current = get().membros.find((m) => m.id === id);
+        if (current?.master) {
+          toast.error('A conta principal não pode ser removida');
+          return;
+        }
         try {
           await deleteItem('membros', id);
           set((state) => ({
@@ -919,11 +939,17 @@ clearNotifications: async () => {
       },
 
       deleteMembros: async (ids: string[]) => {
+        const blocked = new Set(get().membros.filter((member) => member.master).map((member) => member.id));
+        const removable = ids.filter((id) => !blocked.has(id));
+        if (!removable.length) {
+          toast.error('A conta principal não pode ser removida');
+          return;
+        }
         try {
-          for (const id of ids) await deleteItem('membros', id);
-          const gone = new Set(ids);
+          for (const id of removable) await deleteItem('membros', id);
+          const gone = new Set(removable);
           set((state) => ({ membros: state.membros.filter((m) => !gone.has(m.id)) }));
-          toast.success(ids.length === 1 ? 'Membro removido' : `${ids.length} membros removidos`);
+          toast.success(removable.length === 1 ? 'Membro removido' : `${removable.length} membros removidos`);
         } catch (err) {
           toast.error('Erro ao remover os membros');
         }

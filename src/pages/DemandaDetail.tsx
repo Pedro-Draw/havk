@@ -26,6 +26,8 @@ import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
 import { confirmAction } from '../lib/confirm';
 import ViewSwitch from '../components/demandas/ViewSwitch';
+import ResponsavelField, { useResponsaveis } from '../components/demandas/ResponsavelField';
+import SelectDot from '../components/ui/SelectDot';
 
 export type DemandaTipo = 'bug' | 'feature' | 'melhoria' | 'inovacao' | 'outro';
 type Dificuldade = 'muito-facil' | 'facil' | 'media' | 'dificil' | 'muito-dificil';
@@ -59,6 +61,7 @@ export default function DemandaDetail() {
     user,
   } = useAppStore();
 
+  const responsaveis = useResponsaveis();
   const [tab, setTab] = useState<'detalhes' | 'chat' | 'notas' | 'anexos' | 'historico'>('detalhes');
 
   const [newMessage, setNewMessage] = useState('');
@@ -520,6 +523,22 @@ export default function DemandaDetail() {
                     <option value="bloqueada">Bloqueada</option>
                     <option value="concluida">Concluída</option>
                   </select>
+                  <select
+                    className="havk-field min-h-11 text-sm"
+                    defaultValue=""
+                    onChange={async (event) => {
+                      const responsavel = event.target.value;
+                      if (!responsavel) return;
+                      for (const id of selectedIds) {
+                        await updateDemanda(id, { responsavel }, { silent: true });
+                      }
+                      toast.success('Responsável atualizado');
+                      event.target.value = '';
+                    }}
+                  >
+                    <option value="">Definir responsável</option>
+                    {responsaveis.map((name) => <option key={name} value={name}>{name}</option>)}
+                  </select>
                   <button
                     type="button"
                     className="touch-target rounded-xl px-3 text-sm text-red-300 glass-button glass-button-secondary"
@@ -565,10 +584,9 @@ export default function DemandaDetail() {
                     {filteredDemandas.map((dem) => (
                       <tr key={dem.id} className="border-t border-zinc-800">
                         <td className="p-3">
-                          <input
-                            type="checkbox"
-                            className="h-5 w-5"
+                          <SelectDot
                             checked={selectedIds.includes(dem.id)}
+                            label={`Selecionar ${dem.title || 'demanda'}`}
                             onChange={() => setSelectedIds((current) => current.includes(dem.id) ? current.filter((id) => id !== dem.id) : [...current, dem.id])}
                           />
                         </td>
@@ -597,15 +615,14 @@ export default function DemandaDetail() {
                       onClick={() => protectedNavigate(`/demandas/${dem.id}`)}
                     >
                       <div className="p-6 flex flex-col flex-1">
-                        <label className="mb-3 flex items-center gap-2 text-sm text-zinc-400" onClick={(event) => event.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            className="h-5 w-5"
+                        <div className="mb-3 flex items-center gap-2 text-sm text-zinc-400" onClick={(event) => event.stopPropagation()}>
+                          <SelectDot
                             checked={selectedIds.includes(dem.id)}
+                            label={`Selecionar ${dem.title || 'demanda'}`}
                             onChange={() => setSelectedIds((current) => current.includes(dem.id) ? current.filter((id) => id !== dem.id) : [...current, dem.id])}
                           />
                           Selecionar
-                        </label>
+                        </div>
                         <h3 className="font-semibold text-xl text-white mb-4 line-clamp-2 leading-tight">
                           {dem.title || 'Sem título'}
                         </h3>
@@ -777,12 +794,10 @@ export default function DemandaDetail() {
 
                   <div>
                     <label className="block text-sm text-zinc-400 mb-2 font-medium">Responsável</label>
-                    <input
-                      type="text"
+                    <ResponsavelField
                       value={newDemandaForm.responsavel}
-                      onChange={e => setNewDemandaForm({ ...newDemandaForm, responsavel: e.target.value })}
+                      onChange={(responsavel) => setNewDemandaForm({ ...newDemandaForm, responsavel })}
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-5 py-3 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
-                      placeholder="Nome ou email"
                     />
                   </div>
                 </div>
@@ -993,11 +1008,10 @@ export default function DemandaDetail() {
                   <div>
                     <label className="text-sm text-zinc-400 block mb-2 font-medium">Responsável</label>
                     {isEditing ? (
-                      <input
+                      <ResponsavelField
                         value={editedFields.responsavel ?? demanda.responsavel ?? ''}
-                        onChange={e => setEditedFields({ ...editedFields, responsavel: e.target.value })}
+                        onChange={(responsavel) => setEditedFields({ ...editedFields, responsavel })}
                         className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 text-zinc-100"
-                        placeholder="Nome ou email"
                       />
                     ) : (
                       <div className="text-lg font-medium">

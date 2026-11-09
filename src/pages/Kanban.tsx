@@ -23,6 +23,7 @@ import {
 import { Check, KanbanSquare, Play, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SortableCard from '../components/kanban/SortableCard';
+import ResponsavelField from '../components/demandas/ResponsavelField';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import PageHeader from '../components/layout/PageHeader';
@@ -718,7 +719,7 @@ function TaskFields({
         </label>
         <label className="block space-y-1.5 text-sm">
           <span className="text-[var(--text-secondary)]">Responsável</span>
-          <input className="havk-field px-3 py-2.5" value={value.responsavel || ''} onChange={(event) => set({ responsavel: event.target.value })} />
+          <ResponsavelField className="havk-field px-3 py-2.5" value={value.responsavel || ''} onChange={(responsavel) => set({ responsavel })} />
         </label>
       </div>
     </div>
