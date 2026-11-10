@@ -35,7 +35,7 @@ export default function CompanySwitch() {
     <div ref={boxRef} className="relative">
       <button type="button" className="company-switch" onClick={() => setOpen((value) => !value)} aria-haspopup="listbox" aria-expanded={open}>
         {mark}
-        <span className="hidden max-w-32 truncate text-sm font-medium sm:block">{geral || !active ? 'Geral' : active.name}</span>
+        <span className="max-w-20 truncate text-sm font-medium sm:max-w-32">{geral || !active ? 'Geral' : active.name}</span>
         <ChevronsUpDown className="h-3.5 w-3.5 text-[var(--text-muted)]" />
       </button>
       {open && (

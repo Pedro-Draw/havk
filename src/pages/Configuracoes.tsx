@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from '../i18n/useTranslation';
 import {
   Settings, Camera, Mail, Lock, Globe, Moon, Sun, Monitor,
@@ -506,6 +507,15 @@ export default function Configuracoes() {
           )}
           <div className="mt-4 flex justify-end">
             <Button variant="primary" onClick={handleChangePassword}>Atualizar senha</Button>
+          </div>
+        </Card>
+
+        <Card title="Ajuda e contato" description="Os mesmos links que ficavam no rodapé, agora nesta tela.">
+          <div className="grid gap-2 text-sm">
+            <a href="mailto:pedrocesar.draw@gmail.com" className="rounded-xl border px-3 py-2" style={{ borderColor: 'var(--border)' }}>E-mail</a>
+            <a href="https://wa.me/5561982610405" className="rounded-xl border px-3 py-2" style={{ borderColor: 'var(--border)' }}>WhatsApp</a>
+            <a href="tel:+5561982610405" className="rounded-xl border px-3 py-2" style={{ borderColor: 'var(--border)' }}>(61) 98261-0405</a>
+            <Link to="/ajuda" className="rounded-xl border px-3 py-2" style={{ borderColor: 'var(--border)' }}>Ajuda</Link>
           </div>
         </Card>
 

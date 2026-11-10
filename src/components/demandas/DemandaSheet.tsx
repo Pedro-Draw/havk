@@ -74,6 +74,7 @@ export default function DemandaSheet({
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [fileError, setFileError] = useState('');
+  const [preview, setPreview] = useState<string | null>(null);
   const [open, setOpen] = useState({ descricao: true, tarefas: !compact, arquivos: !compact, historico: !compact });
 
   useEffect(() => {
@@ -261,7 +262,8 @@ export default function DemandaSheet({
 
       {fold('arquivos', 'Arquivos', String(anexos.length), (
         <>
-          <div className="mb-3 flex justify-end">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-xs text-[var(--text-muted)]">Imagem ou PDF de até 2,5 MB.</p>
             <button type="button" className="demand-quiet" onClick={() => fileRef.current?.click()}>
               <Paperclip size={14} /> Adicionar arquivo
             </button>
@@ -272,7 +274,12 @@ export default function DemandaSheet({
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-1">
               {anexos.map((file) => (
-                <a key={file.id} href={file.data} download={file.name} className="demand-file">
+                <button
+                  key={file.id}
+                  type="button"
+                  className="demand-file text-left"
+                  onClick={() => file.type.startsWith('image/') ? setPreview(file.data) : window.open(file.data, '_blank')}
+                >
                   {file.type.startsWith('image/') ? (
                     <img src={file.data} alt="" />
                   ) : (
@@ -280,7 +287,7 @@ export default function DemandaSheet({
                   )}
                   <span className="mt-2 block truncate text-sm font-medium">{file.name}</span>
                   <span className="text-xs text-[var(--text-muted)]">{file.type.split('/')[1]?.toUpperCase() || 'ARQ'} · {formatSize(file.size)}</span>
-                </a>
+                </button>
               ))}
             </div>
           )}
@@ -357,6 +364,11 @@ export default function DemandaSheet({
       ))}
 
       <input ref={fileRef} type="file" accept="image/*,.pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={(event) => void attach(event.target.files)} />
+      {preview && (
+        <button type="button" className="demand-lightbox" aria-label="Fechar imagem" onClick={() => setPreview(null)}>
+          <img src={preview} alt="" />
+        </button>
+      )}
     </div>
   );
 }

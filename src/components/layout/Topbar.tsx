@@ -84,18 +84,15 @@ export default function Topbar() {
           </button>
         )}
 
-        <Link
-          to="/"
-          className="text-base font-semibold tracking-tight lg:hidden"
-        >
-          Havk
-        </Link>
       </div>
 
-      <div className="hidden min-w-0 justify-center lg:flex">
+      <div className="flex min-w-0 items-center justify-center gap-2">
+        <div className="min-w-0 lg:hidden">
+          <CompanySwitch />
+        </div>
         <button
           type="button"
-          className="havk-field flex w-full max-w-xl items-center gap-2 rounded-full px-4 py-2 text-left text-sm text-[var(--text-muted)]"
+          className="havk-field hidden w-full max-w-xl items-center gap-2 rounded-full px-4 py-2 text-left text-sm text-[var(--text-muted)] lg:flex"
           onClick={openCommandPalette}
         >
           <Search size={16} />
@@ -105,6 +102,14 @@ export default function Topbar() {
       </div>
 
       <div className="flex items-center justify-end gap-1.5 lg:gap-2">
+        <button
+          type="button"
+          className="glass-icon lg:hidden"
+          aria-label="Buscar"
+          onClick={openCommandPalette}
+        >
+          <Search size={18} />
+        </button>
         <div className="hidden lg:block">
           <CompanySwitch />
         </div>

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { FaGithub } from 'react-icons/fa';
-import { motion, useMotionValue, useSpring } from 'framer-motion';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 export default function Login() {
@@ -38,19 +38,9 @@ export default function Login() {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const springX = useSpring(mouseX, { stiffness: 120, damping: 20 });
-  const springY = useSpring(mouseY, { stiffness: 120, damping: 20 });
-
   useEffect(() => {
     emailRef.current?.focus();
   }, []);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    mouseX.set(e.clientX - window.innerWidth / 2);
-    mouseY.set(e.clientY - window.innerHeight / 2);
-  };
 
   const validateEmail = (value: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -142,7 +132,7 @@ export default function Login() {
 
   if (isAuthLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+      <div className="auth-shell flex min-h-screen items-center justify-center">
         <div className="w-8 h-8 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -155,39 +145,24 @@ export default function Login() {
   return (
     <>
       <div
-        onMouseMove={handleMouseMove}
-        className="auth-shell relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8 overflow-x-hidden"
+        className="auth-shell relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-4 py-8"
       >
 
         {/* Glow Background */}
         <motion.div
-          className="absolute inset-0 pointer-events-none opacity-30"
-          style={{
-            x: springX,
-            y: springY,
-            background:
-              'radial-gradient(circle at center, rgba(120,120,255,0.25), transparent 70%)',
-          }}
-        />
-
-        {/* Card */}
-        <motion.div
           animate={shake ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
           transition={{ duration: 0.4 }}
-          className="w-full max-w-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-5 sm:p-8 shadow-2xl z-10"
+          className="auth-card z-10 w-full max-w-md rounded-2xl border p-5 shadow-2xl sm:p-8" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
         >
 
-          <div className="text-center mb-8">
-
-            <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-              Havk
-            </h1>
-
-            <p className="text-zinc-400 mt-2">
-              {t('welcomeBack') || 'Bem-vindo de volta'}
-            </p>
-
+          <div className="studio-auth-brand">
+            <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
+            <div>
+              <p>Havk</p>
+              <strong>Entrar</strong>
+            </div>
           </div>
+          <p className="studio-auth-lead">{t('welcomeBack') || 'Bem-vindo de volta'}</p>
 
           <form onSubmit={handleSubmit} className="space-y-6" noValidate>
 
@@ -242,7 +217,7 @@ export default function Login() {
               }
             />
 
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-sm">
 
               <label className="flex items-center gap-2 text-zinc-400">
 
@@ -361,7 +336,7 @@ export default function Login() {
 
         </motion.div>
 
-        <div className="flex flex-wrap justify-center gap-8 text-sm mt-16 z-10">
+        <div className="auth-perks hidden">
 
           <div className="flex items-center gap-2 text-zinc-400">
             <ShieldCheck className="w-4 h-4 text-green-500" />

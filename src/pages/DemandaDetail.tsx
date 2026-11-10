@@ -375,31 +375,31 @@ export default function DemandaDetail() {
 
   const getPrazoInfo = (prazo?: string, status?: string) => {
     if (status === 'concluida') {
-      return { label: 'Concluída', colorClass: 'text-emerald-400' };
+      return { label: 'Concluída', colorClass: 'ink-ok' };
     }
 
     const diffDias = calcularDiasParaPrazo(prazo);
     const formatted = formatPrazo(prazo);
 
     if (diffDias === null) {
-      return { label: 'Sem prazo definido', colorClass: 'text-zinc-500' };
+      return { label: 'Sem prazo definido', colorClass: 'ink-muted' };
     }
 
     if (diffDias < 0) {
       return {
         label: `Atrasada (${Math.abs(diffDias)} dia${Math.abs(diffDias) !== 1 ? 's' : ''})`,
-        colorClass: 'text-red-500',
+        colorClass: 'ink-late',
       };
     }
 
     if (diffDias <= 3) {
       return {
         label: diffDias === 0 ? 'Entrega hoje' : `Entrega em ${diffDias} dia${diffDias !== 1 ? 's' : ''}`,
-        colorClass: 'text-yellow-400',
+        colorClass: 'ink-soon',
       };
     }
 
-    return { label: `Entrega: ${formatted}`, colorClass: 'text-blue-400' };
+    return { label: `Entrega: ${formatted}`, colorClass: 'ink-date' };
   };
 
   const filteredDemandas = demandas
@@ -434,17 +434,13 @@ export default function DemandaDetail() {
       <div className="min-h-screen bg-zinc-950 text-zinc-100">
         <div className="w-full min-w-0 px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
           <div className="mx-auto max-w-7xl pb-16">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
-              <div className="flex items-center gap-5">
-                <div className="p-4 bg-indigo-500/10 rounded-2xl">
-                  <ListTodo className="w-12 h-12 text-indigo-400" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold sm:text-4xl">Demandas</h1>
-                  <p className="text-zinc-400 mt-1 text-lg">
-                    {filteredDemandas.length} {filteredDemandas.length === 1 ? 'demanda' : 'demandas'}
-                  </p>
-                </div>
+            <div className="studio-pagehead">
+              <div>
+                <p className="studio-kicker">Operação</p>
+                <h1>Demandas</h1>
+                <p>
+                  {filteredDemandas.length} {filteredDemandas.length === 1 ? 'demanda' : 'demandas'}
+                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -460,7 +456,7 @@ export default function DemandaDetail() {
               </div>
             </div>
 
-            <div className="mb-8 flex flex-col sm:flex-row gap-4 items-end">
+            <div className="studio-filters">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                 <input
@@ -611,24 +607,23 @@ export default function DemandaDetail() {
                     <Card
                       key={uniqueKey}
                       hoverable
-                      className="bg-zinc-900/70 border border-zinc-800 hover:border-indigo-500/50 hover:shadow-2xl transition-all duration-300 rounded-2xl overflow-hidden cursor-pointer flex flex-col h-full backdrop-blur-sm"
+                      className="demand-list-card cursor-pointer flex h-full flex-col overflow-hidden rounded-2xl"
                       onClick={() => protectedNavigate(`/demandas/${dem.id}`)}
                     >
-                      <div className="p-6 flex flex-col flex-1">
-                        <div className="mb-3 flex items-center gap-2 text-sm text-zinc-400" onClick={(event) => event.stopPropagation()}>
+                      <div className="relative flex flex-1 flex-col p-4">
+                        <div className="absolute right-3 top-3" onClick={(event) => event.stopPropagation()}>
                           <SelectDot
                             checked={selectedIds.includes(dem.id)}
                             label={`Selecionar ${dem.title || 'demanda'}`}
                             onChange={() => setSelectedIds((current) => current.includes(dem.id) ? current.filter((id) => id !== dem.id) : [...current, dem.id])}
                           />
-                          Selecionar
                         </div>
-                        <h3 className="font-semibold text-xl text-white mb-4 line-clamp-2 leading-tight">
+                        <h3 className="mb-4 line-clamp-2 pr-8 text-lg font-semibold leading-tight text-[var(--text)]">
                           {dem.title || 'Sem título'}
                         </h3>
 
                         <div className="space-y-4 mt-auto">
-                          <div className="flex items-center gap-3 text-sm text-zinc-300">
+                          <div className="flex items-center gap-3 text-sm text-[var(--text)]">
                             {(!dem.createdBy || dem.createdBy === user?.name || dem.createdBy === user?.email) && user?.avatar ? (
                               <img src={user.avatar} alt="" className="h-7 w-7 rounded-full object-cover" />
                             ) : (
@@ -640,42 +635,14 @@ export default function DemandaDetail() {
                           </div>
 
                           <div className="flex items-center gap-2.5 text-sm">
-                            <Calendar size={18} className="text-zinc-400" />
+                            <Calendar size={18} className="text-[var(--text-muted)]" />
                             <span className={`${colorClass} font-medium`}>{label}</span>
                           </div>
 
-                          <div className="flex flex-wrap gap-2.5">
-                            <span
-                              className={`px-4 py-1.5 rounded-full text-xs font-medium ${
-                                {
-                                  aberta: 'bg-blue-900/40 text-blue-300 border border-blue-700/30',
-                                  'em-progresso': 'bg-cyan-900/40 text-cyan-300 border border-cyan-700/30',
-                                  concluida: 'bg-green-900/40 text-green-300 border border-green-700/30',
-                                  bloqueada: 'bg-red-900/40 text-red-300 border border-red-700/30',
-                                }[dem.status] || 'bg-zinc-800 text-zinc-400 border border-zinc-700/30'
-                              }`}
-                            >
-                              {t(dem.status) || dem.status}
-                            </span>
-
-                            <span
-                              className={`px-4 py-1.5 rounded-full text-xs font-medium ${
-                                {
-                                  urgente: 'bg-red-900/40 text-red-300 border border-red-700/30',
-                                  alta: 'bg-orange-900/40 text-orange-300 border border-orange-700/30',
-                                  media: 'bg-amber-900/40 text-amber-300 border border-amber-700/30',
-                                  baixa: 'bg-green-900/40 text-green-300 border border-green-700/30',
-                                }[dem.priority] || 'bg-zinc-800 text-zinc-400 border border-zinc-700/30'
-                              }`}
-                            >
-                              {t(dem.priority) || dem.priority}
-                            </span>
-
-                            {dem.tipo && (
-                              <span className={`px-4 py-1.5 rounded-full text-xs font-medium ${tipoColors[dem.tipo as DemandaTipo]}`}>
-                                {dem.tipo.toUpperCase()}
-                              </span>
-                            )}
+                          <div className="flex flex-wrap gap-1.5">
+                            <span className="havk-chip" data-tone={dem.status}>{t(dem.status) || dem.status}</span>
+                            <span className="havk-chip" data-tone={dem.priority}>{t(dem.priority) || dem.priority}</span>
+                            {dem.tipo && <span className="havk-chip" data-tone="tipo">{dem.tipo}</span>}
                           </div>
                         </div>
                       </div>

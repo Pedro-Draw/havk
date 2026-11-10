@@ -18,13 +18,6 @@ interface SortableCardProps {
   onOpen: () => void;
 }
 
-const priorityClass: Record<string, string> = {
-  baixa: 'bg-emerald-500/15 text-emerald-700',
-  media: 'bg-amber-500/15 text-amber-700',
-  alta: 'bg-orange-500/15 text-orange-700',
-  urgente: 'bg-red-500/15 text-red-700',
-};
-
 function formatCreated(value?: string) {
   if (!value) return '';
   const date = new Date(value);
@@ -86,7 +79,7 @@ export default function SortableCard({ id, item, onOpen }: SortableCardProps) {
             <span>{formatCreated(item.createdAt) || 'Sem data'}</span>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${priorityClass[priority] || priorityClass.media}`}>
+            <span className="havk-chip capitalize" data-tone={priority}>
               {priority}
             </span>
             {item.empresaName && <span className="truncate text-[11px] text-[var(--text-muted)]">{item.empresaName}</span>}

@@ -1,6 +1,6 @@
 // App.tsx
 import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./lib/firebase";
@@ -26,13 +26,13 @@ import Projetos from "./pages/Projetos";
 import Kanban from "./pages/Kanban";
 import DemandaDetail from "./pages/DemandaDetail";
 import Calendario from "./pages/Calendario";
-import Gantt from "./pages/Gantt";
 import TimeTracker from "./pages/TimeTracker";
-import AIStudio from "./pages/AIStudio";
 import Notas from "./pages/Notas";
 import Templates from "./pages/Templates";
 import Objetivos from "./pages/Objetivos";
-import Relatorios from "./pages/Relatorios";
+const Relatorios = lazy(() => import("./pages/Relatorios"));
+const AIStudio = lazy(() => import("./pages/AIStudio"));
+const Gantt = lazy(() => import("./pages/Gantt"));
 import Equipe from "./pages/Equipe";
 import ChatGlobal from "./pages/ChatGlobal";
 import Configuracoes from "./pages/Configuracoes";
@@ -146,7 +146,9 @@ function AppLayout() {
         <Topbar />
         <main className="app-content">
           <DeviceNotice />
-          <Outlet />
+          <Suspense fallback={<p className="px-4 py-8 text-sm text-[var(--text-muted)]">Carregando…</p>}>
+            <Outlet />
+          </Suspense>
           <Footer />
         </main>
       </div>

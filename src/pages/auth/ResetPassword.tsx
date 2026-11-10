@@ -63,8 +63,8 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="auth-shell flex min-h-screen items-center justify-center bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-8">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-800/60 bg-zinc-900/80 p-6 text-center shadow-2xl sm:p-8">
+    <div className="auth-shell flex min-h-screen items-center justify-center px-4 py-8">
+      <div className="auth-card w-full max-w-md rounded-2xl border border-zinc-800/60 bg-zinc-900/80 p-6 text-center shadow-2xl sm:p-8">
         {loading ? (
           <p className="text-zinc-300">Conferindo o link de recuperação...</p>
         ) : done ? (
